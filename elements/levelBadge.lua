@@ -25,7 +25,7 @@ function AV.LevelBadge.Create(parent, anchor, spec, fonts)
     -- Friz Quadrata has no bold face; the thick outline gives the heavier weight.
     local offset = spec.textOffset or { 0, 0 }
     self.text = frame:CreateFontString(nil, 'OVERLAY')
-    self.text:SetFont(AV.Style.FontPath(fonts.badge), spec.textSize, 'THICKOUTLINE')
+    self.text:SetFont(AV.Style.FontPath(fonts.standard), spec.textSize, 'THICKOUTLINE')
     self.text:SetPoint('TOPLEFT', offset[1], offset[2])
     self.text:SetPoint('BOTTOMRIGHT', offset[1], offset[2])
     self.text:SetJustifyH('CENTER')

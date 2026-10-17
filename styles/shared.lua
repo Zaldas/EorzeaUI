@@ -33,12 +33,14 @@ function Kit.wideBar(width, frameColor, fillColor)
     }
 end
 
-Kit.FONTS = { name = 'arial.ttf', number = 'grammara.ttf', timer = 'consola.ttf', badge = 'Fonts\\FRIZQT__.TTF' }
+-- name: unit names; standard: other WoW-default text (level numbers, raid group label).
+Kit.FONTS = { name = 'Fonts\\FRIZQT__.TTF', number = 'grammara.ttf', timer = 'consola.ttf', standard = 'Fonts\\FRIZQT__.TTF' }
 
 -- Level number on the class icon's bottom edge.
 Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, color = '#FFFFFFFF', edge = 'BOTTOM', overlap = 0.5 }
 
--- Party row indicators, in row coordinates. The class icon spans x -11..25, y -2..34.
+-- Party row indicators, in row coordinates. The class icon spans x -13..27, y -4..36; its visible
+-- frame edge is ~1.5px inside that.
 -- nameX/nameY are the style's txtName pos; a raid marker takes that spot and shifts the name.
 -- leader: crown on the icon's top edge; rowSpacing keeps it clear of the level number above.
 -- assistant (upper) and masterLooter (lower): straddling the icon's right edge, mirroring
@@ -48,15 +50,15 @@ Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, colo
 -- tagColor: the [AFK]/[DND] prefix on the name.
 function Kit.partyIndicators(nameX, nameY)
     return {
-        leader = { pos = { 0, -8 }, size = { 14, 14 } },
-        assistant = { pos = { 16, 2 }, size = { 14, 14 } },
-        masterLooter = { pos = { 16, 17 }, size = { 14, 14 } },
-        rest = { pos = { 14, -10 }, size = { 24, 24 } },
-        combat = { pos = { 16, -6 }, size = { 18, 18 } },
+        leader = { pos = { 0, -10 }, size = { 14, 14 } },
+        assistant = { pos = { 18, 2 }, size = { 14, 14 } },
+        masterLooter = { pos = { 18, 17 }, size = { 14, 14 } },
+        rest = { pos = { 16, -12 }, size = { 24, 24 } },
+        combat = { pos = { 18, -8 }, size = { 18, 18 } },
         status = { pos = { -5, 4 }, size = { 24, 24 } },
         raidMarker = { pos = { nameX, nameY + 1 }, size = { 16, 16 } },
-        role = { pos = { -18, -1 }, size = { 16, 16 } },
-        pvp = { pos = { -20, 15 }, size = { 20, 20 } },
+        role = { pos = { -20, -1 }, size = { 16, 16 } },
+        pvp = { pos = { -22, 15 }, size = { 20, 20 } },
         tagColor = '#A0A0A0FF',
         stateColor = '#A0A0A0FF',
         healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },

@@ -27,7 +27,7 @@ AV.styles.ffxiExpanded = {
         -- Raid only. Centred on the background (x 7..427); the text's bottom overlaps the
         -- background's top edge (y -11) by 3px, as the name overlaps the HP bar. Gold with a black
         -- shadow and no outline in Friz Quadrata: WoW's GameFontNormal look.
-        groupNumber = { pos = { 217, -26 }, size = 18, color = '#FFD100FF', stroke = '#000000FF', outline = '', font = 'badge', alignCenter = true },
+        groupNumber = { pos = { 217, -26 }, size = 18, color = '#FFD100FF', stroke = '#000000FF', outline = '', font = 'standard', alignCenter = true },
         -- Blizzard's party frames tint the portrait red at 20% health or below.
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         hp = {
@@ -78,7 +78,7 @@ AV.styles.ffxiExpanded = {
         -- Tinted with Blizzard's threat colours; hidden without threat.
         threat = { path = 'ffxi/Range', pos = { 30, 30 }, size = { 10, 10 } },
         hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
-        cursor = { path = 'ffxi/Cursor', pos = { -45, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
+        cursor = { path = 'ffxi/Cursor', pos = { -47, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
         txtName = { pos = { 38, 3 }, width = 242, size = 17, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE },
         -- Replaces the name row while the member casts, spanning the HP and power bars (x 19..278).
         -- Spell name in the target cast bar's text style, 1px higher on the bar.
