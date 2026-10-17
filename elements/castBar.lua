@@ -10,7 +10,7 @@ CastBar.__index = CastBar
 -- spec = { bar, txtName = { ..., width } }. unit may be nil until SetUnit.
 -- onVisibility(shown), when set, is called whenever the bar shows or hides.
 function AV.CastBar.Create(parent, unit, spec, fonts, pos)
-    local self = setmetatable({ unit = unit }, CastBar)
+    local self = setmetatable({ unit = unit, spec = spec }, CastBar)
     self.bar = AV.Bar.Create(parent, spec.bar, pos)
     self.name = AV.Style.Text(self.bar.overlay, spec.txtName, fonts)
     if spec.txtName.width then
@@ -59,9 +59,45 @@ function CastBar:Update()
     if self.preview then
         return
     end
-    setVisible(self, self.unit ~= nil and UnitExists(self.unit)
+    local live = self.unit ~= nil and UnitExists(self.unit)
         and (tryStart(self, UnitCastingDuration, UnitCastingInfo, false)
-            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true)))
+            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true))
+    -- A failure hold outlasts the STOP events that follow it; only a new cast ends it early.
+    if self.failing then
+        if not live then
+            return
+        end
+        self:EndFailure()
+    end
+    setVisible(self, live)
+end
+
+-- Holds the showing bar full with label in spec.failure's colour. No-op without spec.failure.
+function CastBar:ShowFailure(label)
+    local failure = self.spec.failure
+    if not failure or self.preview or self.failing or not self.bar.frame:IsShown() then
+        return
+    end
+    self.failing = true
+    self.bar:SetRange(1)
+    self.bar:SetValue(1)
+    self.bar:SetFillColor(failure.color)
+    self.name:SetText(label)
+    C_Timer.After(failure.hold, function()
+        if self.failing then
+            self:EndFailure()
+            self:Update()
+        end
+    end)
+end
+
+function CastBar:EndFailure()
+    if not self.failing then
+        return
+    end
+    self.failing = nil
+    self.bar:SetFillColor(self.spec.bar.fill.color)
+    setVisible(self, false)
 end
 
 -- Demo: a static bar at progress (0..1) showing spellName; nil spellName restores live updates.

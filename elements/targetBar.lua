@@ -1,7 +1,8 @@
 local _, AV = ...
 
--- Target bar: HP bar, name coloured by unit kind and claim, HP%, a class icon or portrait with
--- the level badge, debuff/buff rows, target cast bar, and a target-of-target mini bar.
+-- Target bar: HP bar with heal prediction, raid marker and name coloured by unit kind and claim,
+-- HP%, a class icon or portrait with the level badge, debuff/buff rows, target cast bar, and a
+-- target-of-target mini bar.
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- Not secure: it only displays, so it may show/hide in combat.
 
@@ -89,13 +90,17 @@ function TargetBar.Create(style, fonts)
     TargetBar.spec = spec
     TargetBar.fonts = fonts
 
-    TargetBar.bar = AV.Bar.Create(content, spec.bar, { 0, 0 })
+    TargetBar.bar = AV.Bar.Create(content, spec.bar, { 0, 0 }, { prediction = spec.healPrediction })
     -- Text lives above the bar rather than on it, so the bar can hide for NPCs. The bar sits
     -- at the content's origin, so both share coordinates.
     local top = CreateFrame('Frame', nil, content)
     top:SetAllPoints(content)
     top:SetFrameLevel(TargetBar.bar.overlay:GetFrameLevel() + 1)
     TargetBar.name = Style.Text(top, spec.txtName, fonts)
+    TargetBar.marker = top:CreateTexture(nil, 'OVERLAY')
+    TargetBar.marker:SetSize(spec.raidMarker.size[1], spec.raidMarker.size[2])
+    Style.Place(TargetBar.marker, top, spec.raidMarker.pos)
+    TargetBar.marker:Hide()
     TargetBar.hpp = Style.Text(top, spec.txtHpp, fonts)
     TargetBar.separator = createSeparator(top, spec.separator)
     createIcon(content, spec, fonts, top:GetFrameLevel() + 1)
@@ -113,8 +118,28 @@ function TargetBar.Create(style, fonts)
     TargetBar.tot = tot
     TargetBar.totBar = AV.Bar.Create(tot, spec.tot.bar, { 0, 0 })
     TargetBar.totName = Style.Text(TargetBar.totBar.overlay, spec.tot.txtName, fonts)
+    TargetBar.totMarker = TargetBar.totBar.overlay:CreateTexture(nil, 'OVERLAY')
+    TargetBar.totMarker:SetSize(spec.tot.raidMarker.size[1], spec.tot.raidMarker.size[2])
+    Style.Place(TargetBar.totMarker, TargetBar.totBar.overlay, spec.tot.raidMarker.pos)
+    TargetBar.totMarker:Hide()
 
     TargetBar.Refresh()
+end
+
+-- Shows raid marker index before text, shifting the text right while it shows.
+local function setMarkedName(text, textSpec, marker, markerSpec, index)
+    local shift = AV.Indicators.SetRaidMarkerIcon(marker, index) and (markerSpec.size[1] + 3) or 0
+    text:ClearAllPoints()
+    text:SetPoint('TOPLEFT', marker:GetParent(), 'TOPLEFT', textSpec.pos[1] + shift, -textSpec.pos[2])
+end
+
+function TargetBar.UpdateRaidMarker()
+    if TargetBar.preview or not UnitExists('target') then
+        return
+    end
+    local spec = TargetBar.spec
+    setMarkedName(TargetBar.name, spec.txtName, TargetBar.marker, spec.raidMarker,
+        AV.Read('GetRaidTargetIndex', GetRaidTargetIndex, 'target'))
 end
 
 local function inGroup(unit)
@@ -279,6 +304,7 @@ function TargetBar.Refresh()
     TargetBar.colorKey = nil
     TargetBar.UpdateIdentity()
     TargetBar.UpdateIcon()
+    TargetBar.UpdateRaidMarker()
     setClassification(AV.Read('UnitClassification', UnitClassification, 'target'))
     local level = AV.SafeValue(UnitLevel, 'target')
     if level and AV.Read('UnitCanAttack', UnitCanAttack, 'player', 'target') then
@@ -289,6 +315,7 @@ function TargetBar.Refresh()
     TargetBar.UpdateHealth(false)
     TargetBar.debuffs:Refresh()
     TargetBar.buffs:Refresh()
+    TargetBar.cast:EndFailure()
     TargetBar.cast:Update()
     TargetBar.UpdateTargetOfTarget()
 end
@@ -297,8 +324,10 @@ function TargetBar.UpdateHealth(smooth)
     if TargetBar.preview or not UnitExists('target') then
         return
     end
-    TargetBar.bar:SetRange(UnitHealthMax('target'))
+    local maxHealth = UnitHealthMax('target')
+    TargetBar.bar:SetRange(maxHealth)
     TargetBar.bar:SetValue(UnitHealth('target'), smooth)
+    TargetBar.bar:ShowIncomingHeals('target', maxHealth)
     AV.Curves.SetHealthPercentText(TargetBar.hpp, 'target')
     local dead = AV.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, 'target') == true
     TargetBar.portrait:SetDesaturated(dead)
@@ -307,6 +336,13 @@ function TargetBar.UpdateHealth(smooth)
     else
         AV.Curves.ApplyHealthTint(TargetBar.portrait, 'target', TargetBar.lowHealthCurve)
     end
+end
+
+function TargetBar.UpdateHealPrediction()
+    if TargetBar.preview or not UnitExists('target') then
+        return
+    end
+    TargetBar.bar:ShowIncomingHeals('target', UnitHealthMax('target'))
 end
 
 -- targettarget fires no UNIT_HEALTH events; the main ticker calls this.
@@ -324,6 +360,8 @@ function TargetBar.UpdateTargetOfTarget()
     TargetBar.totBar:SetValue(UnitHealth('targettarget'), true)
     pcall(TargetBar.totName.SetText, TargetBar.totName, AV.UnitDisplayName('targettarget'))
     TargetBar.totName:SetTextColor(Style.Color(TargetBar.spec.nameColors[nameColorKey('targettarget')]))
+    setMarkedName(TargetBar.totName, TargetBar.spec.tot.txtName, TargetBar.totMarker, TargetBar.spec.tot.raidMarker,
+        AV.Read('GetRaidTargetIndex', GetRaidTargetIndex, 'targettarget'))
 end
 
 -- Edit Mode preview: show every part with placeholder values.
@@ -335,7 +373,7 @@ local function setLiveAurasShown(shown)
     end
 end
 
--- data = { name, level, classification, colorKey, pvp, portraitUnit, hpPercent, debuffs, buffs,
+-- data = { name, level, classification, colorKey, pvp, raidMarker, portraitUnit, hpPercent, incoming, debuffs, buffs,
 -- castName, castProgress, totName, totColorKey, totPercent }, or nil to restore live updates.
 function TargetBar.SetPreview(data)
     TargetBar.preview = data ~= nil
@@ -356,6 +394,7 @@ function TargetBar.SetPreview(data)
     setLiveAurasShown(false)
     TargetBar.content:Show()
     TargetBar.name:SetText(data.name)
+    setMarkedName(TargetBar.name, TargetBar.spec.txtName, TargetBar.marker, TargetBar.spec.raidMarker, data.raidMarker)
     applyNameColor(data.colorKey)
     setNpcMode(false)
     setPvP(data.pvp)
@@ -368,6 +407,7 @@ function TargetBar.SetPreview(data)
     setLevel(data.level, difficultyColor(nil, data.level))
     TargetBar.bar:SetRange(100)
     TargetBar.bar:SetValue(data.hpPercent)
+    TargetBar.bar:SetIncoming(data.incoming or 0, 100)
     TargetBar.demoDebuffs:Set(data.debuffs)
     TargetBar.demoBuffs:Set(data.buffs)
     TargetBar.tot:Show()
@@ -375,6 +415,7 @@ function TargetBar.SetPreview(data)
     TargetBar.totBar:SetRange(100)
     TargetBar.totBar:SetValue(data.totPercent)
     TargetBar.totName:SetText(data.totName)
+    setMarkedName(TargetBar.totName, TargetBar.spec.tot.txtName, TargetBar.totMarker, TargetBar.spec.tot.raidMarker, nil)
     TargetBar.totName:SetTextColor(Style.Color(TargetBar.spec.nameColors[data.totColorKey]))
     TargetBar.cast:SetPreview(data.castName, data.castProgress)
 end

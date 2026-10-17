@@ -130,6 +130,7 @@ local function onUnitEvent(event, unit, arg3)
         if unit == 'target' then AV.TargetBar.UpdateTargetOfTarget() end
     elseif event == 'UNIT_HEAL_PREDICTION' or event == 'UNIT_ABSORB_AMOUNT_CHANGED' then
         if row then row:UpdateHealPrediction() end
+        if unit == 'target' then AV.TargetBar.UpdateHealPrediction() end
     elseif event == 'UNIT_CONNECTION' then
         if row then row:UpdateState() end
     elseif event == 'UNIT_FLAGS' or event == 'PLAYER_FLAGS_CHANGED' then
@@ -153,7 +154,15 @@ local function onUnitEvent(event, unit, arg3)
             row:UpdateCostPreview(event, arg3)
         end
         if pet then pet:UpdateCast() end
-        if unit == 'target' then AV.TargetBar.cast:Update() end
+        if unit == 'target' then
+            if event == 'UNIT_SPELLCAST_INTERRUPTED' then
+                AV.TargetBar.cast:ShowFailure(INTERRUPTED or 'Interrupted')
+            elseif event == 'UNIT_SPELLCAST_FAILED' then
+                AV.TargetBar.cast:ShowFailure(FAILED or 'Failed')
+            else
+                AV.TargetBar.cast:Update()
+            end
+        end
     end
 end
 
@@ -265,6 +274,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         AV.PartyList.OnReadyCheck(event)
     elseif event == 'RAID_TARGET_UPDATE' then
         forEachRow('UpdateRaidMarker')
+        AV.TargetBar.UpdateRaidMarker()
     elseif event == 'PLAYER_ROLES_ASSIGNED' or event == 'ROLE_CHANGED_INFORM' then
         forEachRow('UpdateRole')
     elseif event == 'PET_UI_UPDATE' then

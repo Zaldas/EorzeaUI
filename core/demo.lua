@@ -69,7 +69,7 @@ end
 
 local function target()
     return {
-        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', portraitUnit = 'player', hpPercent = 46,
+        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', raidMarker = 8, portraitUnit = 'player', hpPercent = 46,
         debuffs = pick(DEBUFFS, 4), buffs = pick(BUFFS, 1),
         castName = 'Fireball', castProgress = 0.6,
         totName = AV.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,

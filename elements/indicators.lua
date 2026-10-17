@@ -176,13 +176,20 @@ end
 
 -- index: 1-8 from GetRaidTargetIndex, or nil.
 function Indicators:SetRaidMarker(index)
+    AV.Indicators.SetRaidMarkerIcon(self.raidMarker, index)
+end
+
+-- Shows marker index (1-8) on texture, or hides it for anything else. Returns whether it shows.
+function AV.Indicators.SetRaidMarkerIcon(texture, index)
     if index and index >= 1 and index <= 8 then
         local column, row = (index - 1) % 4, math.floor((index - 1) / 4)
-        self.raidMarker:SetTexCoord(column * 0.25, (column + 1) * 0.25, row * 0.25, (row + 1) * 0.25)
-        self.raidMarker:Show()
-    else
-        self.raidMarker:Hide()
+        texture:SetTexture(RAID_MARKERS)
+        texture:SetTexCoord(column * 0.25, (column + 1) * 0.25, row * 0.25, (row + 1) * 0.25)
+        texture:Show()
+        return true
     end
+    texture:Hide()
+    return false
 end
 
 -- role: UnitGroupRolesAssigned result. 'NONE' and nil hide the icon.

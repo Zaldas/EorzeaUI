@@ -142,6 +142,9 @@ function Kit.target(cast)
         pvp = { pos = { -49, 27 }, size = { 22, 22 } },
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         txtName = { pos = { 20, 15 }, size = 17, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE },
+        -- Before the name, which shifts right while it shows; as on the party rows.
+        raidMarker = { pos = { 20, 16 }, size = { 16, 16 } },
+        healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
         txtHpp = { pos = { 523, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
         debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true },
         buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true },
@@ -149,12 +152,15 @@ function Kit.target(cast)
             pos = { 233, -15 },
             bar = Kit.wideBar(234, cast.frame, cast.fill),
             txtName = Kit.castName(cast.text),
+            -- Interrupted or failed: the bar holds full in `color` for `hold` seconds.
+            failure = { color = '#FF6666FF', hold = 1 },
         },
         attention = { path = 'ffxi/attention', pos = { 545, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
         tot = {
             pos = { 560, 0 },
             bar = Kit.wideBar(226, '#FF9597FF', '#FF9597FF'),
             txtName = { pos = { 20, 17 }, size = 16, color = '#C8C8C8FF', stroke = Kit.STROKE_RED },
+            raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
         },
     }
 end
