@@ -101,12 +101,17 @@ function Style.ThreeSlice(parent, layer, spec, width, height, subLevel)
     return slice
 end
 
--- spec = { pos, size, color, stroke, font = 'name'|'number', alignRight | alignCenter }
+-- spec = { pos, size, color, stroke, font = 'name'|'number', alignRight | alignCenter, outline }
+-- outline: font flags, default 'OUTLINE'; '' gives a plain face (shadow only, as GameFontNormal).
 -- The stroke colour becomes the drop shadow; FontStrings only support a black outline.
 function Style.Text(parent, spec, fonts)
     local text = parent:CreateFontString(nil, 'OVERLAY')
     local file = fonts[spec.font or 'name'] or fonts.name
-    text:SetFont(Style.FontPath(file), spec.size or 12, 'OUTLINE')
+    local flags = spec.outline or 'OUTLINE'
+    if not text:SetFont(Style.FontPath(file), spec.size or 12, flags) then
+        AV.LogOnce('font:' .. file, 'font %s failed to load; using Friz Quadrata', file)
+        text:SetFont('Fonts\\FRIZQT__.TTF', spec.size or 12, flags)
+    end
     text:SetTextColor(Style.Color(spec.color))
     if spec.stroke then
         text:SetShadowColor(Style.Color(spec.stroke))

@@ -17,7 +17,7 @@ AV.styles.ffxiExpanded = {
         rowHeight = 46,
         rowSpacing = 5,
         background = {
-            color = '#FFFFFFDD',
+            color = '#FFFFFF80',
             pos = { 7, -11 },
             width = 420,
             top = { path = 'ffxi/BgTop', height = 10 },
@@ -25,8 +25,9 @@ AV.styles.ffxiExpanded = {
             bottom = { path = 'ffxi/BgBottom', height = 8 },
         },
         -- Raid only. Centred on the background (x 7..427); the text's bottom overlaps the
-        -- background's top edge (y -11) by 3px, as the name overlaps the HP bar.
-        groupNumber = { pos = { 217, -22 }, size = 14, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, alignCenter = true },
+        -- background's top edge (y -11) by 3px, as the name overlaps the HP bar. Gold with a black
+        -- shadow and no outline in Friz Quadrata: WoW's GameFontNormal look.
+        groupNumber = { pos = { 217, -26 }, size = 18, color = '#FFD100FF', stroke = '#000000FF', outline = '', font = 'badge', alignCenter = true },
         -- Blizzard's party frames tint the portrait red at 20% health or below.
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         hp = {
