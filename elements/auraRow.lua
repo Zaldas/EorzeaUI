@@ -49,7 +49,7 @@ function AV.AuraRow.TimerFormatter()
 end
 
 function AV.AuraRow.StyleTimer(fontString, iconSize, fonts)
-    fontString:SetFont(AV.Style.FontPath(fonts.timer), math.max(9, math.floor(iconSize * 0.5)), 'OUTLINE')
+    AV.Style.SetFont(fontString, fonts.timer, math.max(9, math.floor(iconSize * 0.5)), 'OUTLINE')
     fontString:SetTextColor(AV.Style.Color('#C8C8C8FF'))
 end
 
@@ -81,7 +81,7 @@ local function makeInitializer(spec, fonts)
         end
         if button.SetApplicationCount then
             local count = button:CreateFontString(nil, 'OVERLAY')
-            count:SetFont(AV.Style.FontPath(fonts.number), math.max(9, math.floor(size * 0.5)), 'OUTLINE')
+            AV.Style.SetFont(count, fonts.number, math.max(9, math.floor(size * 0.5)), 'OUTLINE')
             count:SetPoint('TOPRIGHT', button, 'TOPRIGHT', 1, 1)
             pcall(button.SetApplicationCount, button, count, {})
         end

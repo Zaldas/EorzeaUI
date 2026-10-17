@@ -101,17 +101,43 @@ function Style.ThreeSlice(parent, layer, spec, width, height, subLevel)
     return slice
 end
 
+local FALLBACK_FONT = 'Fonts\\FRIZQT__.TTF'
+local pendingFonts = {}
+
+-- On a fresh login an addon's font files can still be loading when frames are built, so
+-- SetFont fails (and SetText on a font-less string errors). Friz Quadrata, a game font that is
+-- always loaded, stands in until the loading screen ends; then the real font is retried.
+function Style.SetFont(fontString, file, size, flags)
+    if fontString:SetFont(Style.FontPath(file), size, flags) then
+        return
+    end
+    fontString:SetFont(FALLBACK_FONT, size, flags)
+    pendingFonts[#pendingFonts + 1] = { fontString = fontString, file = file, size = size, flags = flags }
+    AV.LogOnce('font:' .. file, 'font %s not ready; Friz Quadrata until the loading screen ends', file)
+end
+
+local fontRetry = CreateFrame('Frame')
+fontRetry:RegisterEvent('PLAYER_ENTERING_WORLD')
+fontRetry:SetScript('OnEvent', function()
+    local failed = {}
+    for _, pending in ipairs(pendingFonts) do
+        if pending.fontString:SetFont(Style.FontPath(pending.file), pending.size, pending.flags) then
+            AV.LogOnce('fontRetry:' .. pending.file, 'font %s loaded on retry', pending.file)
+        else
+            failed[#failed + 1] = pending
+            AV.LogOnce('fontFail:' .. pending.file, 'font %s still failed after the loading screen', pending.file)
+        end
+    end
+    pendingFonts = failed
+end)
+
 -- spec = { pos, size, color, stroke, font = 'name'|'number', alignRight | alignCenter, outline }
 -- outline: font flags, default 'OUTLINE'; '' gives a plain face (shadow only, as GameFontNormal).
 -- The stroke colour becomes the drop shadow; FontStrings only support a black outline.
 function Style.Text(parent, spec, fonts)
     local text = parent:CreateFontString(nil, 'OVERLAY')
     local file = fonts[spec.font or 'name'] or fonts.name
-    local flags = spec.outline or 'OUTLINE'
-    if not text:SetFont(Style.FontPath(file), spec.size or 12, flags) then
-        AV.LogOnce('font:' .. file, 'font %s failed to load; using Friz Quadrata', file)
-        text:SetFont('Fonts\\FRIZQT__.TTF', spec.size or 12, flags)
-    end
+    Style.SetFont(text, file, spec.size or 12, spec.outline or 'OUTLINE')
     text:SetTextColor(Style.Color(spec.color))
     if spec.stroke then
         text:SetShadowColor(Style.Color(spec.stroke))
