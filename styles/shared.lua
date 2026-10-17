@@ -10,7 +10,7 @@ Kit.STROKE_BLUE = '#062D54C8'
 Kit.STROKE_RED = '#3B0B0BC8'
 
 -- 128x64 party bar on a 256x128 texture; no slicing needed at uniform half scale.
--- art = 'xiv' | 'ffxi'
+-- art: asset folder, e.g. 'ffxi'
 function Kit.rowBar(art, frameColor, fillColor, glowColor)
     return {
         width = 128,

@@ -46,7 +46,7 @@ local function createPrediction(self, frame, spec, predictionSpec)
     self.prediction = { bar = bar, calculator = calculator }
 end
 
--- spec: see styles/xiv.lua (xivBar / wideBar). opts = { prediction = { color } }
+-- spec: see styles/shared.lua (rowBar / wideBar). opts = { prediction = { color } }
 function AV.Bar.Create(parent, spec, pos, opts)
     local self = setmetatable({ spec = spec }, Bar)
 

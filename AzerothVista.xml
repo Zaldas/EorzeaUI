@@ -1,5 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
-    <!-- Party row button built by the SecureGroupHeader. Size matches styles/xiv.lua party.width x rowHeight. -->
+    <!-- Party row button built by the SecureGroupHeader. Size matches styles/ffxiExpanded.lua party.width x rowHeight. -->
     <Button name="AzerothVistaPartyButtonTemplate" virtual="true" inherits="SecureUnitButtonTemplate">
         <Size x="410" y="46"/>
         <Attributes>

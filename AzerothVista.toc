@@ -14,7 +14,6 @@ core\blizzard.lua
 core\editMode.lua
 core\demo.lua
 styles\shared.lua
-styles\xiv.lua
 styles\ffxiExpanded.lua
 elements\bar.lua
 elements\auraRow.lua

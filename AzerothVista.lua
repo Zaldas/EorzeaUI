@@ -1,7 +1,7 @@
 local addonName, AV = ...
 
 local DEFAULTS = {
-    style = 'xiv',
+    style = 'ffxiExpanded',
     scale = 1,
     positions = {},
 }

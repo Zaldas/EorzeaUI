@@ -1,7 +1,6 @@
 local _, AV = ...
 
 -- Ported from VanaVista layouts/styles/ffxiPartyExpanded.lua, ffxiTargetbar.lua and ffxiCastbar.lua.
--- Same row geometry as xiv; FFXI art and colours.
 
 local Kit = AV.StyleKit
 

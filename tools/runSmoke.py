@@ -1,10 +1,10 @@
-# Usage: python tools/runSmoke.py <xiv|ffxiExpanded> [addonRoot]
+# Usage: python tools/runSmoke.py [style] [addonRoot]
 import os
 import sys
 from lupa import lua51
 
 toolsDir = os.path.dirname(os.path.abspath(__file__))
-style = sys.argv[1] if len(sys.argv) > 1 else 'xiv'
+style = sys.argv[1] if len(sys.argv) > 1 else 'ffxiExpanded'
 root = sys.argv[2] if len(sys.argv) > 2 else os.path.dirname(toolsDir)
 root = root.replace('\\', '/').rstrip('/') + '/'
 
