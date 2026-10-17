@@ -45,6 +45,16 @@ AV.styles.ffxiExpanded = {
             -- Player row: the slice the current cast will spend, over the end of the fill.
             cost = { color = '#FFFFFF99', fade = 0.25 },
         },
+        -- Player row, druid in bear/cat form: the form's power bar in a sub-row under the power
+        -- bar (which keeps showing mana), from the HP bar's middle (x 83) to the power bar's end
+        -- (x 278). Its line (row y 40.5..53) clears both numbers above. The row grows by
+        -- formRowHeight while shifted.
+        formRowHeight = 22,
+        formBar = {
+            pos = { 83, 15 },
+            bar = Kit.wideBar(195, '#FFFF9CFF', '#FFFF9CFF'),
+            txtValue = { pos = { 187, 34 }, size = 13, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true },
+        },
         -- Player row only. Pip 1 sits under the power bar's line (row y 18.5..31, fill from
         -- x 162). Steps keep dx == dy so facing 45-degree edges line up; the diamonds' ink is
         -- 14px, so |dx| + |dy| = 14 makes them touch; tighter merges them.

@@ -27,6 +27,56 @@ local function setGroupNumber(subgroup)
     end
 end
 
+-- The player's row grows by formRowHeight in bear/cat form. A secure state driver runs this in
+-- combat, where Lua may not resize the protected buttons; rows below follow because the header
+-- chains each button under the previous one. Lua marks the player's button with 'av-player'.
+local FORM_SNIPPET = [[
+    local tall = newstate == 'shifted'
+    local base = self:GetAttribute('baseHeight')
+    for i = 1, self:GetAttribute('rowCount') do
+        local row = self:GetFrameRef('row' .. i)
+        if row then
+            if tall and row:GetAttribute('av-player') then
+                row:SetHeight(base + self:GetAttribute('formHeight'))
+            else
+                row:SetHeight(base)
+            end
+        end
+    end
+]]
+
+local function createFormDriver(style)
+    if not (RegisterStateDriver and AV.Druid.IsDruid()) then
+        return
+    end
+    local driver = CreateFrame('Frame', nil, UIParent, 'SecureHandlerStateTemplate')
+    for i, row in ipairs(rows) do
+        driver:SetFrameRef('row' .. i, row.button)
+    end
+    driver:SetAttribute('rowCount', #rows)
+    driver:SetAttribute('baseHeight', style.rowHeight)
+    driver:SetAttribute('formHeight', style.formRowHeight)
+    driver:SetAttribute('_onstate-druidform', FORM_SNIPPET)
+    RegisterStateDriver(driver, 'druidform', AV.Druid.CONDITION)
+    PartyList.formDriver = driver
+end
+
+-- Out of combat: re-mark the player's button after roster changes and match the heights.
+function PartyList.UpdateFormRows()
+    if not PartyList.formDriver then
+        return
+    end
+    AV.RunOutOfCombat(function()
+        local style = PartyList.style
+        local shifted = AV.Druid.IsShifted()
+        for _, row in ipairs(rows) do
+            local isPlayer = row:IsPlayer()
+            row.button:SetAttribute('av-player', isPlayer)
+            row.button:SetHeight(style.rowHeight + ((shifted and isPlayer) and style.formRowHeight or 0))
+        end
+    end, 'formRows')
+end
+
 function PartyList.Create(style, fonts)
     local partyStyle = style.party
 
@@ -96,6 +146,8 @@ function PartyList.Create(style, fonts)
 
     PartyList.style = partyStyle
     PartyList.fonts = fonts
+    createFormDriver(partyStyle)
+    PartyList.UpdateFormRows()
     PartyList.UpdateBackground()
 end
 
@@ -114,9 +166,18 @@ function PartyList.SetDemo(members)
     end
     PartyList.demoCount = members and #members or nil
     setGroupNumber(members and 1 or PartyList.subgroup)
+    local style = PartyList.style
+    local y, extra = 0, 0
     for i, row in ipairs(PartyList.demoRows) do
-        row:ShowDemo(members and members[i])
+        local member = members and members[i]
+        row:ShowDemo(member)
+        row.host:ClearAllPoints()
+        row.host:SetPoint('TOPLEFT', PartyList.demoFrame, 'TOPLEFT', 0, -y)
+        local formHeight = (member and member.form) and style.formRowHeight or 0
+        extra = extra + formHeight
+        y = y + style.rowHeight + formHeight + style.rowSpacing
     end
+    PartyList.demoExtra = extra
     PartyList.demoFrame:SetShown(members ~= nil)
     PartyList.header:SetShown(members == nil)
     PartyList.UpdateBackground()
@@ -166,7 +227,13 @@ function PartyList.UpdateBackground()
     end
     local style = PartyList.style
     shown = math.max(1, shown)
-    local height = shown * style.rowHeight + (shown - 1) * style.rowSpacing
+    local extra
+    if PartyList.demoCount then
+        extra = PartyList.demoExtra or 0
+    else
+        extra = AV.Druid.IsShifted() and style.formRowHeight or 0
+    end
+    local height = shown * style.rowHeight + (shown - 1) * style.rowSpacing + extra
     PartyList.bgMid:SetHeight(height)
 end
 

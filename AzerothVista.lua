@@ -44,7 +44,7 @@ local FEATURE_APIS = {
     'UnitPhaseReason', 'UnitInRange', 'CreateUnitHealPredictionCalculator', 'UnitGetDetailedHealPrediction',
     'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
     'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
-    'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell',
+    'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell', 'GetShapeshiftForm', 'RegisterStateDriver',
 }
 
 local function logCapabilities()
@@ -155,7 +155,7 @@ local GLOBAL_EVENTS = {
     'DISPLAY_SIZE_CHANGED', 'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST',
     'READY_CHECK', 'READY_CHECK_CONFIRM', 'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE',
     'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
-    'PARTY_LOOT_METHOD_CHANGED',
+    'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM',
 }
 
 local function forEachRow(method)
@@ -212,6 +212,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         AV.Blizzard.HideReplaced()
         AV.PartyList.UpdateGroupFilter()
         AV.PartyList.RefreshAll()
+        AV.PartyList.UpdateFormRows()
         AV.TargetBar.Refresh()
         AV.playerCast:Update()
     elseif event == 'PLAYER_TARGET_CHANGED' then
@@ -223,6 +224,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
     elseif event == 'GROUP_ROSTER_UPDATE' then
         AV.PartyList.UpdateGroupFilter()
         AV.PartyList.RefreshAll()
+        AV.PartyList.UpdateFormRows()
     elseif event == 'PARTY_LEADER_CHANGED' then
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateLeader()
@@ -230,6 +232,10 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         end)
     elseif event == 'PARTY_LOOT_METHOD_CHANGED' then
         forEachRow('UpdateGroupRoles')
+    elseif event == 'UPDATE_SHAPESHIFT_FORM' then
+        forEachRow('UpdatePower')
+        forEachRow('UpdateCombo')
+        AV.PartyList.UpdateBackground()
     elseif event == 'UI_SCALE_CHANGED' or event == 'DISPLAY_SIZE_CHANGED' then
         applyScale()
     elseif event == 'PLAYER_UPDATE_RESTING' then

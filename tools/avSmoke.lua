@@ -43,7 +43,9 @@ UnitName = function() return 'Zal', 'Brightforge' end
 LOCALIZED_CLASS_NAMES_MALE = { PALADIN = 'Paladin' }
 UnitLevel = function() return 11 end
 UnitReaction = function() return 2 end
-UnitClass = function() return 'Rogue', 'ROGUE' end
+UnitClass = function() return 'Druid', 'DRUID' end
+GetShapeshiftForm = function() return 3 end
+RegisterStateDriver = function(frame, state, condition) STATE_DRIVER = condition end
 UnitHealth = function() return 100 end
 UnitHealthMax = function() return 200 end
 UnitPower = function() return 50 end
@@ -90,8 +92,8 @@ GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
 debugstack = function() return '' end
 geterrorhandler = function() return function(err) error(err, 0) end end
 AzerothVistaLog = nil
-RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 }, ROGUE = { r = 1, g = 0.96, b = 0.41 } }
-CLASS_ICON_TCOORDS = { PALADIN = { 0, 0.25, 0.5, 0.75 }, ROGUE = { 0.5, 0.75, 0, 0.25 } }
+RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 }, ROGUE = { r = 1, g = 0.96, b = 0.41 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
+CLASS_ICON_TCOORDS = { PALADIN = { 0, 0.25, 0.5, 0.75 }, ROGUE = { 0.5, 0.75, 0, 0.25 }, DRUID = { 0.75, 1, 0, 0.25 } }
 C_Timer = { NewTicker = function(_, fn) TICK = fn end, After = function(_, fn) fn() end }
 C_AddOns = { IsAddOnLoaded = function() return false end, LoadAddOn = function() return true end }
 C_CurveUtil = { CreateColorCurve = function() return newFrame() end }
@@ -148,6 +150,8 @@ onEvent(nil, 'UNIT_FACTION', 'player')
 onEvent(nil, 'UNIT_THREAT_SITUATION_UPDATE', 'player')
 onEvent(nil, 'PLAYER_ROLES_ASSIGNED')
 onEvent(nil, 'PARTY_LOOT_METHOD_CHANGED')
+onEvent(nil, 'UPDATE_SHAPESHIFT_FORM')
+assert(STATE_DRIVER == '[form:1/3] shifted; caster', 'druid state driver not registered')
 onEvent(nil, 'UNIT_SPELLCAST_START', 'player', 'cast-guid', 1234)
 onEvent(nil, 'UNIT_SPELLCAST_SUCCEEDED', 'player', 'cast-guid', 1234)
 onEvent(nil, 'UNIT_SPELLCAST_STOP', 'player', 'cast-guid', 1234)

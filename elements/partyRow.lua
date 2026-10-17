@@ -39,6 +39,9 @@ local function buildArt(self, host, style, fonts)
 
     self.power = AV.Bar.Create(art, style.power.bar, style.power.pos, { cost = style.power.cost })
     self.powerText = Style.Text(self.power.overlay, style.power.txtValue, fonts)
+    self.formBar = AV.Bar.Create(art, style.formBar.bar, style.formBar.pos, { cost = style.power.cost })
+    self.formText = Style.Text(self.formBar.overlay, style.formBar.txtValue, fonts)
+    self.formBar.frame:Hide()
 
     if style.cast then
         self.cast = AV.CastBar.Create(art, nil, style.cast, fonts, style.cast.pos)
@@ -74,6 +77,7 @@ local function buildArt(self, host, style, fonts)
     self.threat = Style.Image(top, 'OVERLAY', style.threat)
     self.threat:Hide()
     self.combo = AV.ComboPoints.Create(top, style.comboPoints)
+    self.top = top
 
     -- Cut off with an ellipsis before the aura icons.
     self.name = Style.Text(top, style.txtName, fonts)
@@ -132,16 +136,28 @@ local function setThreat(self, status)
     self.threat:Show()
 end
 
--- Recolours the power bar when the power type changes (druid forms, unit swaps).
-local function tintPower(self, powerType)
-    if powerType == self.powerType then
+-- Recolours a power bar when its power type changes (druid forms, unit swaps).
+local function tintPower(self, bar, powerType)
+    if powerType == bar.powerType then
         return
     end
-    self.powerType = powerType
+    bar.powerType = powerType
     local spec = self.style.power
     local color = spec.colors and spec.colors[powerType] or spec.bar.fill.color
-    self.power:SetFrameColor(color)
-    self.power:SetFillColor(color)
+    bar:SetFrameColor(color)
+    bar:SetFillColor(color)
+end
+
+-- The combo diamonds follow the energy bar: under the form bar's left end while a druid is
+-- shifted, at the same offset they keep from the power bar's start.
+local function placeCombo(self, shifted)
+    local style = self.style
+    local pos = style.comboPoints.pos
+    if shifted then
+        local dx = style.formBar.pos[1] - style.power.pos[1]
+        pos = { pos[1] + dx, pos[2] + style.formRowHeight }
+    end
+    Style.Place(self.combo.frame, self.top, pos)
 end
 
 local STATE_LABELS = { dead = 'DEAD', ghost = 'GHOST', offline = 'OFFLINE' }
@@ -240,7 +256,8 @@ end
 
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
 --            state, resting, status, raidMarker, tag, role, pvp, cast, threat, powerType,
---            combo, assistant, masterLooter, absorb, buffs, debuffs }
+--            combo, form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
+--            buffs, debuffs }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -272,9 +289,18 @@ function Row:ShowDemo(member)
     end
     indicators:LayoutNameLine(self.name)
 
-    tintPower(self, member.powerType)
+    tintPower(self, self.power, member.powerType)
     self.power:SetRange(member.powerMax)
     self.power:SetValue(member.power)
+    local form = member.form
+    self.formBar.frame:SetShown(form ~= nil)
+    if form then
+        tintPower(self, self.formBar, form.powerType)
+        self.formBar:SetRange(form.powerMax)
+        self.formBar:SetValue(form.power)
+        self.formText:SetText(tostring(form.power))
+    end
+    placeCombo(self, form ~= nil)
     self.combo:SetShown(member.combo ~= nil)
     self.combo:SetCount(member.combo)
     self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.power) or tostring(member.power))
@@ -474,13 +500,39 @@ function Row:UpdateStatusIcon()
     self.indicators:SetStatus(kind)
 end
 
+local MANA = 0
+
+-- A druid's own power bar always shows mana; the form bar carries rage or energy.
 function Row:UpdatePower(smooth)
     local unit = self.unit
-    tintPower(self, AV.Read('UnitPowerType', UnitPowerType, unit))
+    if self:IsPlayer() and AV.Druid.IsDruid() then
+        tintPower(self, self.power, MANA)
+        self.power:SetRange(UnitPowerMax(unit, MANA))
+        local mana = UnitPower(unit, MANA)
+        self.power:SetValue(mana, smooth)
+        AV.SetNumberText(self.powerText, mana)
+        self:UpdateFormBar(smooth)
+        return
+    end
+    self.formBar.frame:Hide()
+    tintPower(self, self.power, AV.Read('UnitPowerType', UnitPowerType, unit))
     self.power:SetRange(UnitPowerMax(unit))
     local power = UnitPower(unit)
     self.power:SetValue(power, smooth)
     AV.SetNumberText(self.powerText, power)
+end
+
+function Row:UpdateFormBar(smooth)
+    local shown = self:IsPlayer() and AV.Druid.IsShifted()
+    self.formBar.frame:SetShown(shown)
+    if not shown then
+        return
+    end
+    tintPower(self, self.formBar, AV.Read('UnitPowerType', UnitPowerType, 'player'))
+    self.formBar:SetRange(UnitPowerMax('player'))
+    local power = UnitPower('player')
+    self.formBar:SetValue(power, smooth)
+    AV.SetNumberText(self.formText, power)
 end
 
 local COMBO_POINTS = Enum and Enum.PowerType and Enum.PowerType.ComboPoints or 4
@@ -497,6 +549,7 @@ end
 
 function Row:UpdateCombo()
     local shown = self:IsPlayer() and usesComboPoints() and UnitExists('target')
+    placeCombo(self, shown and AV.Druid.IsShifted())
     self.combo:SetShown(shown)
     if not shown then
         return
@@ -570,12 +623,13 @@ function Row:UpdateCostPreview(event, spellID)
     if not self:IsPlayer() then
         return
     end
+    local bar = AV.Druid.IsShifted() and self.formBar or self.power
     if event == 'UNIT_SPELLCAST_START' then
-        self.power:SetCost(spellCost(spellID), UnitPowerMax('player'))
+        bar:SetCost(spellCost(spellID), UnitPowerMax('player'))
     elseif event == 'UNIT_SPELLCAST_SUCCEEDED' then
-        self.power:CommitCost()
+        bar:CommitCost()
     elseif event == 'UNIT_SPELLCAST_STOP' or event == 'UNIT_SPELLCAST_FAILED' or event == 'UNIT_SPELLCAST_INTERRUPTED' then
-        self.power:SetCost(nil)
+        bar:SetCost(nil)
     end
 end
 

@@ -10,6 +10,7 @@ core\log.lua
 core\style.lua
 core\curves.lua
 core\unitInfo.lua
+core\druid.lua
 core\blizzard.lua
 core\editMode.lua
 core\demo.lua
