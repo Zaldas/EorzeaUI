@@ -112,7 +112,7 @@ local function onUnitEvent(event, unit, arg3)
         if unit == 'target' then AV.TargetBar.Refresh() end
     elseif event == 'UNIT_TARGET' then
         if unit == 'target' then AV.TargetBar.UpdateTargetOfTarget() end
-    elseif event == 'UNIT_HEAL_PREDICTION' then
+    elseif event == 'UNIT_HEAL_PREDICTION' or event == 'UNIT_ABSORB_AMOUNT_CHANGED' then
         if row then row:UpdateHealPrediction() end
     elseif event == 'UNIT_CONNECTION' then
         if row then row:UpdateState() end
@@ -144,7 +144,7 @@ local UNIT_EVENTS = {
     'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP', 'UNIT_SPELLCAST_FAILED', 'UNIT_SPELLCAST_INTERRUPTED',
     'UNIT_SPELLCAST_DELAYED', 'UNIT_SPELLCAST_CHANNEL_START', 'UNIT_SPELLCAST_CHANNEL_STOP',
     'UNIT_SPELLCAST_CHANNEL_UPDATE', 'UNIT_SPELLCAST_SUCCEEDED',
-    'UNIT_HEAL_PREDICTION', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
+    'UNIT_HEAL_PREDICTION', 'UNIT_ABSORB_AMOUNT_CHANGED', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
     'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED', 'UNIT_PHASE', 'UNIT_FACTION',
     'UNIT_THREAT_SITUATION_UPDATE',
 }

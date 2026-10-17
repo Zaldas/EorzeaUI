@@ -240,7 +240,7 @@ end
 
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
 --            state, resting, status, raidMarker, tag, role, pvp, cast, threat, powerType,
---            combo, assistant, masterLooter, buffs, debuffs }
+--            combo, assistant, masterLooter, absorb, buffs, debuffs }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -254,7 +254,7 @@ function Row:ShowDemo(member)
     self.hp:SetRange(member.hpMax)
     if not applyState(self, member.state) then
         self.hp:SetValue(member.hp)
-        self.hp:SetIncoming(member.incoming or 0, member.hpMax)
+        self.hp:SetIncoming(member.incoming or 0, member.hpMax, member.absorb or 0)
         self.hpText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.hp) or tostring(member.hp))
         self.hpText:SetTextColor(Style.Color(thresholdColor(self.style, member.hp / member.hpMax)))
         local low = member.hp / member.hpMax < self.style.lowHealth.below

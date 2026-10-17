@@ -71,13 +71,20 @@ UnitThreatSituation = function() return 2 end
 UnitPowerType = function() return 3, 'ENERGY' end
 UnitIsGroupAssistant = function() return true end
 GetLootMethod = function() return 'master', 0, nil end
+CreateUnitHealPredictionCalculator = function()
+    return {
+        SetDamageAbsorbClampMode = function() end,
+        GetIncomingHeals = function() return 300 end,
+        GetDamageAbsorbs = function() return 150, false end,
+    }
+end
+UnitGetDetailedHealPrediction = function() end
 C_Spell = { GetSpellPowerCost = function() return { { type = 3, cost = 35 } } end }
 UnitIsPVP = function() return true end
 UnitIsPVPFreeForAll = function() return false end
 UnitFactionGroup = function() return 'Horde', 'Horde' end
 UnitIsAFK = function() return true end
 C_IncomingSummon = { HasIncomingSummon = function() return true end, IncomingSummonStatus = function() return 1 end }
--- Heal prediction stays unstubbed so the missing-API path runs.
 date = os.date
 GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
 debugstack = function() return '' end
@@ -134,6 +141,7 @@ onEvent(nil, 'PLAYER_REGEN_ENABLED')
 onEvent(nil, 'UNIT_CONNECTION', 'player')
 onEvent(nil, 'PLAYER_FLAGS_CHANGED', 'player')
 onEvent(nil, 'UNIT_HEAL_PREDICTION', 'player')
+onEvent(nil, 'UNIT_ABSORB_AMOUNT_CHANGED', 'player')
 onEvent(nil, 'INCOMING_SUMMON_CHANGED', 'player')
 onEvent(nil, 'RAID_TARGET_UPDATE')
 onEvent(nil, 'UNIT_FACTION', 'player')

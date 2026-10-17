@@ -40,7 +40,7 @@ local function members()
           resting = true, pvp = playerFaction, powerType = 0, buffs = pick(BUFFS, 4), debuffs = {} },
         { name = 'Brightmane Stormhold', class = 'WARRIOR', level = 60, hp = 4560, hpMax = 4560, power = 35, powerMax = 100,
           status = 'ready', raidMarker = 8, role = 'TANK', threat = 3, powerType = 1, masterLooter = true, buffs = pick(BUFFS, 3), debuffs = pick(DEBUFFS, 1) },
-        { name = 'Velisandre Ashby', class = 'PRIEST', level = 59, hp = 1590, hpMax = 2480, incoming = 520, power = 3360, powerMax = 4200,
+        { name = 'Velisandre Ashby', class = 'PRIEST', level = 59, hp = 1590, hpMax = 2480, incoming = 520, absorb = 240, power = 3360, powerMax = 4200,
           tag = 'AFK', role = 'HEALER', cast = 'Greater Heal', powerType = 0, assistant = true, masterLooter = true, buffs = pick(BUFFS, 6), debuffs = {} },
         { name = 'Korgath Ironhide', class = 'ROGUE', level = 60, hp = 480, hpMax = 2890, power = 100, powerMax = 100, targeted = true,
           status = 'waiting', role = 'DAMAGER', raidMarker = 1, threat = 1, powerType = 3, combo = 3, buffs = pick(BUFFS, 2), debuffs = pick(DEBUFFS, 2) },

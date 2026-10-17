@@ -17,8 +17,20 @@ local function frameLayer(owner, layer, spec, barSpec, subLevel)
     return Style.Image(owner, layer, { path = spec.path, color = spec.color, pos = { 0, 0 }, size = { barSpec.width, barSpec.height } }, subLevel)
 end
 
--- Incoming-heal segment starting at the fill's right edge. Heal amounts and max health may be
--- secret, so the engine sizes it: a StatusBar the width of the fill, clipped to the fill area.
+local function predictionSegment(clip, spec, anchor, color)
+    local bar = CreateFrame('StatusBar', nil, clip)
+    bar:SetSize(spec.fill.width, spec.height)
+    bar:SetPoint('TOPLEFT', anchor, 'TOPRIGHT', 0, 0)
+    bar:SetStatusBarTexture(Style.AssetPath(spec.fill.path))
+    bar:SetStatusBarColor(Style.Color(color))
+    bar:SetMinMaxValues(0, 1)
+    bar:SetValue(0)
+    return bar
+end
+
+-- Incoming-heal and absorb segments chained from the fill's right edge. Amounts and max health
+-- may be secret, so the engine sizes them: StatusBars the width of the fill, clipped to the
+-- fill area. The calculator clamps absorbs to missing health minus incoming heals.
 local function createPrediction(self, frame, spec, predictionSpec)
     if not (CreateUnitHealPredictionCalculator and UnitGetDetailedHealPrediction) then
         AV.LogOnce('prediction:missing', 'heal prediction: API missing')
@@ -36,14 +48,13 @@ local function createPrediction(self, frame, spec, predictionSpec)
     if clip.SetClipsChildren then
         clip:SetClipsChildren(true)
     end
-    local bar = CreateFrame('StatusBar', nil, clip)
-    bar:SetSize(spec.fill.width, spec.height)
-    bar:SetPoint('TOPLEFT', self.status:GetStatusBarTexture(), 'TOPRIGHT', 0, 0)
-    bar:SetStatusBarTexture(Style.AssetPath(spec.fill.path))
-    bar:SetStatusBarColor(Style.Color(predictionSpec.color))
-    bar:SetMinMaxValues(0, 1)
-    bar:SetValue(0)
-    self.prediction = { bar = bar, calculator = calculator }
+    local heals = predictionSegment(clip, spec, self.status:GetStatusBarTexture(), predictionSpec.color)
+    local absorbs = predictionSegment(clip, spec, heals:GetStatusBarTexture(), predictionSpec.absorbColor)
+    local missingHealth = Enum.UnitDamageAbsorbClampMode and Enum.UnitDamageAbsorbClampMode.MissingHealth or 0
+    if not pcall(calculator.SetDamageAbsorbClampMode, calculator, missingHealth) then
+        AV.LogOnce('prediction:clamp', 'absorbs: SetDamageAbsorbClampMode failed')
+    end
+    self.prediction = { bar = heals, absorbs = absorbs, calculator = calculator }
 end
 
 -- Spell-cost segment ending at the fill's right edge: a reverse-filling StatusBar the width of
@@ -160,16 +171,20 @@ function Bar:CommitCost()
 end
 
 -- amount and maxValue may be secret.
-function Bar:SetIncoming(amount, maxValue)
-    local bar = self.prediction and self.prediction.bar
-    if not bar then
+-- amount: incoming heals; absorbs: damage absorb shields. All may be secret.
+function Bar:SetIncoming(amount, maxValue, absorbs)
+    local prediction = self.prediction
+    if not prediction then
         return
     end
-    pcall(bar.SetMinMaxValues, bar, 0, maxValue or 1)
-    pcall(bar.SetValue, bar, amount or 0)
+    for _, pair in ipairs({ { prediction.bar, amount }, { prediction.absorbs, absorbs } }) do
+        local bar = pair[1]
+        pcall(bar.SetMinMaxValues, bar, 0, maxValue or 1)
+        pcall(bar.SetValue, bar, pair[2] or 0)
+    end
 end
 
--- Incoming heals on unit from everyone, via the engine-side calculator.
+-- Incoming heals and absorbs on unit from everyone, via the engine-side calculator.
 function Bar:ShowIncomingHeals(unit, maxValue)
     local prediction = self.prediction
     if not prediction then
@@ -187,7 +202,12 @@ function Bar:ShowIncomingHeals(unit, maxValue)
         self:SetIncoming(0)
         return
     end
-    self:SetIncoming(incoming, maxValue)
+    local okAbsorbs, absorbs = pcall(prediction.calculator.GetDamageAbsorbs, prediction.calculator)
+    if not okAbsorbs then
+        AV.LogOnce('prediction:absorbs', 'absorbs: GetDamageAbsorbs failed: %s', tostring(absorbs))
+        absorbs = 0
+    end
+    self:SetIncoming(incoming, maxValue, absorbs)
 end
 
 -- duration: LuaDurationObject from UnitCastingDuration/UnitChannelDuration.

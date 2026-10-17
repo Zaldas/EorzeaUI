@@ -59,7 +59,7 @@ function Kit.partyIndicators(nameX, nameY)
         pvp = { pos = { -20, 15 }, size = { 20, 20 } },
         tagColor = '#A0A0A0FF',
         stateColor = '#A0A0A0FF',
-        healPrediction = { color = '#7CFC8C80' },
+        healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
     }
 end
 
