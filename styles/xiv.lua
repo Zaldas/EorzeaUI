@@ -9,6 +9,7 @@ local bar = Kit.rowBar('xiv', '#FFFFFFFF', '#FFFFFFFF', '#FFFFFFFF')
 local valueText = {
     pos = { 120, 35 }, size = 13, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true,
 }
+local castText = { color = '#E8C040FF', size = 17, baseline = 32 }
 
 AV.styles.xiv = {
     fonts = Kit.FONTS,
@@ -57,6 +58,6 @@ AV.styles.xiv = {
         debuffs = { pos = { 284, 16 }, size = 18, spacing = 2, max = 6 },
     },
 
-    target = Kit.target({ frame = '#E8C040FF', fill = '#E2E2DBFF', text = '#E8C040FF', textSize = 17 }),
-    castBar = Kit.castBar('#E8C040FF', '#E2E2DBFF', '#E8C040FF'),
+    target = Kit.target({ frame = '#E8C040FF', fill = '#E2E2DBFF', text = castText }),
+    castBar = Kit.castBar('#E8C040FF', '#E2E2DBFF', castText),
 }

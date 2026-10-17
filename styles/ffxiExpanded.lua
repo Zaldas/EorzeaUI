@@ -8,6 +8,7 @@ local Kit = AV.StyleKit
 local valueText = {
     pos = { 120, 34 }, size = 13, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true,
 }
+local castText = { color = '#F0FFFFFF', size = 14, font = 'number', baseline = 34 }
 
 AV.styles.ffxiExpanded = {
     fonts = Kit.FONTS,
@@ -56,6 +57,6 @@ AV.styles.ffxiExpanded = {
         debuffs = { pos = { 284, 16 }, size = 18, spacing = 2, max = 6 },
     },
 
-    target = Kit.target({ frame = '#6AB4F8FF', fill = '#6AB4F8FF', text = '#F0FFFFFF', textFont = 'number', textSize = 14 }),
-    castBar = Kit.castBar('#6AB4F8FF', '#6AB4F8FF', '#E8C040FF'),
+    target = Kit.target({ frame = '#6AB4F8FF', fill = '#6AB4F8FF', text = castText }),
+    castBar = Kit.castBar('#6AB4F8FF', '#6AB4F8FF', castText),
 }

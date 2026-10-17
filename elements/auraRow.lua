@@ -19,7 +19,8 @@ local function ensureLoaded()
     end
 end
 
--- Durations are secret, so formatting happens engine-side: "12", "1:30", "6m".
+-- Durations are secret, so formatting happens engine-side: "12", "6m", "2h". At most 3
+-- characters, so a timer fits under its icon.
 local timerFormatter
 function AV.AuraRow.TimerFormatter()
     if timerFormatter ~= nil then
@@ -33,11 +34,13 @@ function AV.AuraRow.TimerFormatter()
     if not ok or not formatter then
         return nil
     end
+    -- Matches Blizzard's buff timers: seconds round down, minutes and hours round up.
     local up = Enum.NumericRuleFormatRounding.Up
     local breakpoints = {
-        { threshold = 0, format = '%d', step = 1, rounding = up },
-        { threshold = 60, format = '%d:%02d', step = 1, rounding = up, components = { { div = 60 }, { mod = 60 } } },
-        { threshold = 600, format = '%dm', step = 1, rounding = up, components = { { div = 60 } } },
+        { threshold = 0, format = '%d', step = 1, rounding = Enum.NumericRuleFormatRounding.Down },
+        -- step snaps the input before div truncates, so it must equal div to round up.
+        { threshold = 60, format = '%dm', step = 60, rounding = up, components = { { div = 60 } } },
+        { threshold = 3600, format = '%dh', step = 3600, rounding = up, components = { { div = 3600 } } },
     }
     if pcall(formatter.SetBreakpoints, formatter, breakpoints) then
         timerFormatter = formatter

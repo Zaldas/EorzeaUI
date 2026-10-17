@@ -19,7 +19,7 @@ local DEBUFFS = {
     { ICON .. 'Spell_Shadow_ShadowWordPain', '14' },
     { ICON .. 'Spell_Shadow_AbominationExplosion', '9' },
     { ICON .. 'Spell_Shadow_CurseOfSargeras', '21' },
-    { ICON .. 'Spell_Nature_CorrosiveBreath', '1:12' },
+    { ICON .. 'Spell_Nature_CorrosiveBreath', '2m' },
     { ICON .. 'Spell_Frost_FrostNova', '6' },
 }
 

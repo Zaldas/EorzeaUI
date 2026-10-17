@@ -47,7 +47,19 @@ Kit.HP_THRESHOLDS = {
     { below = 0.75, color = '#F3F37CFF' },
 }
 
--- cast = { frame, fill, text, textFont, textSize } colours for the target's cast bar.
+-- Spell name for both cast bars. text = { color, size, font, baseline }; baseline is the
+-- text's bottom edge in bar pixels, shared so both names sit at the same height on their bars.
+function Kit.castName(text)
+    return {
+        pos = { 20, text.baseline - text.size },
+        size = text.size,
+        color = text.color,
+        stroke = Kit.STROKE_BLUE,
+        font = text.font,
+    }
+end
+
+-- cast = { frame, fill, text } for the target's cast bar; text as in Kit.castName.
 function Kit.target(cast)
     return {
         width = 786,
@@ -63,12 +75,10 @@ function Kit.target(cast)
         txtLevel = { pos = { 520, 38 }, size = 12, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
         debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true },
         buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true },
-        -- The spell name's baseline lands where the player cast bar's 17px text does (y 32),
-        -- so it overlaps the bar by the same fraction at any text size.
         cast = {
             pos = { 225, -15 },
             bar = Kit.wideBar(234, cast.frame, cast.fill),
-            txtName = { pos = { 20, 32 - cast.textSize }, size = cast.textSize, color = cast.text, stroke = Kit.STROKE_BLUE, font = cast.textFont },
+            txtName = Kit.castName(cast.text),
         },
         attention = { path = 'ffxi/attention', pos = { 545, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
         tot = {
@@ -79,11 +89,11 @@ function Kit.target(cast)
     }
 end
 
-function Kit.castBar(frameColor, fillColor, textColor)
+function Kit.castBar(frameColor, fillColor, text)
     return {
         width = 467,
         height = 64,
         bar = Kit.wideBar(467, frameColor, fillColor),
-        txtName = { pos = { 20, 15 }, size = 17, color = textColor, stroke = Kit.STROKE_BLUE },
+        txtName = Kit.castName(text),
     }
 end
