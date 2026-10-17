@@ -101,7 +101,7 @@ function Style.ThreeSlice(parent, layer, spec, width, height, subLevel)
     return slice
 end
 
--- spec = { pos, size, color, stroke, font = 'name'|'number', alignRight }
+-- spec = { pos, size, color, stroke, font = 'name'|'number', alignRight | alignCenter }
 -- The stroke colour becomes the drop shadow; FontStrings only support a black outline.
 function Style.Text(parent, spec, fonts)
     local text = parent:CreateFontString(nil, 'OVERLAY')
@@ -117,6 +117,9 @@ function Style.Text(parent, spec, fonts)
     if spec.alignRight then
         text:SetPoint('TOPRIGHT', parent, 'TOPLEFT', pos[1], -pos[2])
         text:SetJustifyH('RIGHT')
+    elseif spec.alignCenter then
+        text:SetPoint('TOP', parent, 'TOPLEFT', pos[1], -pos[2])
+        text:SetJustifyH('CENTER')
     else
         text:SetPoint('TOPLEFT', parent, 'TOPLEFT', pos[1], -pos[2])
         text:SetJustifyH('LEFT')

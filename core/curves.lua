@@ -46,6 +46,16 @@ function Curves.ApplyHealthColor(fontString, unit, curve)
     end
 end
 
+function Curves.ApplyHealthTint(texture, unit, curve)
+    if not curve then
+        return
+    end
+    local ok, color = pcall(UnitHealthPercent, unit, true, curve)
+    if ok and color and color.GetRGBA then
+        pcall(function() texture:SetVertexColor(color:GetRGBA()) end)
+    end
+end
+
 function Curves.SetHealthPercentText(fontString, unit)
     local scale = CurveConstants and CurveConstants.ScaleTo100
     if not scale then

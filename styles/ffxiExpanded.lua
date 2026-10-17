@@ -24,6 +24,11 @@ AV.styles.ffxiExpanded = {
             mid = { path = 'ffxi/BgMid' },
             bottom = { path = 'ffxi/BgBottom', height = 8 },
         },
+        -- Raid only. Centred on the background (x 7..427); the text's bottom overlaps the
+        -- background's top edge (y -11) by 3px, as the name overlaps the HP bar.
+        groupNumber = { pos = { 217, -22 }, size = 14, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, alignCenter = true },
+        -- Blizzard's party frames tint the portrait red at 20% health or below.
+        lowHealth = { below = 0.2, color = '#FF0000FF' },
         hp = {
             pos = { 19, -7 },
             bar = Kit.rowBar('ffxi', '#FF9597FF', '#FF9597FF'),

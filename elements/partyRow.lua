@@ -35,6 +35,7 @@ local function buildArt(self, host, style, fonts)
     self.hp = AV.Bar.Create(art, style.hp.bar, style.hp.pos, { prediction = style.indicators.healPrediction })
     self.hpText = Style.Text(self.hp.overlay, style.hp.txtValue, fonts)
     self.hpCurve = AV.Curves.Step(style.hp.thresholds, style.hp.textColor)
+    self.lowHealthCurve = AV.Curves.Step({ style.lowHealth }, '#FFFFFFFF')
 
     self.power = AV.Bar.Create(art, style.power.bar, style.power.pos)
     self.powerText = Style.Text(self.power.overlay, style.power.txtValue, fonts)
@@ -149,6 +150,9 @@ local STATE_LABELS = { dead = 'DEAD', ghost = 'GHOST', offline = 'OFFLINE' }
 local function applyState(self, state)
     self.state = state
     self.classIcon:SetDesaturated(state ~= nil)
+    if state then
+        self.classIcon:SetVertexColor(1, 1, 1, 1)
+    end
     if not state then
         return false
     end
@@ -236,7 +240,7 @@ end
 
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
 --            state, resting, status, raidMarker, tag, role, pvp, cast, threat, powerType,
---            combo, buffs, debuffs }
+--            combo, assistant, masterLooter, buffs, debuffs }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -253,6 +257,8 @@ function Row:ShowDemo(member)
         self.hp:SetIncoming(member.incoming or 0, member.hpMax)
         self.hpText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.hp) or tostring(member.hp))
         self.hpText:SetTextColor(Style.Color(thresholdColor(self.style, member.hp / member.hpMax)))
+        local low = member.hp / member.hpMax < self.style.lowHealth.below
+        self.classIcon:SetVertexColor(Style.Color(low and self.style.lowHealth.color or '#FFFFFFFF'))
     end
 
     local indicators = self.indicators
@@ -274,6 +280,8 @@ function Row:ShowDemo(member)
     self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.power) or tostring(member.power))
 
     indicators:SetLeader(member.leader == true)
+    indicators:SetAssistant(member.assistant == true)
+    indicators:SetMasterLooter(member.masterLooter == true)
     self.cursor:SetShown(member.targeted == true)
     setThreat(self, member.threat)
     self.art:SetAlpha(member.far and self.style.range.farAlpha or 1)
@@ -359,6 +367,7 @@ function Row:UpdateHealth(smooth)
     self.hp:SetValue(health, smooth)
     AV.SetNumberText(self.hpText, health)
     AV.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
+    AV.Curves.ApplyHealthTint(self.classIcon, unit, self.lowHealthCurve)
     self.hp:ShowIncomingHeals(unit, maxHealth)
 end
 

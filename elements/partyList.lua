@@ -10,6 +10,23 @@ local MAX_ROWS = 5
 local rows = {}
 local rowsByUnit = {}
 
+local function playerSubgroup()
+    if not IsInRaid() then
+        return nil
+    end
+    local raidIndex = UnitInRaid('player')
+    return raidIndex and select(3, GetRaidRosterInfo(raidIndex))
+end
+
+local function setGroupNumber(subgroup)
+    local text = PartyList.groupText
+    if subgroup then
+        text:SetFormattedText(GROUP_NUMBER or 'Group %d', subgroup)
+    else
+        text:SetText('')
+    end
+end
+
 function PartyList.Create(style, fonts)
     local partyStyle = style.party
 
@@ -40,6 +57,7 @@ function PartyList.Create(style, fonts)
     mid:SetPoint('TOPLEFT', top, 'BOTTOMLEFT', 0, 0)
     bottom:SetPoint('TOPLEFT', mid, 'BOTTOMLEFT', 0, 0)
     PartyList.bgMid = mid
+    PartyList.groupText = AV.Style.Text(bg, partyStyle.groupNumber, fonts)
 
     local header = CreateFrame('Frame', 'AzerothVistaPartyHeader', anchor, 'SecureGroupHeaderTemplate')
     header:SetPoint('TOPLEFT', anchor, 'TOPLEFT', 0, 0)
@@ -95,6 +113,7 @@ function PartyList.SetDemo(members)
         end
     end
     PartyList.demoCount = members and #members or nil
+    setGroupNumber(members and 1 or PartyList.subgroup)
     for i, row in ipairs(PartyList.demoRows) do
         row:ShowDemo(members and members[i])
     end
@@ -124,17 +143,15 @@ function PartyList.ForEachVisibleRow(fn)
     end
 end
 
--- In a raid, show only the player's subgroup.
+-- In a raid, show only the player's subgroup, labelled with its number.
 function PartyList.UpdateGroupFilter()
+    PartyList.subgroup = playerSubgroup()
+    if not PartyList.demoCount then
+        setGroupNumber(PartyList.subgroup)
+    end
     AV.RunOutOfCombat(function()
-        local header = PartyList.header
-        local filter = nil
-        if IsInRaid() then
-            local raidIndex = UnitInRaid('player')
-            local subgroup = raidIndex and select(3, GetRaidRosterInfo(raidIndex))
-            filter = subgroup and tostring(subgroup) or nil
-        end
-        header:SetAttribute('groupFilter', filter)
+        local subgroup = playerSubgroup()
+        PartyList.header:SetAttribute('groupFilter', subgroup and tostring(subgroup) or nil)
     end, 'groupFilter')
 end
 

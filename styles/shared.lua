@@ -41,12 +41,16 @@ Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, colo
 -- Party row indicators, in row coordinates. The class icon spans x -11..25, y -2..34.
 -- nameX/nameY are the style's txtName pos; a raid marker takes that spot and shifts the name.
 -- leader: crown on the icon's top edge; rowSpacing keeps it clear of the level number above.
+-- assistant (upper) and masterLooter (lower): straddling the icon's right edge, mirroring
+-- role/pvp on the left. Either one alone centres between the two slots.
 -- rest/combat: player row only, on the icon's top-right corner. status: ready check, summon,
 -- resurrect or phased, centred on the icon. role/pvp: straddling the icon's left edge.
 -- tagColor: the [AFK]/[DND] prefix on the name.
 function Kit.partyIndicators(nameX, nameY)
     return {
         leader = { pos = { 0, -8 }, size = { 14, 14 } },
+        assistant = { pos = { 16, 2 }, size = { 14, 14 } },
+        masterLooter = { pos = { 16, 17 }, size = { 14, 14 } },
         rest = { pos = { 14, -10 }, size = { 24, 24 } },
         combat = { pos = { 16, -6 }, size = { 18, 18 } },
         status = { pos = { -5, 4 }, size = { 24, 24 } },

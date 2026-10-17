@@ -87,9 +87,13 @@ end
 -- parent: frame drawn above the class icon. top: the row's text layer.
 function AV.Indicators.Create(parent, top, style)
     local spec = style.indicators
-    local self = setmetatable({ spec = spec, nameSpec = style.txtName, top = top }, Indicators)
+    local self = setmetatable({ spec = spec, nameSpec = style.txtName, top = top, parent = parent }, Indicators)
     self.leader = sizedTexture(parent, spec.leader)
     Style.SetAtlas(self.leader, 'UI-HUD-UnitFrame-Player-Group-LeaderIcon', LEADER_FALLBACK)
+    self.assistant = sizedTexture(parent, spec.assistant)
+    self.assistant:SetTexture('Interface\\GroupFrame\\UI-Group-AssistantIcon')
+    self.masterLooter = sizedTexture(parent, spec.masterLooter)
+    self.masterLooter:SetTexture('Interface\\GroupFrame\\UI-Group-MasterLooter')
     self.rest, self.restLoop = createRest(parent, spec.rest)
     self.combat = sizedTexture(parent, spec.combat)
     Style.SetAtlas(self.combat, 'UI-HUD-UnitFrame-Player-CombatIcon', COMBAT_FALLBACK)
@@ -103,6 +107,30 @@ end
 
 function Indicators:SetLeader(shown)
     self.leader:SetShown(shown)
+end
+
+-- Assistant and master looter stack on the icon's right edge when both show; either one
+-- alone sits centred between the two slots.
+local function layoutRightEdge(self)
+    local upper, lower = self.spec.assistant.pos, self.spec.masterLooter.pos
+    if self.assistant:IsShown() and self.masterLooter:IsShown() then
+        Style.Place(self.assistant, self.parent, upper)
+        Style.Place(self.masterLooter, self.parent, lower)
+    else
+        local middle = (upper[2] + lower[2]) / 2
+        Style.Place(self.assistant, self.parent, { upper[1], middle })
+        Style.Place(self.masterLooter, self.parent, { lower[1], middle })
+    end
+end
+
+function Indicators:SetAssistant(shown)
+    self.assistant:SetShown(shown)
+    layoutRightEdge(self)
+end
+
+function Indicators:SetMasterLooter(shown)
+    self.masterLooter:SetShown(shown)
+    layoutRightEdge(self)
 end
 
 -- state: 'combat' | 'rest' | nil
