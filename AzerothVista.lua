@@ -43,7 +43,8 @@ local FEATURE_APIS = {
     'GetReadyCheckStatus', 'GetRaidTargetIndex', 'C_IncomingSummon', 'UnitHasIncomingResurrection',
     'UnitPhaseReason', 'UnitInRange', 'CreateUnitHealPredictionCalculator', 'UnitGetDetailedHealPrediction',
     'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
-    'UnitIsPVPFreeForAll', 'UnitFactionGroup',
+    'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
+    'UnitPowerType',
 }
 
 local function logCapabilities()
@@ -102,7 +103,10 @@ local function onUnitEvent(event, unit)
         if row then row:UpdateHealth(event == 'UNIT_HEALTH') end
         if unit == 'target' then AV.TargetBar.UpdateHealth(event == 'UNIT_HEALTH') end
     elseif event == 'UNIT_POWER_UPDATE' or event == 'UNIT_MAXPOWER' or event == 'UNIT_DISPLAYPOWER' then
-        if row then row:UpdatePower(event == 'UNIT_POWER_UPDATE') end
+        if row then
+            row:UpdatePower(event == 'UNIT_POWER_UPDATE')
+            row:UpdateCombo()
+        end
     elseif event == 'UNIT_NAME_UPDATE' or event == 'UNIT_LEVEL' then
         if row then row:UpdateName() end
         if unit == 'target' then AV.TargetBar.Refresh() end
@@ -120,6 +124,8 @@ local function onUnitEvent(event, unit)
         end
     elseif event == 'UNIT_FACTION' then
         if row then row:UpdatePvP() end
+    elseif event == 'UNIT_THREAT_SITUATION_UPDATE' then
+        if row then row:UpdateThreat() end
     elseif event == 'INCOMING_SUMMON_CHANGED' or event == 'INCOMING_RESURRECT_CHANGED' or event == 'UNIT_PHASE' then
         if row then row:UpdateStatusIcon() end
     elseif event:find('^UNIT_SPELLCAST_') then
@@ -137,6 +143,7 @@ local UNIT_EVENTS = {
     'UNIT_SPELLCAST_CHANNEL_UPDATE',
     'UNIT_HEAL_PREDICTION', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
     'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED', 'UNIT_PHASE', 'UNIT_FACTION',
+    'UNIT_THREAT_SITUATION_UPDATE',
 }
 
 local GLOBAL_EVENTS = {
@@ -188,6 +195,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2)
         end
         if AV.ready then
             forEachRow('UpdatePlayerState')
+            forEachRow('UpdateThreat')
         end
         return
     end
@@ -206,6 +214,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2)
         AV.TargetBar.Refresh()
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateCursor()
+            row:UpdateCombo()
         end)
     elseif event == 'GROUP_ROSTER_UPDATE' then
         AV.PartyList.UpdateGroupFilter()

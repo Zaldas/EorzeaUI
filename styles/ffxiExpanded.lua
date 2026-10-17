@@ -26,15 +26,28 @@ AV.styles.ffxiExpanded = {
         },
         hp = {
             pos = { 19, -7 },
-            bar = Kit.rowBar('ffxi', '#FF9597FF', '#FF9597FF', '#FFF2F2FF'),
+            bar = Kit.rowBar('ffxi', '#FF9597FF', '#FF9597FF'),
             txtValue = valueText,
             textColor = '#F0FFFFFF',
             thresholds = Kit.HP_THRESHOLDS,
         },
         power = {
             pos = { 150, -7 },
-            bar = Kit.rowBar('ffxi', '#FFFF9CFF', '#FFFF9CFF', '#FFFFF2FF'),
+            bar = Kit.rowBar('ffxi', '#FFFF9CFF', '#FFFF9CFF'),
             txtValue = valueText,
+            -- Keyed by UnitPowerType: 0 mana, 1 rage, 2 focus, 3 energy. Others keep the bar colour.
+            colors = { [0] = '#8FB8FFFF', [1] = '#FF7A5CFF', [2] = '#FFB870FF', [3] = '#FFFF9CFF' },
+        },
+        -- Player row only. Pip 1 sits under the power bar's line (row y 18.5..31, fill from
+        -- x 162). Steps keep dx == dy so facing 45-degree edges line up; the diamonds' ink is
+        -- 14px, so |dx| + |dy| = 14 makes them touch; tighter merges them.
+        comboPoints = {
+            pos = { 161, 31 },
+            size = { 16, 16 },
+            offsets = { { 0, 0 }, { 7, -7 }, { 14, 0 }, { 21, -7 }, { 28, 0 } },
+            fill = 'pips/diamondFill-16',
+            outline = 'pips/diamondLine-16',
+            color = '#FFD966FF',
         },
         classIcon = {
             pos = { -11, -2 },
@@ -43,11 +56,9 @@ AV.styles.ffxiExpanded = {
             gradient = 'jobIcons/gradient',
             frame = 'jobIcons/frame',
         },
-        range = {
-            near = { path = 'ffxi/Range', pos = { 30, 30 }, size = { 10, 10 }, color = '#FFFFFFFF' },
-            far = { path = 'ffxi/RangeFar', pos = { 30, 30 }, size = { 10, 10 }, color = '#FFFFFFFF' },
-            farAlpha = 0.55,
-        },
+        range = { farAlpha = 0.55 },
+        -- Tinted with Blizzard's threat colours; hidden without threat.
+        threat = { path = 'ffxi/Range', pos = { 30, 30 }, size = { 10, 10 } },
         hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
         cursor = { path = 'ffxi/Cursor', pos = { -45, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
         txtName = { pos = { 38, 3 }, width = 242, size = 17, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE },

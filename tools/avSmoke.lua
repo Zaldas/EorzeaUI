@@ -42,7 +42,7 @@ UnitName = function() return 'Zal', 'Brightforge' end
 LOCALIZED_CLASS_NAMES_MALE = { PALADIN = 'Paladin' }
 UnitLevel = function() return 11 end
 UnitReaction = function() return 2 end
-UnitClass = function() return 'Paladin', 'PALADIN' end
+UnitClass = function() return 'Rogue', 'ROGUE' end
 UnitHealth = function() return 100 end
 UnitHealthMax = function() return 200 end
 UnitPower = function() return 50 end
@@ -66,6 +66,8 @@ UnitHasIncomingResurrection = function() return false end
 UnitPhaseReason = function() return nil end
 UnitInRange = function() return true, true end
 UnitGroupRolesAssigned = function() return 'HEALER' end
+UnitThreatSituation = function() return 2 end
+UnitPowerType = function() return 3, 'ENERGY' end
 UnitIsPVP = function() return true end
 UnitIsPVPFreeForAll = function() return false end
 UnitFactionGroup = function() return 'Horde', 'Horde' end
@@ -77,8 +79,8 @@ GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
 debugstack = function() return '' end
 geterrorhandler = function() return function(err) error(err, 0) end end
 AzerothVistaLog = nil
-RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 } }
-CLASS_ICON_TCOORDS = { PALADIN = { 0, 0.25, 0.5, 0.75 } }
+RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 }, ROGUE = { r = 1, g = 0.96, b = 0.41 } }
+CLASS_ICON_TCOORDS = { PALADIN = { 0, 0.25, 0.5, 0.75 }, ROGUE = { 0.5, 0.75, 0, 0.25 } }
 C_Timer = { NewTicker = function(_, fn) TICK = fn end, After = function(_, fn) fn() end }
 C_AddOns = { IsAddOnLoaded = function() return false end, LoadAddOn = function() return true end }
 C_CurveUtil = { CreateColorCurve = function() return newFrame() end }
@@ -131,6 +133,7 @@ onEvent(nil, 'UNIT_HEAL_PREDICTION', 'player')
 onEvent(nil, 'INCOMING_SUMMON_CHANGED', 'player')
 onEvent(nil, 'RAID_TARGET_UPDATE')
 onEvent(nil, 'UNIT_FACTION', 'player')
+onEvent(nil, 'UNIT_THREAT_SITUATION_UPDATE', 'player')
 onEvent(nil, 'PLAYER_ROLES_ASSIGNED')
 onEvent(nil, 'READY_CHECK')
 onEvent(nil, 'READY_CHECK_CONFIRM', 'player')

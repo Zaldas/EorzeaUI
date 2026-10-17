@@ -1,7 +1,7 @@
 local _, AV = ...
 
--- Layered bar: background frame art, a StatusBar fill, foreground frame art, and a glow
--- anchored to the fill's right edge so it tracks secret values without Lua arithmetic.
+-- Layered bar: background frame art, a StatusBar fill and foreground frame art. Values may be
+-- secret, so the StatusBar sizes the fill without Lua arithmetic.
 
 AV.Bar = {}
 local Bar = {}
@@ -70,30 +70,13 @@ function AV.Bar.Create(parent, spec, pos, opts)
         createPrediction(self, frame, spec, opts.prediction)
     end
 
-    -- Foreground art and glow sit above the fill and the heal prediction.
+    -- Foreground art sits above the fill and the heal prediction.
     local overlay = CreateFrame('Frame', nil, frame)
     overlay:SetAllPoints(frame)
     overlay:SetFrameLevel(status:GetFrameLevel() + 2)
     self.overlay = overlay
 
     self.fg = frameLayer(overlay, 'ARTWORK', spec.fg, spec)
-
-    if spec.glow then
-        local glow = overlay:CreateTexture(nil, 'OVERLAY')
-        glow:SetTexture(Style.AssetPath(spec.glow.path))
-        glow:SetSize(spec.glow.width, spec.height)
-        glow:SetPoint('RIGHT', status:GetStatusBarTexture(), 'RIGHT', 0, 0)
-        glow:SetVertexColor(Style.Color(spec.glow.color))
-        self.glow = glow
-    end
-    if spec.glowSides then
-        local sides = overlay:CreateTexture(nil, 'OVERLAY')
-        sides:SetTexture(Style.AssetPath(spec.glowSides.path))
-        sides:SetSize(spec.glowSides.width, spec.height)
-        sides:SetPoint('TOPLEFT', frame, 'TOPLEFT', spec.glowSides.x, 0)
-        sides:SetVertexColor(Style.Color(spec.glowSides.color))
-        self.glowSides = sides
-    end
 
     return self
 end

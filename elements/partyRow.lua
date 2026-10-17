@@ -70,9 +70,9 @@ local function buildArt(self, host, style, fonts)
     top:SetAllPoints(art)
     top:SetFrameLevel(self.power.overlay:GetFrameLevel() + 1)
 
-    self.rangeNear = Style.Image(top, 'OVERLAY', style.range.near)
-    self.rangeFar = Style.Image(top, 'OVERLAY', style.range.far)
-    self.rangeFar:Hide()
+    self.threat = Style.Image(top, 'OVERLAY', style.threat)
+    self.threat:Hide()
+    self.combo = AV.ComboPoints.Create(top, style.comboPoints)
 
     -- Cut off with an ellipsis before the aura icons.
     self.name = Style.Text(top, style.txtName, fonts)
@@ -105,6 +105,42 @@ local function setName(self, name)
     else
         pcall(self.name.SetText, self.name, name)
     end
+end
+
+-- Blizzard's GetThreatStatusColor values for statuses 1-3, used when that function is absent.
+local THREAT_COLORS = { { 1, 1, 0.47 }, { 1, 0.6, 0 }, { 1, 0, 0 } }
+
+-- status: UnitThreatSituation result. 1 high threat, 2 tanking but not highest, 3 securely tanking.
+local function setThreat(self, status)
+    if type(status) ~= 'number' or status < 1 then
+        self.threat:Hide()
+        return
+    end
+    status = math.min(status, 3)
+    local r, g, b
+    if GetThreatStatusColor then
+        local ok, red, green, blue = pcall(GetThreatStatusColor, status)
+        if ok then
+            r, g, b = red, green, blue
+        end
+    end
+    if not r then
+        r, g, b = unpack(THREAT_COLORS[status])
+    end
+    self.threat:SetVertexColor(r, g, b, 1)
+    self.threat:Show()
+end
+
+-- Recolours the power bar when the power type changes (druid forms, unit swaps).
+local function tintPower(self, powerType)
+    if powerType == self.powerType then
+        return
+    end
+    self.powerType = powerType
+    local spec = self.style.power
+    local color = spec.colors and spec.colors[powerType] or spec.bar.fill.color
+    self.power:SetFrameColor(color)
+    self.power:SetFillColor(color)
 end
 
 local STATE_LABELS = { dead = 'DEAD', ghost = 'GHOST', offline = 'OFFLINE' }
@@ -199,7 +235,8 @@ local function thresholdColor(style, fraction)
 end
 
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
---            state, resting, status, raidMarker, tag, role, pvp, cast, buffs, debuffs }
+--            state, resting, status, raidMarker, tag, role, pvp, cast, threat, powerType,
+--            combo, buffs, debuffs }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -229,14 +266,16 @@ function Row:ShowDemo(member)
     end
     indicators:LayoutNameLine(self.name)
 
+    tintPower(self, member.powerType)
     self.power:SetRange(member.powerMax)
     self.power:SetValue(member.power)
+    self.combo:SetShown(member.combo ~= nil)
+    self.combo:SetCount(member.combo)
     self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.power) or tostring(member.power))
 
     indicators:SetLeader(member.leader == true)
     self.cursor:SetShown(member.targeted == true)
-    self.rangeNear:SetShown(not member.far)
-    self.rangeFar:SetShown(member.far == true)
+    setThreat(self, member.threat)
     self.art:SetAlpha(member.far and self.style.range.farAlpha or 1)
 
     self.buffs:Set(member.buffs)
@@ -272,6 +311,8 @@ function Row:Refresh()
     self:UpdateRange()
     self:UpdateCursor()
     self:UpdateCast()
+    self:UpdateThreat()
+    self:UpdateCombo()
     self:UpdateFlags()
     self:UpdateRole()
     self:UpdatePvP()
@@ -331,6 +372,10 @@ end
 function Row:UpdateState()
     self:UpdateHealth(false)
     self:UpdateRange()
+end
+
+function Row:UpdateThreat()
+    setThreat(self, AV.Read('UnitThreatSituation', UnitThreatSituation, self.unit))
 end
 
 function Row:UpdateCast()
@@ -421,10 +466,39 @@ end
 
 function Row:UpdatePower(smooth)
     local unit = self.unit
+    tintPower(self, AV.Read('UnitPowerType', UnitPowerType, unit))
     self.power:SetRange(UnitPowerMax(unit))
     local power = UnitPower(unit)
     self.power:SetValue(power, smooth)
     AV.SetNumberText(self.powerText, power)
+end
+
+local COMBO_POINTS = Enum and Enum.PowerType and Enum.PowerType.ComboPoints or 4
+local ENERGY = 3
+
+-- Rogues, and druids while on energy (cat form), with a target.
+local function usesComboPoints()
+    local class = AV.SafeValue(function() return select(2, UnitClass('player')) end)
+    if class == 'DRUID' then
+        return AV.Read('UnitPowerType', UnitPowerType, 'player') == ENERGY
+    end
+    return class == 'ROGUE'
+end
+
+function Row:UpdateCombo()
+    local shown = self:IsPlayer() and usesComboPoints() and UnitExists('target')
+    self.combo:SetShown(shown)
+    if not shown then
+        return
+    end
+    local ok, count = pcall(UnitPower, 'player', COMBO_POINTS)
+    if not ok then
+        AV.LogOnce('combo:error', 'combo points: %s', tostring(count))
+        count = 0
+    elseif not AV.CanAccess(count) then
+        AV.LogOnce('combo:secret', 'combo points are secret; drawn through StatusBar ranges')
+    end
+    self.combo:SetCount(count)
 end
 
 function Row:UpdateLeader()
@@ -432,24 +506,12 @@ function Row:UpdateLeader()
 end
 
 local function showNear(self, near)
-    self.rangeNear:SetAlpha(1)
-    self.rangeFar:SetAlpha(1)
-    self.rangeNear:SetShown(near)
-    self.rangeFar:SetShown(not near)
     self.art:SetAlpha(near and 1 or self.style.range.farAlpha)
 end
 
 -- inRange is a secret boolean, so the engine picks between the alphas.
 local function showNearSecret(self, inRange)
-    local farAlpha = self.style.range.farAlpha
-    local ok = pcall(self.art.SetAlphaFromBoolean, self.art, inRange, 1, farAlpha)
-        and pcall(self.rangeNear.SetAlphaFromBoolean, self.rangeNear, inRange, 1, 0)
-        and pcall(self.rangeFar.SetAlphaFromBoolean, self.rangeFar, inRange, 0, 1)
-    if ok then
-        self.rangeNear:Show()
-        self.rangeFar:Show()
-    end
-    return ok
+    return pcall(self.art.SetAlphaFromBoolean, self.art, inRange, 1, self.style.range.farAlpha)
 end
 
 -- UnitInRange is the 40-yard group check; CheckInteractDistance(unit, 4) (28 yards) is the fallback.

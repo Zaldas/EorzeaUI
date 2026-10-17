@@ -11,20 +11,18 @@ Kit.STROKE_RED = '#3B0B0BC8'
 
 -- 128x64 party bar on a 256x128 texture; no slicing needed at uniform half scale.
 -- art: asset folder, e.g. 'ffxi'
-function Kit.rowBar(art, frameColor, fillColor, glowColor)
+function Kit.rowBar(art, frameColor, fillColor)
     return {
         width = 128,
         height = 64,
         bg = { path = art .. '/BarBG', color = frameColor },
         fill = { path = art .. '/Bar', color = fillColor, x = 13, width = 102 },
         fg = { path = art .. '/BarFG', color = frameColor },
-        glow = glowColor and { path = art .. '/BarGlow', color = glowColor, width = 6 } or nil,
-        glowSides = glowColor and { path = art .. '/BarGlowSides', color = glowColor, x = 11, width = 2 } or nil,
     }
 end
 
 -- Wide bars three-slice the ffxi frame art: 30px texture caps on a 256x128 texture.
-function Kit.wideBar(width, frameColor, fillColor, glowColor)
+function Kit.wideBar(width, frameColor, fillColor)
     return {
         width = width,
         height = 64,
@@ -32,7 +30,6 @@ function Kit.wideBar(width, frameColor, fillColor, glowColor)
         bg = { path = 'ffxi/BarBG', color = frameColor },
         fill = { path = 'ffxi/Bar', color = fillColor, x = 13, width = width - 26 },
         fg = { path = 'ffxi/BarFG', color = frameColor },
-        glow = glowColor and { path = 'ffxi/BarGlow', color = glowColor, width = 8 } or nil,
     }
 end
 
@@ -87,7 +84,7 @@ function Kit.target(cast)
     return {
         width = 786,
         height = 120,
-        bar = Kit.wideBar(537, '#FF9597FF', '#FF9597FF', '#FFF2F2FF'),
+        bar = Kit.wideBar(537, '#FF9597FF', '#FF9597FF'),
         reactionColors = {
             hostile = '#FF9597FF',
             neutral = '#F3F37CFF',
@@ -106,7 +103,7 @@ function Kit.target(cast)
         attention = { path = 'ffxi/attention', pos = { 545, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
         tot = {
             pos = { 560, 0 },
-            bar = Kit.wideBar(226, '#FF9597FF', '#FF9597FF', '#FFF2F2FF'),
+            bar = Kit.wideBar(226, '#FF9597FF', '#FF9597FF'),
             txtName = { pos = { 20, 17 }, size = 16, color = '#C8C8C8FF', stroke = Kit.STROKE_RED },
         },
     }
