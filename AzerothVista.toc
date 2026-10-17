@@ -1,0 +1,27 @@
+## Interface: 16001
+## Title: AzerothVista
+## Notes: VanaVista-style party list, target bar and cast bars for WoW Forever.
+## Version: 0.1
+## SavedVariables: AzerothVistaDB
+
+core\secret.lua
+core\combat.lua
+core\style.lua
+core\curves.lua
+core\unitInfo.lua
+core\blizzard.lua
+core\editMode.lua
+core\demo.lua
+styles\shared.lua
+styles\xiv.lua
+styles\ffxiExpanded.lua
+elements\bar.lua
+elements\auraRow.lua
+elements\staticIcons.lua
+elements\levelBadge.lua
+elements\castBar.lua
+elements\partyRow.lua
+elements\partyList.lua
+elements\targetBar.lua
+AzerothVista.xml
+AzerothVista.lua
