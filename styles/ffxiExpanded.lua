@@ -68,8 +68,8 @@ AV.styles.ffxiExpanded = {
             color = '#FFD966FF',
         },
         classIcon = {
-            pos = { -11, -2 },
-            size = 36,
+            pos = { -13, -4 },
+            size = 40,
             bg = 'jobIcons/bg',
             gradient = 'jobIcons/gradient',
             frame = 'jobIcons/frame',
