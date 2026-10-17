@@ -23,6 +23,7 @@ elements\levelBadge.lua
 elements\indicators.lua
 elements\comboPoints.lua
 elements\castBar.lua
+elements\petRow.lua
 elements\partyRow.lua
 elements\partyList.lua
 elements\targetBar.lua

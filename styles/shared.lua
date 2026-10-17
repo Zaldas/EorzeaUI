@@ -21,6 +21,22 @@ function Kit.rowBar(art, frameColor, fillColor)
     }
 end
 
+-- VanaVista's short alliance bar (AllyBar*MP): a 128x64 frame whose line spans x 26..102,
+-- y 28..36 (soft edge 23..105, 26..38), filled over x 27..101.
+-- width (optional, default 128) three-slices the art; the line keeps 26px ends, the fill 27px.
+-- Texture columns 56..199 are uniform, so 60px caps keep the rounded ends intact.
+function Kit.allyBar(frameColor, fillColor, width)
+    width = width or 128
+    return {
+        width = width,
+        height = 64,
+        slice = width ~= 128 and { texSize = { 256, 128 }, cap = 60 } or nil,
+        bg = { path = 'ffxi/AllyBarBgMP', color = frameColor },
+        fill = { path = 'ffxi/AllyBarMP', color = fillColor, x = 27, width = width - 54 },
+        fg = { path = 'ffxi/AllyBarFgMP', color = frameColor },
+    }
+end
+
 -- Wide bars three-slice the ffxi frame art: 30px texture caps on a 256x128 texture.
 function Kit.wideBar(width, frameColor, fillColor)
     return {

@@ -89,16 +89,19 @@ local function makeInitializer(spec, fonts)
 end
 
 -- spec = { pos, size, spacing, max, timers }
+-- filter: an aura filter, or a list of filters laid out one after another in the row, each
+-- showing up to spec.max auras.
 function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
     ensureLoaded()
     local self = setmetatable({ unit = unit }, AuraRow)
+    local filters = type(filter) == 'table' and filter or { filter }
 
     local ok, container = pcall(CreateFrame, 'AuraContainer', nil, parent, 'CustomAuraContainerTemplate')
     if not ok or not container then
         AV.Print('AuraContainer unavailable (%s)', tostring(container))
         return self
     end
-    container:SetSize((spec.size + spec.spacing) * spec.max, spec.size)
+    container:SetSize((spec.size + spec.spacing) * spec.max * #filters, spec.size)
     AV.Style.Place(container, parent, spec.pos)
 
     local sortMethod = AuraContainerSortMethod and (AuraContainerSortMethod.Expiration or AuraContainerSortMethod.ExpirationOnly) or 4
@@ -112,18 +115,21 @@ function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
         if container.SetFlowLayoutAnchorPoint then
             container:SetFlowLayoutAnchorPoint('TOPLEFT')
         end
-        container:AddAuraGroup('row', filter, {
-            maxFrameCount = spec.max,
-            sortMethod = sortMethod,
-            sortDirection = sortDirection,
-            initializeFrame = makeInitializer(spec, fonts),
-            layout = { elementWidth = spec.size, elementHeight = spec.size, elementSpacing = spec.spacing },
-        })
+        -- Groups flow in registration order; trailing element spacing separates them.
+        for index, groupFilter in ipairs(filters) do
+            container:AddAuraGroup('row' .. index, groupFilter, {
+                maxFrameCount = spec.max,
+                sortMethod = sortMethod,
+                sortDirection = sortDirection,
+                initializeFrame = makeInitializer(spec, fonts),
+                layout = { elementWidth = spec.size, elementHeight = spec.size, elementSpacing = spec.spacing },
+            })
+        end
         container:SetEnabled(true)
         container:Show()
     end)
     if not setupOk then
-        AV.Print('AuraContainer %s %s setup failed: %s', unit, filter, tostring(err))
+        AV.Print('AuraContainer %s %s setup failed: %s', unit, table.concat(filters, '+'), tostring(err))
         container:Hide()
         return self
     end

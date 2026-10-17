@@ -15,7 +15,7 @@ AV.styles.ffxiExpanded = {
     party = {
         width = 410,
         rowHeight = 46,
-        rowSpacing = 5,
+        rowSpacing = 13,
         background = {
             color = '#FFFFFF80',
             pos = { 7, -11 },
@@ -91,6 +91,44 @@ AV.styles.ffxiExpanded = {
         indicators = Kit.partyIndicators(38, 3),
         buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6 },
         debuffs = { pos = { 284, 16 }, size = 18, spacing = 2, max = 6 },
+        -- Pet sub-row at the bottom of the owner's row, which grows by rowHeight while the pet
+        -- exists. A compact member row, in sub-row coordinates: name line on top, then HP and
+        -- power side by side on VanaVista's short alliance bars (lines x 29.5..106.5 and
+        -- 116.5..193.5, y 15..23), then happiness.
+        pet = {
+            rowHeight = 29,
+            -- The art draws this far above the sub-row, tucking it under the owner's row; the
+            -- sub-row's bottom then leaves the usual rowSpacing to the next member.
+            shiftUp = 3,
+            -- The job frame at 0.75 scale, its right edge on the HP line's start.
+            portrait = { pos = { 1, 3 }, size = 27, inset = 3.5 },
+            txtName = { pos = { 38, 1 }, width = 156, size = 12, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE },
+            hp = {
+                pos = { 4, -13 },
+                bar = Kit.allyBar('#FF9597FF', '#FF9597FF'),
+                txtValue = { pos = { 100, 34 }, size = 10, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true },
+                textColor = '#F0FFFFFF',
+                thresholds = Kit.HP_THRESHOLDS,
+            },
+            -- Tinted with party.power.colors.
+            power = {
+                pos = { 91, -13 },
+                bar = Kit.allyBar('#FFFF9CFF', '#FFFF9CFF'),
+                txtValue = { pos = { 100, 34 }, size = 10, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true },
+            },
+            -- Own pet only, replacing the name line while it casts, as members' cast bars do.
+            -- Spans the HP line's start to the power line's end (x 29.5..193.5).
+            cast = {
+                pos = { 4, -25 },
+                bar = Kit.allyBar('#6AB4F8FF', '#6AB4F8FF', 215),
+                txtName = { pos = { 29, 24 }, width = 160, size = 10, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number' },
+            },
+            -- Own hunter pet only, right of the power bar.
+            happiness = { pos = { 200, 10 }, size = { 20, 19 } },
+            hover = { path = 'ffxi/Hover', pos = { 20, -6 }, size = { 390, 44 }, color = '#9C94E8AA' },
+            -- Own pet only: debuffs then buffs in the party aura column, max of each.
+            auras = { pos = { 284, 7 }, size = 18, spacing = 2, max = 3 },
+        },
     },
 
     target = Kit.target({ frame = '#6AB4F8FF', fill = '#6AB4F8FF', text = castText }),

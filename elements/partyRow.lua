@@ -224,6 +224,7 @@ function AV.PartyRow.CreateDemo(parent, style, fonts, index)
     buildArt(self, host, style, fonts)
     self.buffs = AV.StaticIcons.Create(self.art, style.buffs, fonts)
     self.debuffs = AV.StaticIcons.Create(self.art, style.debuffs, fonts)
+    self.pet = AV.PetRow.CreateDemo(host, self, style, fonts)
     return self
 end
 
@@ -257,7 +258,7 @@ end
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
 --            state, resting, status, raidMarker, tag, role, pvp, cast, threat, powerType,
 --            combo, form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
---            buffs, debuffs }
+--            buffs, debuffs, pet (see PetRow ShowDemo) }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -314,6 +315,12 @@ function Row:ShowDemo(member)
 
     self.buffs:Set(member.buffs)
     self.debuffs:Set(member.debuffs)
+
+    -- The pet sub-row follows the form sub-row when both show.
+    local petY = self.style.rowHeight + (form and self.style.formRowHeight or 0)
+    self.pet.host:ClearAllPoints()
+    self.pet.host:SetPoint('TOPLEFT', self.host, 'TOPLEFT', 0, -petY)
+    self.pet:ShowDemo(member.pet)
 end
 
 function Row:SetUnit(unit)

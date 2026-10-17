@@ -2,8 +2,8 @@
 local root = ADDON_ROOT
 
 local methodOverrides = {
-    GetHeight = 768, GetWidth = 1366, GetFrameLevel = 1, IsShown = true, IsProtected = false,
-    GetAttribute = false, GetName = 'mock',
+    GetHeight = 768, GetWidth = 1366, GetFrameLevel = 1, IsShown = true, IsVisible = true, IsProtected = false,
+    GetName = 'mock',
 }
 
 local newFrame
@@ -15,6 +15,22 @@ local function methodResolver(t, k)
     end
     if k == 'SetScript' or k == 'HookScript' then
         return function(self, name, fn) rawset(self, '_' .. name, fn) end
+    end
+    -- Attributes are stored and fire OnAttributeChanged, as unit assignment relies on it.
+    if k == 'SetAttribute' then
+        return function(self, name, value)
+            local attrs = rawget(self, '_attrs') or {}
+            rawset(self, '_attrs', attrs)
+            attrs[name] = value
+            local hook = rawget(self, '_OnAttributeChanged')
+            if hook then hook(self, name, value) end
+        end
+    end
+    if k == 'GetAttribute' then
+        return function(self, name)
+            local attrs = rawget(self, '_attrs')
+            return attrs and attrs[name]
+        end
     end
     if k == 'GetPoint' then
         return function() return 'TOPLEFT', nil, 'TOPLEFT', 0, 0 end
@@ -86,6 +102,11 @@ UnitIsPVP = function() return true end
 UnitIsPVPFreeForAll = function() return false end
 UnitFactionGroup = function() return 'Horde', 'Horde' end
 UnitIsAFK = function() return true end
+WATCHED = {}
+RegisterUnitWatch = function(frame) WATCHED[#WATCHED + 1] = frame end
+SetPortraitTexture = function(texture, unit) PORTRAIT_UNIT = unit end
+HasPetUI = function() return true, true end
+C_PetInfo = { GetPetHappiness = function() return 3, 125, 1 end }
 C_IncomingSummon = { HasIncomingSummon = function() return true end, IncomingSummonStatus = function() return 1 end }
 date = os.date
 GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
@@ -160,6 +181,70 @@ onEvent(nil, 'READY_CHECK_CONFIRM', 'player')
 onEvent(nil, 'READY_CHECK_FINISHED')
 onEvent(nil, 'PLAYER_DEAD')
 onEvent(nil, 'ADDON_ACTION_BLOCKED', 'AzerothVista', 'TestFunction()')
+
+-- The header assigns units in the real client; pet buttons follow their owners.
+local owner1 = _G.AzerothVistaPartyHeaderUnitButton1
+local owner2 = _G.AzerothVistaPartyHeaderUnitButton2
+local petButton1 = _G.AzerothVistaPartyPetButton1
+local petButton2 = _G.AzerothVistaPartyPetButton2
+assert(petButton1 and petButton2, 'pet buttons not created')
+assert(#WATCHED == 5, 'pet buttons not unit-watched: ' .. #WATCHED)
+owner1:SetAttribute('unit', 'player')
+owner2:SetAttribute('unit', 'party1')
+assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))
+assert(petButton2:GetAttribute('unit') == 'partypet1', 'party pet unit: ' .. tostring(petButton2:GetAttribute('unit')))
+assert(AV.PartyList.PetForUnit('pet') and AV.PartyList.PetForUnit('partypet1'), 'pet lookup missing')
+assert(PORTRAIT_UNIT ~= nil, 'portrait never set')
+onEvent(nil, 'UNIT_PET', 'player')
+onEvent(nil, 'UNIT_HEALTH', 'pet')
+onEvent(nil, 'UNIT_POWER_UPDATE', 'partypet1')
+onEvent(nil, 'UNIT_DISPLAYPOWER', 'pet')
+onEvent(nil, 'UNIT_PORTRAIT_UPDATE', 'pet')
+onEvent(nil, 'UNIT_HAPPINESS', 'pet')
+onEvent(nil, 'UNIT_NAME_UPDATE', 'pet')
+onEvent(nil, 'PET_UI_UPDATE')
+onEvent(nil, 'UNIT_SPELLCAST_START', 'pet')
+onEvent(nil, 'UNIT_SPELLCAST_STOP', 'pet')
+petButton1._OnShow()
+petButton1._OnHide()
+
+-- Secure snippets run against stand-in frame handles: row height = base + form + pet.
+local function handle(frame)
+    local h = { heights = {} }
+    function h:GetAttribute(name) return frame:GetAttribute(name) end
+    function h:SetAttribute(name, value) frame:SetAttribute(name, value) end
+    function h:SetHeight(value) self.height = value end
+    function h:GetFrameRef(label) return self.refs and self.refs[label] end
+    return h
+end
+local function runSnippet(body, selfHandle, ...)
+    local fn = assert(loadstring('local self, stateid, newstate = ...\n' .. body))
+    fn(selfHandle, ...)
+end
+local ownerHandle = handle(owner1)
+local petHandle = handle(petButton1)
+petHandle.refs = { owner = ownerHandle }
+owner1:SetAttribute('av-form', false)
+runSnippet(petButton1:GetAttribute('_onshow'), petHandle)
+assert(ownerHandle.height == 46 + 29, 'pet show height: ' .. tostring(ownerHandle.height))
+local driver
+for _, frame in ipairs(eventFrames) do
+    if frame:GetAttribute('_onstate-druidform') then driver = frame end
+end
+assert(driver, 'druid driver missing')
+local driverHandle = handle(driver)
+local owner2Handle = handle(owner2)
+driverHandle.refs = { row1 = ownerHandle, row2 = owner2Handle }
+owner1:SetAttribute('av-player', true)
+owner2:SetAttribute('av-player', false)
+driver:SetAttribute('rowCount', 2)
+runSnippet(driver:GetAttribute('_onstate-druidform'), driverHandle, 'druidform', 'shifted')
+assert(ownerHandle.height == 46 + 22 + 29, 'shifted with pet height: ' .. tostring(ownerHandle.height))
+assert(owner2Handle.height == nil, 'druid snippet resized a party member row')
+runSnippet(petButton1:GetAttribute('_onhide'), petHandle)
+assert(ownerHandle.height == 46 + 22, 'pet hide height: ' .. tostring(ownerHandle.height))
+runSnippet(driver:GetAttribute('_onstate-druidform'), driverHandle, 'druidform', 'caster')
+assert(ownerHandle.height == 46, 'caster height: ' .. tostring(ownerHandle.height))
 TICK()
 AV.EditMode.SetUnlocked(true)
 AV.EditMode.SetUnlocked(false)

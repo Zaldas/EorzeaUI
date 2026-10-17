@@ -31,21 +31,39 @@ local function pick(list, count)
     return out
 end
 
+-- Pet auras run debuffs then buffs in one row.
+local function petAuras(debuffCount, buffCount)
+    local out = pick(DEBUFFS, debuffCount)
+    for i = 1, buffCount do
+        out[#out + 1] = BUFFS[i]
+    end
+    return out
+end
+
+local HUNTER_PET = {
+    name = 'Fang', icon = ICON .. 'Ability_Hunter_Pet_Wolf', hp = 1640, hpMax = 1920, power = 70, powerMax = 100, powerType = 2,
+    happiness = 3, auras = petAuras(1, 2),
+}
+local IMP = {
+    name = 'Zhaztak', icon = ICON .. 'Spell_Shadow_SummonImp', hp = 980, hpMax = 1210, power = 860, powerMax = 1350, powerType = 0,
+    cast = 'Firebolt',
+}
+
 local function members()
     local playerName = AV.UnitDisplayName('player') or 'You'
     local playerClass = select(2, UnitClass('player')) or 'PALADIN'
     local playerFaction = UnitFactionGroup and UnitFactionGroup('player') or 'Alliance'
     return {
         { name = playerName, class = playerClass, level = UnitLevel('player') or 60, leader = true, hp = 2870, hpMax = 3120, power = 2940, powerMax = 4200,
-          resting = true, pvp = playerFaction, powerType = 0, buffs = pick(BUFFS, 4), debuffs = {} },
+          resting = true, pvp = playerFaction, powerType = 0, buffs = pick(BUFFS, 4), debuffs = {}, pet = HUNTER_PET },
         { name = 'Brightmane Stormhold', class = 'WARRIOR', level = 60, hp = 4560, hpMax = 4560, power = 35, powerMax = 100,
           status = 'ready', raidMarker = 8, role = 'TANK', threat = 3, powerType = 1, masterLooter = true, buffs = pick(BUFFS, 3), debuffs = pick(DEBUFFS, 1) },
         { name = 'Velisandre Ashby', class = 'PRIEST', level = 59, hp = 1590, hpMax = 2480, incoming = 520, absorb = 240, power = 3360, powerMax = 4200,
           tag = 'AFK', role = 'HEALER', cast = 'Greater Heal', powerType = 0, assistant = true, masterLooter = true, buffs = pick(BUFFS, 6), debuffs = {} },
         { name = 'Korgath Ironhide', class = 'DRUID', level = 60, hp = 480, hpMax = 2890, power = 1800, powerMax = 3000, targeted = true,
           status = 'waiting', role = 'DAMAGER', raidMarker = 1, threat = 1, powerType = 0, combo = 3, form = { powerType = 3, power = 100, powerMax = 100 }, buffs = pick(BUFFS, 2), debuffs = pick(DEBUFFS, 2) },
-        { name = 'Ashwind Vale', class = 'MAGE', level = 58, hp = 0, hpMax = 2350, power = 920, powerMax = 4200, far = true,
-          state = 'dead', powerType = 0, status = 'notready', buffs = pick(BUFFS, 3), debuffs = pick(DEBUFFS, 3) },
+        { name = 'Ashwind Vale', class = 'WARLOCK', level = 58, hp = 1720, hpMax = 2350, power = 2100, powerMax = 3400,
+          powerType = 0, status = 'notready', buffs = pick(BUFFS, 3), debuffs = pick(DEBUFFS, 3), pet = IMP },
     }
 end
 

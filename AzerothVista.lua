@@ -45,6 +45,7 @@ local FEATURE_APIS = {
     'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
     'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
     'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell', 'GetShapeshiftForm', 'RegisterStateDriver',
+    'RegisterUnitWatch', 'SetPortraitTexture', 'HasPetUI', 'C_PetInfo',
 }
 
 local function logCapabilities()
@@ -96,19 +97,32 @@ local function initialize()
     AV.TargetBar.Refresh()
 end
 
--- Unit events route to the party row showing that unit and/or the target bar.
+-- Unit events route to the party row or pet sub-row showing that unit and/or the target bar.
 local function onUnitEvent(event, unit, arg3)
     local row = AV.PartyList.RowForUnit(unit)
+    local pet = AV.PartyList.PetForUnit(unit)
     if event == 'UNIT_HEALTH' or event == 'UNIT_MAXHEALTH' then
         if row then row:UpdateHealth(event == 'UNIT_HEALTH') end
+        if pet then pet:UpdateHealth(event == 'UNIT_HEALTH') end
         if unit == 'target' then AV.TargetBar.UpdateHealth(event == 'UNIT_HEALTH') end
     elseif event == 'UNIT_POWER_UPDATE' or event == 'UNIT_MAXPOWER' or event == 'UNIT_DISPLAYPOWER' then
         if row then
             row:UpdatePower(event == 'UNIT_POWER_UPDATE')
             row:UpdateCombo()
         end
+        if pet then pet:UpdatePower(event == 'UNIT_POWER_UPDATE') end
+    elseif event == 'UNIT_PET' then
+        -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
+        AV.PartyList.ForEachVisiblePet(function(visiblePet)
+            visiblePet:Refresh()
+        end)
+    elseif event == 'UNIT_PORTRAIT_UPDATE' then
+        if pet then pet:UpdatePortrait() end
+    elseif event == 'UNIT_HAPPINESS' then
+        if pet then pet:UpdateHappiness() end
     elseif event == 'UNIT_NAME_UPDATE' or event == 'UNIT_LEVEL' then
         if row then row:UpdateName() end
+        if pet then pet:UpdateName() end
         if unit == 'target' then AV.TargetBar.Refresh() end
     elseif event == 'UNIT_TARGET' then
         if unit == 'target' then AV.TargetBar.UpdateTargetOfTarget() end
@@ -134,6 +148,7 @@ local function onUnitEvent(event, unit, arg3)
             row:UpdateCast()
             row:UpdateCostPreview(event, arg3)
         end
+        if pet then pet:UpdateCast() end
         if unit == 'target' then AV.TargetBar.cast:Update() end
     end
 end
@@ -146,7 +161,7 @@ local UNIT_EVENTS = {
     'UNIT_SPELLCAST_CHANNEL_UPDATE', 'UNIT_SPELLCAST_SUCCEEDED',
     'UNIT_HEAL_PREDICTION', 'UNIT_ABSORB_AMOUNT_CHANGED', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
     'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED', 'UNIT_PHASE', 'UNIT_FACTION',
-    'UNIT_THREAT_SITUATION_UPDATE',
+    'UNIT_THREAT_SITUATION_UPDATE', 'UNIT_PET', 'UNIT_PORTRAIT_UPDATE', 'UNIT_HAPPINESS',
 }
 
 local GLOBAL_EVENTS = {
@@ -155,7 +170,7 @@ local GLOBAL_EVENTS = {
     'DISPLAY_SIZE_CHANGED', 'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST',
     'READY_CHECK', 'READY_CHECK_CONFIRM', 'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE',
     'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
-    'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM',
+    'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE',
 }
 
 local function forEachRow(method)
@@ -248,6 +263,10 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         forEachRow('UpdateRaidMarker')
     elseif event == 'PLAYER_ROLES_ASSIGNED' or event == 'ROLE_CHANGED_INFORM' then
         forEachRow('UpdateRole')
+    elseif event == 'PET_UI_UPDATE' then
+        AV.PartyList.ForEachVisiblePet(function(pet)
+            pet:UpdateHappiness()
+        end)
     else
         onUnitEvent(event, arg1, arg3)
     end
