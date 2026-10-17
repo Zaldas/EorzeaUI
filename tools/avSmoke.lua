@@ -19,7 +19,8 @@ local function methodResolver(t, k)
     if k == 'GetPoint' then
         return function() return 'TOPLEFT', nil, 'TOPLEFT', 0, 0 end
     end
-    if k == 'CreateTexture' or k == 'CreateFontString' or k == 'CreateMaskTexture' or k == 'GetStatusBarTexture' or k == 'GetParent' then
+    if k == 'CreateTexture' or k == 'CreateFontString' or k == 'CreateMaskTexture' or k == 'GetStatusBarTexture' or k == 'GetParent'
+        or k == 'CreateAnimationGroup' or k == 'CreateAnimation' then
         return function() return newFrame() end
     end
     return function() return nil end
@@ -68,6 +69,9 @@ UnitInRange = function() return true, true end
 UnitGroupRolesAssigned = function() return 'HEALER' end
 UnitThreatSituation = function() return 2 end
 UnitPowerType = function() return 3, 'ENERGY' end
+UnitIsGroupAssistant = function() return true end
+GetLootMethod = function() return 'master', 0, nil end
+C_Spell = { GetSpellPowerCost = function() return { { type = 3, cost = 35 } } end }
 UnitIsPVP = function() return true end
 UnitIsPVPFreeForAll = function() return false end
 UnitFactionGroup = function() return 'Horde', 'Horde' end
@@ -135,6 +139,10 @@ onEvent(nil, 'RAID_TARGET_UPDATE')
 onEvent(nil, 'UNIT_FACTION', 'player')
 onEvent(nil, 'UNIT_THREAT_SITUATION_UPDATE', 'player')
 onEvent(nil, 'PLAYER_ROLES_ASSIGNED')
+onEvent(nil, 'PARTY_LOOT_METHOD_CHANGED')
+onEvent(nil, 'UNIT_SPELLCAST_START', 'player', 'cast-guid', 1234)
+onEvent(nil, 'UNIT_SPELLCAST_SUCCEEDED', 'player', 'cast-guid', 1234)
+onEvent(nil, 'UNIT_SPELLCAST_STOP', 'player', 'cast-guid', 1234)
 onEvent(nil, 'READY_CHECK')
 onEvent(nil, 'READY_CHECK_CONFIRM', 'player')
 onEvent(nil, 'READY_CHECK_FINISHED')

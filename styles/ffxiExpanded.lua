@@ -42,6 +42,8 @@ AV.styles.ffxiExpanded = {
             txtValue = valueText,
             -- Keyed by UnitPowerType: 0 mana, 1 rage, 2 focus, 3 energy. Others keep the bar colour.
             colors = { [0] = '#8FB8FFFF', [1] = '#FF7A5CFF', [2] = '#FFB870FF', [3] = '#FFFF9CFF' },
+            -- Player row: the slice the current cast will spend, over the end of the fill.
+            cost = { color = '#FFFFFF99', fade = 0.25 },
         },
         -- Player row only. Pip 1 sits under the power bar's line (row y 18.5..31, fill from
         -- x 162). Steps keep dx == dy so facing 45-degree edges line up; the diamonds' ink is

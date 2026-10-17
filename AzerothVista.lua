@@ -44,7 +44,7 @@ local FEATURE_APIS = {
     'UnitPhaseReason', 'UnitInRange', 'CreateUnitHealPredictionCalculator', 'UnitGetDetailedHealPrediction',
     'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
     'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
-    'UnitPowerType',
+    'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell',
 }
 
 local function logCapabilities()
@@ -97,7 +97,7 @@ local function initialize()
 end
 
 -- Unit events route to the party row showing that unit and/or the target bar.
-local function onUnitEvent(event, unit)
+local function onUnitEvent(event, unit, arg3)
     local row = AV.PartyList.RowForUnit(unit)
     if event == 'UNIT_HEALTH' or event == 'UNIT_MAXHEALTH' then
         if row then row:UpdateHealth(event == 'UNIT_HEALTH') end
@@ -130,7 +130,10 @@ local function onUnitEvent(event, unit)
         if row then row:UpdateStatusIcon() end
     elseif event:find('^UNIT_SPELLCAST_') then
         if unit == 'player' then AV.playerCast:Update() end
-        if row then row:UpdateCast() end
+        if row then
+            row:UpdateCast()
+            row:UpdateCostPreview(event, arg3)
+        end
         if unit == 'target' then AV.TargetBar.cast:Update() end
     end
 end
@@ -140,7 +143,7 @@ local UNIT_EVENTS = {
     'UNIT_NAME_UPDATE', 'UNIT_LEVEL', 'UNIT_TARGET',
     'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP', 'UNIT_SPELLCAST_FAILED', 'UNIT_SPELLCAST_INTERRUPTED',
     'UNIT_SPELLCAST_DELAYED', 'UNIT_SPELLCAST_CHANNEL_START', 'UNIT_SPELLCAST_CHANNEL_STOP',
-    'UNIT_SPELLCAST_CHANNEL_UPDATE',
+    'UNIT_SPELLCAST_CHANNEL_UPDATE', 'UNIT_SPELLCAST_SUCCEEDED',
     'UNIT_HEAL_PREDICTION', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
     'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED', 'UNIT_PHASE', 'UNIT_FACTION',
     'UNIT_THREAT_SITUATION_UPDATE',
@@ -152,6 +155,7 @@ local GLOBAL_EVENTS = {
     'DISPLAY_SIZE_CHANGED', 'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST',
     'READY_CHECK', 'READY_CHECK_CONFIRM', 'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE',
     'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
+    'PARTY_LOOT_METHOD_CHANGED',
 }
 
 local function forEachRow(method)
@@ -171,7 +175,7 @@ for _, list in ipairs({ GLOBAL_EVENTS, UNIT_EVENTS }) do
     end
 end
 
-events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2)
+events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, arg3)
     if event == 'ADDON_LOADED' then
         if arg1 == addonName then
             loadSettings()
@@ -222,7 +226,10 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2)
     elseif event == 'PARTY_LEADER_CHANGED' then
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateLeader()
+            row:UpdateGroupRoles()
         end)
+    elseif event == 'PARTY_LOOT_METHOD_CHANGED' then
+        forEachRow('UpdateGroupRoles')
     elseif event == 'UI_SCALE_CHANGED' or event == 'DISPLAY_SIZE_CHANGED' then
         applyScale()
     elseif event == 'PLAYER_UPDATE_RESTING' then
@@ -236,7 +243,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2)
     elseif event == 'PLAYER_ROLES_ASSIGNED' or event == 'ROLE_CHANGED_INFORM' then
         forEachRow('UpdateRole')
     else
-        onUnitEvent(event, arg1)
+        onUnitEvent(event, arg1, arg3)
     end
 end))
 

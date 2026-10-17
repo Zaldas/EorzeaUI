@@ -37,7 +37,7 @@ local function buildArt(self, host, style, fonts)
     self.hpCurve = AV.Curves.Step(style.hp.thresholds, style.hp.textColor)
     self.lowHealthCurve = AV.Curves.Step({ style.lowHealth }, '#FFFFFFFF')
 
-    self.power = AV.Bar.Create(art, style.power.bar, style.power.pos)
+    self.power = AV.Bar.Create(art, style.power.bar, style.power.pos, { cost = style.power.cost })
     self.powerText = Style.Text(self.power.overlay, style.power.txtValue, fonts)
 
     if style.cast then
@@ -316,6 +316,7 @@ function Row:Refresh()
     self:UpdateHealth(false)
     self:UpdatePower(false)
     self:UpdateLeader()
+    self:UpdateGroupRoles()
     self:UpdateRange()
     self:UpdateCursor()
     self:UpdateCast()
@@ -508,6 +509,74 @@ function Row:UpdateCombo()
         AV.LogOnce('combo:secret', 'combo points are secret; drawn through StatusBar ranges')
     end
     self.combo:SetCount(count)
+end
+
+-- Loot-method APIs: C_PartyInfo.GetLootMethod (Enum.LootMethod) or the older GetLootMethod
+-- ('master'). Both return the master looter's party index (0 = player) and raid index.
+local function masterLooterGuid()
+    local getter = (C_PartyInfo and C_PartyInfo.GetLootMethod) or GetLootMethod
+    if not getter then
+        return nil
+    end
+    local ok, method, partyIndex, raidIndex = pcall(getter)
+    if not ok then
+        AV.LogOnce('lootMethod:error', 'loot method: %s', tostring(method))
+        return nil
+    end
+    local masterEnum = Enum and Enum.LootMethod and Enum.LootMethod.Masterlooter
+    if method ~= 'master' and (masterEnum == nil or method ~= masterEnum) then
+        return nil
+    end
+    local unit
+    if raidIndex then
+        unit = 'raid' .. raidIndex
+    elseif partyIndex == 0 then
+        unit = 'player'
+    elseif partyIndex then
+        unit = 'party' .. partyIndex
+    end
+    return unit and AV.SafeValue(UnitGUID, unit)
+end
+
+function Row:UpdateGroupRoles()
+    local unit = self.unit
+    self.indicators:SetAssistant(AV.Read('UnitIsGroupAssistant', UnitIsGroupAssistant, unit) == true)
+    local looter = masterLooterGuid()
+    self.indicators:SetMasterLooter(looter ~= nil and looter == AV.SafeValue(UnitGUID, unit))
+end
+
+-- The cost of spellID in the player's current power type, or nil.
+local function spellCost(spellID)
+    if not (C_Spell and C_Spell.GetSpellPowerCost) or not AV.CanAccess(spellID) then
+        AV.LogOnce('cost:unavailable', 'cost preview: spell ID secret or GetSpellPowerCost missing')
+        return nil
+    end
+    local powerType = AV.Read('UnitPowerType', UnitPowerType, 'player')
+    local ok, costs = pcall(C_Spell.GetSpellPowerCost, spellID)
+    if not ok or type(costs) ~= 'table' then
+        return nil
+    end
+    for _, info in ipairs(costs) do
+        local kind, cost = info.type, info.cost
+        if AV.CanAccess(kind) and AV.CanAccess(cost) and kind == powerType and cost and cost > 0 then
+            return cost
+        end
+    end
+    return nil
+end
+
+-- Player row only: shade the power the cast in progress will spend, fade it once it lands.
+function Row:UpdateCostPreview(event, spellID)
+    if not self:IsPlayer() then
+        return
+    end
+    if event == 'UNIT_SPELLCAST_START' then
+        self.power:SetCost(spellCost(spellID), UnitPowerMax('player'))
+    elseif event == 'UNIT_SPELLCAST_SUCCEEDED' then
+        self.power:CommitCost()
+    elseif event == 'UNIT_SPELLCAST_STOP' or event == 'UNIT_SPELLCAST_FAILED' or event == 'UNIT_SPELLCAST_INTERRUPTED' then
+        self.power:SetCost(nil)
+    end
 end
 
 function Row:UpdateLeader()

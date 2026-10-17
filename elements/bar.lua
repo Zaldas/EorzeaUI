@@ -46,7 +46,42 @@ local function createPrediction(self, frame, spec, predictionSpec)
     self.prediction = { bar = bar, calculator = calculator }
 end
 
--- spec: see styles/shared.lua (rowBar / wideBar). opts = { prediction = { color } }
+-- Spell-cost segment ending at the fill's right edge: a reverse-filling StatusBar the width of
+-- the fill, so the engine sizes the cost against a possibly secret maximum.
+local function createCostPreview(self, frame, spec, costSpec)
+    local clip = CreateFrame('Frame', nil, frame)
+    clip:SetSize(spec.fill.width, spec.height)
+    clip:SetPoint('TOPLEFT', frame, 'TOPLEFT', spec.fill.x, 0)
+    clip:SetFrameLevel(self.status:GetFrameLevel() + 1)
+    if clip.SetClipsChildren then
+        clip:SetClipsChildren(true)
+    end
+    local bar = CreateFrame('StatusBar', nil, clip)
+    bar:SetSize(spec.fill.width, spec.height)
+    bar:SetPoint('TOPRIGHT', self.status:GetStatusBarTexture(), 'TOPRIGHT', 0, 0)
+    bar:SetStatusBarTexture(Style.AssetPath(spec.fill.path))
+    bar:SetStatusBarColor(Style.Color(costSpec.color))
+    if bar.SetReverseFill then
+        bar:SetReverseFill(true)
+    end
+    bar:SetMinMaxValues(0, 1)
+    bar:SetValue(0)
+
+    -- On a successful cast the segment fades while the real fill drops to its new value.
+    local fade = bar:CreateAnimationGroup()
+    local alpha = fade:CreateAnimation('Alpha')
+    alpha:SetFromAlpha(1)
+    alpha:SetToAlpha(0)
+    alpha:SetDuration(costSpec.fade or 0.25)
+    fade:SetScript('OnFinished', function()
+        bar:SetValue(0)
+        bar:SetAlpha(1)
+    end)
+    self.cost = { bar = bar, fade = fade }
+end
+
+-- spec: see styles/shared.lua (rowBar / wideBar).
+-- opts = { prediction = { color }, cost = { color, fade } }
 function AV.Bar.Create(parent, spec, pos, opts)
     local self = setmetatable({ spec = spec }, Bar)
 
@@ -68,6 +103,9 @@ function AV.Bar.Create(parent, spec, pos, opts)
 
     if opts and opts.prediction then
         createPrediction(self, frame, spec, opts.prediction)
+    end
+    if opts and opts.cost then
+        createCostPreview(self, frame, spec, opts.cost)
     end
 
     -- Foreground art sits above the fill and the heal prediction.
@@ -94,6 +132,31 @@ function Bar:SetValue(value, smooth)
         end
     end
     pcall(self.status.SetValue, self.status, value)
+end
+
+-- amount: plain spell cost, or nil/0 to clear. maxValue may be secret.
+-- Clearing is ignored while a commit fade runs, since the cast's STOP follows its SUCCEEDED.
+function Bar:SetCost(amount, maxValue)
+    local cost = self.cost
+    if not cost then
+        return
+    end
+    if not amount or amount <= 0 then
+        if not cost.fade:IsPlaying() then
+            cost.bar:SetValue(0)
+        end
+        return
+    end
+    cost.fade:Stop()
+    cost.bar:SetAlpha(1)
+    pcall(cost.bar.SetMinMaxValues, cost.bar, 0, maxValue or 1)
+    cost.bar:SetValue(amount)
+end
+
+function Bar:CommitCost()
+    if self.cost then
+        self.cost.fade:Play()
+    end
 end
 
 -- amount and maxValue may be secret.
