@@ -2,7 +2,7 @@ local _, AV = ...
 
 -- Target bar: HP bar, name coloured by unit kind and claim, HP%, a class icon or portrait with
 -- the level badge, debuff/buff rows, target cast bar, and a target-of-target mini bar.
--- Non-attackable NPCs get a separator line instead of the HP bar.
+-- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- Not secure: it only displays, so it may show/hide in combat.
 
 AV.TargetBar = {}
@@ -64,6 +64,14 @@ local function createIcon(parent, spec, fonts, frameLevel)
     TargetBar.levelBadge = AV.LevelBadge.Create(frame, frame, spec.levelBadge, fonts)
     TargetBar.levelBadge.frame:SetFrameLevel(frameLevel + 2)
     TargetBar.icon = frame
+
+    local markers = CreateFrame('Frame', nil, parent)
+    markers:SetAllPoints(parent)
+    markers:SetFrameLevel(frameLevel + 3)
+    TargetBar.pvp = markers:CreateTexture(nil, 'OVERLAY')
+    TargetBar.pvp:SetSize(spec.pvp.size[1], spec.pvp.size[2])
+    Style.Place(TargetBar.pvp, markers, spec.pvp.pos)
+    TargetBar.pvp:Hide()
 end
 
 function TargetBar.Create(style, fonts)
@@ -154,7 +162,27 @@ local function applyNameColor(key)
     local hex = TargetBar.spec.nameColors[key]
     TargetBar.name:SetTextColor(Style.Color(hex))
     colorSeparator(TargetBar.separator, hex, TargetBar.spec.separator)
-    setNpcMode(key == 'npc')
+end
+
+-- kind: 'FFA' | 'Alliance' | 'Horde' | nil
+local function setPvP(kind)
+    if kind == TargetBar.pvpKind then
+        return
+    end
+    TargetBar.pvpKind = kind
+    if kind then
+        AV.Indicators.SetPvPIcon(TargetBar.pvp, kind)
+    end
+    TargetBar.pvp:SetShown(kind ~= nil)
+end
+
+local function readPvP(unit)
+    if AV.Read('UnitIsPVPFreeForAll', UnitIsPVPFreeForAll, unit) then
+        return 'FFA'
+    elseif AV.Read('UnitIsPVP', UnitIsPVP, unit) then
+        return AV.Read('UnitFactionGroup', UnitFactionGroup, unit)
+    end
+    return nil
 end
 
 -- r, g, b for a level, or nil. unit (optional) uses the client's content difficulty.
@@ -221,8 +249,8 @@ function TargetBar.UpdateIcon()
     setIcon('target', AV.Read('UnitIsPlayer', UnitIsPlayer, 'target') == true)
 end
 
--- Name colour and NPC mode; claim and combat state change without a dedicated event, so the
--- main ticker calls this too.
+-- Name colour, NPC mode and PvP badge; claim and combat state change without a dedicated
+-- event, so the main ticker calls this too.
 function TargetBar.UpdateIdentity()
     if TargetBar.preview or not UnitExists('target') then
         return
@@ -232,6 +260,9 @@ function TargetBar.UpdateIdentity()
         TargetBar.colorKey = key
         applyNameColor(key)
     end
+    -- An NPC in combat (escorts, guards) shows its HP.
+    setNpcMode(key == 'npc' and not AV.Read('UnitAffectingCombat', UnitAffectingCombat, 'target'))
+    setPvP(readPvP('target'))
 end
 
 function TargetBar.Refresh()
@@ -304,7 +335,7 @@ local function setLiveAurasShown(shown)
     end
 end
 
--- data = { name, level, classification, colorKey, portraitUnit, hpPercent, debuffs, buffs,
+-- data = { name, level, classification, colorKey, pvp, portraitUnit, hpPercent, debuffs, buffs,
 -- castName, castProgress, totName, totColorKey, totPercent }, or nil to restore live updates.
 function TargetBar.SetPreview(data)
     TargetBar.preview = data ~= nil
@@ -326,6 +357,8 @@ function TargetBar.SetPreview(data)
     TargetBar.content:Show()
     TargetBar.name:SetText(data.name)
     applyNameColor(data.colorKey)
+    setNpcMode(false)
+    setPvP(data.pvp)
     TargetBar.colorKey = nil
     TargetBar.hpp:SetText(string.format('%d%%', data.hpPercent))
     setIcon(data.portraitUnit, false)

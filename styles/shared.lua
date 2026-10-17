@@ -138,6 +138,8 @@ function Kit.target(cast)
             classification = { worldboss = '#FFD100FF', elite = '#FFD100FF', rareelite = '#D0D8E8FF', rare = '#D0D8E8FF' },
         },
         levelBadge = Kit.levelBadge,
+        -- Straddles the icon's left edge in its lower half, as on the party rows.
+        pvp = { pos = { -49, 27 }, size = { 22, 22 } },
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         txtName = { pos = { 20, 15 }, size = 17, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE },
         txtHpp = { pos = { 523, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },

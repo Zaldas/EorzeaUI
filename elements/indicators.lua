@@ -206,13 +206,17 @@ function Indicators:SetPvP(kind)
         return
     end
     self.pvpKind = kind
-    local icon = kind and PVP_ICONS[kind]
+    self.pvp:SetShown(kind ~= nil and AV.Indicators.SetPvPIcon(self.pvp, kind))
+end
+
+-- Applies the badge for kind ('FFA' | 'Alliance' | 'Horde') to texture; false for an unknown kind.
+function AV.Indicators.SetPvPIcon(texture, kind)
+    local icon = PVP_ICONS[kind]
     if not icon then
-        self.pvp:Hide()
-        return
+        return false
     end
-    Style.SetAtlas(self.pvp, icon.atlas, { path = icon.path, coords = PVP_SHEET_COORDS })
-    self.pvp:Show()
+    Style.SetAtlas(texture, icon.atlas, { path = icon.path, coords = PVP_SHEET_COORDS })
+    return true
 end
 
 -- A raid marker sits where the name starts and pushes the name right.
