@@ -88,6 +88,7 @@ function PartyList.Create(style, fonts)
 
     local bgSpec = partyStyle.background
     local bg = CreateFrame('Frame', nil, anchor)
+    bg:SetAllPoints(anchor)
     bg:SetFrameLevel(anchor:GetFrameLevel())
     local r, g, b, a = AV.Style.Color(bgSpec.color)
     local function bgPiece(path, height)
