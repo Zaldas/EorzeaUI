@@ -39,6 +39,16 @@ local function buildArt(self, host, style, fonts)
     self.power = AV.Bar.Create(art, style.power.bar, style.power.pos)
     self.powerText = Style.Text(self.power.overlay, style.power.txtValue, fonts)
 
+    if style.cast then
+        self.cast = AV.CastBar.Create(art, nil, style.cast, fonts, style.cast.pos)
+        -- The cast bar takes the name row. Alpha, not Hide, so marker updates mid-cast stick.
+        self.cast.onVisibility = function(casting)
+            local alpha = casting and 0 or 1
+            self.name:SetAlpha(alpha)
+            self.indicators.raidMarker:SetAlpha(alpha)
+        end
+    end
+
     local iconSpec = style.classIcon
     local iconFrame = CreateFrame('Frame', nil, art)
     iconFrame:SetSize(iconSpec.size, iconSpec.size)
@@ -189,7 +199,7 @@ local function thresholdColor(style, fraction)
 end
 
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
---            state, resting, status, raidMarker, tag, role, pvp, buffs, debuffs }
+--            state, resting, status, raidMarker, tag, role, pvp, cast, buffs, debuffs }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -214,6 +224,9 @@ function Row:ShowDemo(member)
     indicators:SetRaidMarker(member.raidMarker)
     indicators:SetRole(member.role)
     indicators:SetPvP(member.pvp)
+    if self.cast then
+        self.cast:SetPreview(member.cast, 0.4)
+    end
     indicators:LayoutNameLine(self.name)
 
     self.power:SetRange(member.powerMax)
@@ -240,6 +253,9 @@ function Row:SetUnit(unit)
     AV.PartyList.OnRowUnitChanged(self, previous, unit)
     if unit then
         self.buffs:SetUnit(unit)
+        if self.cast then
+            self.cast:SetUnit(unit)
+        end
         self.debuffs:SetUnit(unit)
         self:Refresh()
     end
@@ -255,6 +271,7 @@ function Row:Refresh()
     self:UpdateLeader()
     self:UpdateRange()
     self:UpdateCursor()
+    self:UpdateCast()
     self:UpdateFlags()
     self:UpdateRole()
     self:UpdatePvP()
@@ -314,6 +331,12 @@ end
 function Row:UpdateState()
     self:UpdateHealth(false)
     self:UpdateRange()
+end
+
+function Row:UpdateCast()
+    if self.cast then
+        self.cast:Update()
+    end
 end
 
 function Row:UpdateFlags()

@@ -124,6 +124,7 @@ local function onUnitEvent(event, unit)
         if row then row:UpdateStatusIcon() end
     elseif event:find('^UNIT_SPELLCAST_') then
         if unit == 'player' then AV.playerCast:Update() end
+        if row then row:UpdateCast() end
         if unit == 'target' then AV.TargetBar.cast:Update() end
     end
 end

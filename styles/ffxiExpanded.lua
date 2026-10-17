@@ -51,6 +51,13 @@ AV.styles.ffxiExpanded = {
         hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
         cursor = { path = 'ffxi/Cursor', pos = { -45, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
         txtName = { pos = { 38, 3 }, width = 242, size = 17, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE },
+        -- Replaces the name row while the member casts, spanning the HP and power bars (x 19..278).
+        -- Spell name in the target cast bar's text style, 1px higher on the bar.
+        cast = {
+            pos = { 19, -19 },
+            bar = Kit.wideBar(259, '#6AB4F8FF', '#6AB4F8FF'),
+            txtName = Kit.castName(castText, 219, -1),
+        },
         levelBadge = Kit.levelBadge,
         indicators = Kit.partyIndicators(38, 3),
         buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6 },

@@ -41,7 +41,7 @@ local function members()
         { name = 'Brightmane Stormhold', class = 'WARRIOR', level = 60, hp = 4560, hpMax = 4560, power = 35, powerMax = 100,
           status = 'ready', raidMarker = 8, role = 'TANK', buffs = pick(BUFFS, 3), debuffs = pick(DEBUFFS, 1) },
         { name = 'Velisandre Ashby', class = 'PRIEST', level = 59, hp = 1590, hpMax = 2480, incoming = 520, power = 3360, powerMax = 4200,
-          tag = 'AFK', role = 'HEALER', buffs = pick(BUFFS, 6), debuffs = {} },
+          tag = 'AFK', role = 'HEALER', cast = 'Greater Heal', buffs = pick(BUFFS, 6), debuffs = {} },
         { name = 'Korgath Ironhide', class = 'ROGUE', level = 60, hp = 1100, hpMax = 2890, power = 100, powerMax = 100, targeted = true,
           status = 'waiting', role = 'DAMAGER', raidMarker = 1, buffs = pick(BUFFS, 2), debuffs = pick(DEBUFFS, 2) },
         { name = 'Ashwind Vale', class = 'MAGE', level = 58, hp = 0, hpMax = 2350, power = 920, powerMax = 4200, far = true,

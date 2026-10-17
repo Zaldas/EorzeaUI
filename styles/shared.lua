@@ -18,8 +18,8 @@ function Kit.rowBar(art, frameColor, fillColor, glowColor)
         bg = { path = art .. '/BarBG', color = frameColor },
         fill = { path = art .. '/Bar', color = fillColor, x = 13, width = 102 },
         fg = { path = art .. '/BarFG', color = frameColor },
-        glow = { path = art .. '/BarGlow', color = glowColor, width = 6 },
-        glowSides = { path = art .. '/BarGlowSides', color = glowColor, x = 11, width = 2 },
+        glow = glowColor and { path = art .. '/BarGlow', color = glowColor, width = 6 } or nil,
+        glowSides = glowColor and { path = art .. '/BarGlowSides', color = glowColor, x = 11, width = 2 } or nil,
     }
 end
 
@@ -68,11 +68,13 @@ Kit.HP_THRESHOLDS = {
     { below = 0.75, color = '#F3F37CFF' },
 }
 
--- Spell name for both cast bars. text = { color, size, font, baseline }; baseline is the
--- text's bottom edge in bar pixels, shared so both names sit at the same height on their bars.
-function Kit.castName(text)
+-- Spell name for the cast bars. text = { color, size, font, baseline }; baseline is the
+-- text's bottom edge in bar pixels, shared so every name sits at the same height on its bar.
+-- width (optional) truncates the name; yOffset (optional) shifts it from the shared baseline.
+function Kit.castName(text, width, yOffset)
     return {
-        pos = { 20, text.baseline - text.size },
+        pos = { 20, text.baseline - text.size + (yOffset or 0) },
+        width = width,
         size = text.size,
         color = text.color,
         stroke = Kit.STROKE_BLUE,
