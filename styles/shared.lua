@@ -38,8 +38,8 @@ end
 
 Kit.FONTS = { name = 'arial.ttf', number = 'grammara.ttf', timer = 'consola.ttf', badge = 'Fonts\\FRIZQT__.TTF' }
 
--- Level number centred on the class icon's bottom edge.
-Kit.levelBadge = { size = { 32, 18 }, textSize = 13, color = '#FFFFFFFF', edge = 'BOTTOM', overlap = 0.5 }
+-- Level number on the class icon's bottom edge.
+Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, color = '#FFFFFFFF', edge = 'BOTTOM', overlap = 0.5 }
 
 Kit.HP_THRESHOLDS = {
     { below = 0.25, color = '#FC8182FF' },

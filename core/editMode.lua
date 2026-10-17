@@ -11,7 +11,7 @@ local movers = {}
 local DEFAULT_POSITIONS = {
     party = { 'TOPLEFT', 'TOPLEFT', 60, -260 },
     target = { 'TOP', 'TOP', 0, -140 },
-    cast = { 'CENTER', 'CENTER', 0, -360 },
+    cast = { 'CENTER', 'CENTER', 0, -148 },
 }
 
 function EditMode.RestorePosition(key, frame)
