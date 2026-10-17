@@ -31,7 +31,17 @@ function AV.LevelBadge.Create(parent, anchor, spec, fonts)
     self.text:SetJustifyH('CENTER')
     self.text:SetJustifyV('MIDDLE')
     self.text:SetTextColor(AV.Style.Color(spec.color))
+    self.color = spec.color
     return self
+end
+
+-- r, g, b in 0..1, or nil to restore the spec colour.
+function LevelBadge:SetColor(r, g, b)
+    if r then
+        self.text:SetTextColor(r, g, b, 1)
+    else
+        self.text:SetTextColor(AV.Style.Color(self.color))
+    end
 end
 
 -- level: number, or nil to hide. Non-positive levels (unknown) show "??".

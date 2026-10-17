@@ -89,6 +89,7 @@ local function initialize()
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateRange()
         end)
+        AV.TargetBar.UpdateIdentity()
         AV.TargetBar.UpdateTargetOfTarget()
     end))
 
@@ -118,6 +119,7 @@ local function onUnitEvent(event, unit, arg3)
         end)
     elseif event == 'UNIT_PORTRAIT_UPDATE' then
         if pet then pet:UpdatePortrait() end
+        if unit == 'target' then AV.TargetBar.UpdateIcon() end
     elseif event == 'UNIT_HAPPINESS' then
         if pet then pet:UpdateHappiness() end
     elseif event == 'UNIT_NAME_UPDATE' or event == 'UNIT_LEVEL' then
@@ -136,8 +138,10 @@ local function onUnitEvent(event, unit, arg3)
             row:UpdateState()
             row:UpdatePvP()
         end
+        if unit == 'target' then AV.TargetBar.UpdateIdentity() end
     elseif event == 'UNIT_FACTION' then
         if row then row:UpdatePvP() end
+        if unit == 'target' then AV.TargetBar.UpdateIdentity() end
     elseif event == 'UNIT_THREAT_SITUATION_UPDATE' then
         if row then row:UpdateThreat() end
     elseif event == 'INCOMING_SUMMON_CHANGED' or event == 'INCOMING_RESURRECT_CHANGED' or event == 'UNIT_PHASE' then

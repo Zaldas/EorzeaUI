@@ -78,6 +78,9 @@ IsResting = function() return true end
 UnitIsConnected = function() return true end
 UnitIsDead = function() return false end
 UnitIsGhost = function() return false end
+UnitIsDeadOrGhost = function() return false end
+UnitPlayerControlled = function() return false end
+UnitClassification = function() return 'elite' end
 UnitIsDND = function() return false end
 GetReadyCheckStatus = function() return 'waiting' end
 GetRaidTargetIndex = function() return 8 end
@@ -200,6 +203,7 @@ onEvent(nil, 'UNIT_HEALTH', 'pet')
 onEvent(nil, 'UNIT_POWER_UPDATE', 'partypet1')
 onEvent(nil, 'UNIT_DISPLAYPOWER', 'pet')
 onEvent(nil, 'UNIT_PORTRAIT_UPDATE', 'pet')
+onEvent(nil, 'UNIT_PORTRAIT_UPDATE', 'target')
 onEvent(nil, 'UNIT_HAPPINESS', 'pet')
 onEvent(nil, 'UNIT_NAME_UPDATE', 'pet')
 onEvent(nil, 'PET_UI_UPDATE')

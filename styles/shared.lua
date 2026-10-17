@@ -107,18 +107,42 @@ function Kit.target(cast)
         width = 786,
         height = 120,
         bar = Kit.wideBar(537, '#FF9597FF', '#FF9597FF'),
-        reactionColors = {
-            hostile = '#FF9597FF',
-            neutral = '#F3F37CFF',
-            friendly = '#95D5FFFF',
+        -- VanaVista's target name colours: FFXI's entity and claim colours, with WoW tapping
+        -- standing in for claim.
+        nameColors = {
+            npc = '#66FF66FF',
+            party = '#00FFFFFF',
+            player = '#FFFFFFFF',
+            unclaimed = '#FFFF66FF',
+            claimed = '#FF6666FF',
+            otherClaim = '#FF66FFFF',
+            hostilePlayer = '#FF6666FF',
         },
+        -- Non-attackable NPCs: this line replaces the HP bar, over its fill area (x 13..524)
+        -- at the line's centre, in the name colour at `alpha` mid-line, fading to `leftAlpha`
+        -- at the icon end and to 0 at the right.
+        separator = { pos = { 13, 31 }, width = 511, height = 2, alpha = 0.6, leftAlpha = 0.4 },
+        -- Class icon for players, portrait for NPCs, in the party job frame. Spans x -38..8,
+        -- y 5..51, centred on the name's top to the bar line's bottom, its right edge 5px
+        -- before the fill. inset keeps the party's 5px-at-40 ratio.
+        icon = {
+            pos = { -38, 5 },
+            size = 46,
+            inset = 5.75,
+            bg = 'jobIcons/bg',
+            gradient = 'jobIcons/gradient',
+            frame = 'jobIcons/frame',
+            -- Frame tint by UnitClassification; others keep the art's colour.
+            classification = { worldboss = '#FFD100FF', elite = '#FFD100FF', rareelite = '#D0D8E8FF', rare = '#D0D8E8FF' },
+        },
+        levelBadge = Kit.levelBadge,
+        lowHealth = { below = 0.2, color = '#FF0000FF' },
         txtName = { pos = { 20, 15 }, size = 17, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE },
-        txtHpp = { pos = { 515, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
-        txtLevel = { pos = { 520, 38 }, size = 12, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
+        txtHpp = { pos = { 523, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
         debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true },
         buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true },
         cast = {
-            pos = { 225, -15 },
+            pos = { 233, -15 },
             bar = Kit.wideBar(234, cast.frame, cast.fill),
             txtName = Kit.castName(cast.text),
         },

@@ -69,10 +69,10 @@ end
 
 local function target()
     return {
-        name = 'Defias Pillager', level = 18, hpPercent = 46,
+        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', portraitUnit = 'player', hpPercent = 46,
         debuffs = pick(DEBUFFS, 4), buffs = pick(BUFFS, 1),
         castName = 'Fireball', castProgress = 0.6,
-        totName = AV.UnitDisplayName('player') or 'You', totPercent = 92,
+        totName = AV.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,
     }
 end
 
