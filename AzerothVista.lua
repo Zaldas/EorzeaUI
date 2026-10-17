@@ -37,12 +37,34 @@ local function createPlayerCastBar(style, fonts)
     AV.playerCast = AV.CastBar.Create(anchor, 'player', spec, fonts, { 0, 0 })
 end
 
+-- APIs behind optional features; missing ones are logged once per session.
+local FEATURE_APIS = {
+    'IsResting', 'UnitIsConnected', 'UnitIsDead', 'UnitIsGhost', 'UnitIsAFK', 'UnitIsDND',
+    'GetReadyCheckStatus', 'GetRaidTargetIndex', 'C_IncomingSummon', 'UnitHasIncomingResurrection',
+    'UnitPhaseReason', 'UnitInRange', 'CreateUnitHealPredictionCalculator', 'UnitGetDetailedHealPrediction',
+    'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
+    'UnitIsPVPFreeForAll', 'UnitFactionGroup',
+}
+
+local function logCapabilities()
+    local missing = {}
+    for _, name in ipairs(FEATURE_APIS) do
+        if _G[name] == nil then
+            missing[#missing + 1] = name
+        end
+    end
+    AV.Log('capabilities: %s', #missing == 0 and 'all feature APIs present' or 'missing ' .. table.concat(missing, ', '))
+end
+
 local function initialize()
     if not AV.styles[AV.db.style] then
         AV.db.style = DEFAULTS.style
     end
     local style = AV.styles[AV.db.style]
     local fonts = style.fonts
+    AV.LogSession()
+    logCapabilities()
+    AV.inCombat = AV.SafeBool(UnitAffectingCombat, 'player')
 
     local suf = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded('SleekUnitFrames')
     if suf then
@@ -61,12 +83,12 @@ local function initialize()
     AV.Blizzard.HideReplaced()
     applyScale()
 
-    C_Timer.NewTicker(RANGE_TICK, function()
+    C_Timer.NewTicker(RANGE_TICK, AV.Guard('range ticker', function()
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateRange()
         end)
         AV.TargetBar.UpdateTargetOfTarget()
-    end)
+    end))
 
     AV.ready = true
     AV.PartyList.RefreshAll()
@@ -86,6 +108,20 @@ local function onUnitEvent(event, unit)
         if unit == 'target' then AV.TargetBar.Refresh() end
     elseif event == 'UNIT_TARGET' then
         if unit == 'target' then AV.TargetBar.UpdateTargetOfTarget() end
+    elseif event == 'UNIT_HEAL_PREDICTION' then
+        if row then row:UpdateHealPrediction() end
+    elseif event == 'UNIT_CONNECTION' then
+        if row then row:UpdateState() end
+    elseif event == 'UNIT_FLAGS' or event == 'PLAYER_FLAGS_CHANGED' then
+        if row then
+            row:UpdateFlags()
+            row:UpdateState()
+            row:UpdatePvP()
+        end
+    elseif event == 'UNIT_FACTION' then
+        if row then row:UpdatePvP() end
+    elseif event == 'INCOMING_SUMMON_CHANGED' or event == 'INCOMING_RESURRECT_CHANGED' or event == 'UNIT_PHASE' then
+        if row then row:UpdateStatusIcon() end
     elseif event:find('^UNIT_SPELLCAST_') then
         if unit == 'player' then AV.playerCast:Update() end
         if unit == 'target' then AV.TargetBar.cast:Update() end
@@ -98,22 +134,36 @@ local UNIT_EVENTS = {
     'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP', 'UNIT_SPELLCAST_FAILED', 'UNIT_SPELLCAST_INTERRUPTED',
     'UNIT_SPELLCAST_DELAYED', 'UNIT_SPELLCAST_CHANNEL_START', 'UNIT_SPELLCAST_CHANNEL_STOP',
     'UNIT_SPELLCAST_CHANNEL_UPDATE',
+    'UNIT_HEAL_PREDICTION', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
+    'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED', 'UNIT_PHASE', 'UNIT_FACTION',
 }
 
-local events = CreateFrame('Frame')
-events:RegisterEvent('ADDON_LOADED')
-events:RegisterEvent('PLAYER_ENTERING_WORLD')
-events:RegisterEvent('PLAYER_REGEN_ENABLED')
-events:RegisterEvent('PLAYER_TARGET_CHANGED')
-events:RegisterEvent('GROUP_ROSTER_UPDATE')
-events:RegisterEvent('PARTY_LEADER_CHANGED')
-events:RegisterEvent('UI_SCALE_CHANGED')
-events:RegisterEvent('DISPLAY_SIZE_CHANGED')
-for _, name in ipairs(UNIT_EVENTS) do
-    events:RegisterEvent(name)
+local GLOBAL_EVENTS = {
+    'ADDON_LOADED', 'PLAYER_ENTERING_WORLD', 'PLAYER_REGEN_ENABLED', 'PLAYER_REGEN_DISABLED',
+    'PLAYER_TARGET_CHANGED', 'GROUP_ROSTER_UPDATE', 'PARTY_LEADER_CHANGED', 'UI_SCALE_CHANGED',
+    'DISPLAY_SIZE_CHANGED', 'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST',
+    'READY_CHECK', 'READY_CHECK_CONFIRM', 'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE',
+    'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
+}
+
+local function forEachRow(method)
+    AV.PartyList.ForEachVisibleRow(function(row)
+        row[method](row)
+    end)
 end
 
-events:SetScript('OnEvent', function(_, event, arg1)
+local events = CreateFrame('Frame')
+-- Registering an event the client does not know raises an error.
+for _, list in ipairs({ GLOBAL_EVENTS, UNIT_EVENTS }) do
+    for _, name in ipairs(list) do
+        local ok, err = pcall(events.RegisterEvent, events, name)
+        if not ok then
+            AV.LogOnce('event:' .. name, 'event %s not registered: %s', name, tostring(err))
+        end
+    end
+end
+
+events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2)
     if event == 'ADDON_LOADED' then
         if arg1 == addonName then
             loadSettings()
@@ -123,8 +173,21 @@ events:SetScript('OnEvent', function(_, event, arg1)
         end
         return
     end
-    if event == 'PLAYER_REGEN_ENABLED' then
-        AV.FlushOutOfCombat()
+    if event == 'ADDON_ACTION_BLOCKED' or event == 'ADDON_ACTION_FORBIDDEN' then
+        if arg1 == addonName then
+            AV.Log('%s: %s', event, tostring(arg2))
+        end
+        return
+    end
+    if event == 'PLAYER_REGEN_ENABLED' or event == 'PLAYER_REGEN_DISABLED' then
+        -- InCombatLockdown() still reports the old state inside these handlers.
+        AV.inCombat = event == 'PLAYER_REGEN_DISABLED'
+        if not AV.inCombat then
+            AV.FlushOutOfCombat()
+        end
+        if AV.ready then
+            forEachRow('UpdatePlayerState')
+        end
         return
     end
     if not AV.ready then
@@ -152,10 +215,20 @@ events:SetScript('OnEvent', function(_, event, arg1)
         end)
     elseif event == 'UI_SCALE_CHANGED' or event == 'DISPLAY_SIZE_CHANGED' then
         applyScale()
+    elseif event == 'PLAYER_UPDATE_RESTING' then
+        forEachRow('UpdatePlayerState')
+    elseif event == 'PLAYER_DEAD' or event == 'PLAYER_ALIVE' or event == 'PLAYER_UNGHOST' then
+        forEachRow('UpdateState')
+    elseif event:find('^READY_CHECK') then
+        AV.PartyList.OnReadyCheck(event)
+    elseif event == 'RAID_TARGET_UPDATE' then
+        forEachRow('UpdateRaidMarker')
+    elseif event == 'PLAYER_ROLES_ASSIGNED' or event == 'ROLE_CHANGED_INFORM' then
+        forEachRow('UpdateRole')
     else
         onUnitEvent(event, arg1)
     end
-end)
+end))
 
 SLASH_AZEROTHVISTA1 = '/av'
 SlashCmdList.AZEROTHVISTA = function(msg)
@@ -173,6 +246,10 @@ SlashCmdList.AZEROTHVISTA = function(msg)
         AV.Print('scale %.2f', AV.db.scale)
     elseif msg == 'demo' then
         AV.Demo.Toggle()
+    elseif msg == 'log' then
+        AV.PrintLog(15)
+    elseif msg == 'log clear' then
+        AV.ClearLog()
     elseif msg:match('^style') then
         local requested = msg:match('^style%s+(%S+)')
         local match
@@ -200,6 +277,6 @@ SlashCmdList.AZEROTHVISTA = function(msg)
             AV.EditMode.RestorePosition('cast', AV.castAnchor)
         end)
     else
-        AV.Print('/av demo | style <name> | unlock | lock | scale <n> | reset  (Edit Mode also unlocks)')
+        AV.Print('/av demo | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
     end
 end

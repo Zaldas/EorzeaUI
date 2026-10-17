@@ -17,8 +17,37 @@ local function frameLayer(owner, layer, spec, barSpec, subLevel)
     return Style.Image(owner, layer, { path = spec.path, color = spec.color, pos = { 0, 0 }, size = { barSpec.width, barSpec.height } }, subLevel)
 end
 
--- spec: see styles/xiv.lua (xivBar / wideBar)
-function AV.Bar.Create(parent, spec, pos)
+-- Incoming-heal segment starting at the fill's right edge. Heal amounts and max health may be
+-- secret, so the engine sizes it: a StatusBar the width of the fill, clipped to the fill area.
+local function createPrediction(self, frame, spec, predictionSpec)
+    if not (CreateUnitHealPredictionCalculator and UnitGetDetailedHealPrediction) then
+        AV.LogOnce('prediction:missing', 'heal prediction: API missing')
+        return
+    end
+    local ok, calculator = pcall(CreateUnitHealPredictionCalculator)
+    if not ok or not calculator then
+        AV.LogOnce('prediction:create', 'heal prediction: calculator failed: %s', tostring(calculator))
+        return
+    end
+    local clip = CreateFrame('Frame', nil, frame)
+    clip:SetSize(spec.fill.width, spec.height)
+    clip:SetPoint('TOPLEFT', frame, 'TOPLEFT', spec.fill.x, 0)
+    clip:SetFrameLevel(self.status:GetFrameLevel() + 1)
+    if clip.SetClipsChildren then
+        clip:SetClipsChildren(true)
+    end
+    local bar = CreateFrame('StatusBar', nil, clip)
+    bar:SetSize(spec.fill.width, spec.height)
+    bar:SetPoint('TOPLEFT', self.status:GetStatusBarTexture(), 'TOPRIGHT', 0, 0)
+    bar:SetStatusBarTexture(Style.AssetPath(spec.fill.path))
+    bar:SetStatusBarColor(Style.Color(predictionSpec.color))
+    bar:SetMinMaxValues(0, 1)
+    bar:SetValue(0)
+    self.prediction = { bar = bar, calculator = calculator }
+end
+
+-- spec: see styles/xiv.lua (xivBar / wideBar). opts = { prediction = { color } }
+function AV.Bar.Create(parent, spec, pos, opts)
     local self = setmetatable({ spec = spec }, Bar)
 
     local frame = CreateFrame('Frame', nil, parent)
@@ -37,10 +66,14 @@ function AV.Bar.Create(parent, spec, pos)
     status:SetValue(0)
     self.status = status
 
-    -- Foreground art and glow sit above the fill.
+    if opts and opts.prediction then
+        createPrediction(self, frame, spec, opts.prediction)
+    end
+
+    -- Foreground art and glow sit above the fill and the heal prediction.
     local overlay = CreateFrame('Frame', nil, frame)
     overlay:SetAllPoints(frame)
-    overlay:SetFrameLevel(status:GetFrameLevel() + 1)
+    overlay:SetFrameLevel(status:GetFrameLevel() + 2)
     self.overlay = overlay
 
     self.fg = frameLayer(overlay, 'ARTWORK', spec.fg, spec)
@@ -78,6 +111,37 @@ function Bar:SetValue(value, smooth)
         end
     end
     pcall(self.status.SetValue, self.status, value)
+end
+
+-- amount and maxValue may be secret.
+function Bar:SetIncoming(amount, maxValue)
+    local bar = self.prediction and self.prediction.bar
+    if not bar then
+        return
+    end
+    pcall(bar.SetMinMaxValues, bar, 0, maxValue or 1)
+    pcall(bar.SetValue, bar, amount or 0)
+end
+
+-- Incoming heals on unit from everyone, via the engine-side calculator.
+function Bar:ShowIncomingHeals(unit, maxValue)
+    local prediction = self.prediction
+    if not prediction then
+        return
+    end
+    local ok, err = pcall(UnitGetDetailedHealPrediction, unit, 'player', prediction.calculator)
+    if not ok then
+        AV.LogOnce('prediction:populate', 'heal prediction: populate failed: %s', tostring(err))
+        self:SetIncoming(0)
+        return
+    end
+    local okIncoming, incoming = pcall(prediction.calculator.GetIncomingHeals, prediction.calculator)
+    if not okIncoming then
+        AV.LogOnce('prediction:read', 'heal prediction: GetIncomingHeals failed: %s', tostring(incoming))
+        self:SetIncoming(0)
+        return
+    end
+    self:SetIncoming(incoming, maxValue)
 end
 
 -- duration: LuaDurationObject from UnitCastingDuration/UnitChannelDuration.

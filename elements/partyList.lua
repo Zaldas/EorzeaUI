@@ -14,7 +14,7 @@ function PartyList.Create(style, fonts)
     local partyStyle = style.party
 
     local anchor = CreateFrame('Frame', 'AzerothVistaPartyAnchor', UIParent)
-    anchor:SetSize(partyStyle.width, partyStyle.rowHeight * MAX_ROWS)
+    anchor:SetSize(partyStyle.width, partyStyle.rowHeight * MAX_ROWS + partyStyle.rowSpacing * (MAX_ROWS - 1))
     anchor:SetMovable(true)
     anchor:SetClampedToScreen(true)
     PartyList.anchor = anchor
@@ -50,7 +50,7 @@ function PartyList.Create(style, fonts)
     header:SetAttribute('showParty', true)
     header:SetAttribute('showRaid', true)
     header:SetAttribute('point', 'TOP')
-    header:SetAttribute('yOffset', 0)
+    header:SetAttribute('yOffset', -partyStyle.rowSpacing)
     header:SetAttribute('sortMethod', 'INDEX')
     header:SetAttribute('unitsPerColumn', MAX_ROWS)
     header:SetAttribute('maxColumns', 1)
@@ -67,6 +67,9 @@ function PartyList.Create(style, fonts)
         if button then
             button:RegisterForClicks('AnyUp')
             rows[i] = AV.PartyRow.Attach(button, partyStyle, fonts)
+            -- Click-casting addons (Clique and others) bind every frame in this table.
+            ClickCastFrames = ClickCastFrames or {}
+            ClickCastFrames[button] = true
         end
     end
     if #rows < MAX_ROWS then
@@ -144,8 +147,47 @@ function PartyList.UpdateBackground()
             end
         end
     end
-    local height = math.max(1, shown) * PartyList.style.rowHeight
+    local style = PartyList.style
+    shown = math.max(1, shown)
+    local height = shown * style.rowHeight + (shown - 1) * style.rowSpacing
     PartyList.bgMid:SetHeight(height)
+end
+
+-- Results stay on screen this long after the check ends, as on Blizzard's frames.
+local READY_CHECK_LINGER = 10
+local readyPhase
+local readyGeneration = 0
+
+function PartyList.ReadyCheckPhase()
+    return readyPhase
+end
+
+function PartyList.OnReadyCheck(event)
+    if event == 'READY_CHECK' then
+        readyPhase = 'active'
+        readyGeneration = readyGeneration + 1
+    elseif event == 'READY_CHECK_FINISHED' then
+        readyPhase = 'finished'
+        readyGeneration = readyGeneration + 1
+        local generation = readyGeneration
+        C_Timer.After(READY_CHECK_LINGER, function()
+            if generation == readyGeneration then
+                readyPhase = nil
+                PartyList.ForEachVisibleRow(function(row)
+                    row:UpdateReadyCheck(nil)
+                end)
+            end
+        end)
+    end
+    PartyList.ForEachVisibleRow(function(row)
+        row:UpdateReadyCheck(readyPhase)
+    end)
+end
+
+function PartyList.UpdateStatusIcons()
+    PartyList.ForEachVisibleRow(function(row)
+        row:UpdateStatusIcon()
+    end)
 end
 
 function PartyList.RefreshAll()

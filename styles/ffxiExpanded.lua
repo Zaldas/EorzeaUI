@@ -16,6 +16,7 @@ AV.styles.ffxiExpanded = {
     party = {
         width = 410,
         rowHeight = 46,
+        rowSpacing = 5,
         background = {
             color = '#FFFFFFDD',
             pos = { 7, -11 },
@@ -43,16 +44,16 @@ AV.styles.ffxiExpanded = {
             gradient = 'jobIcons/gradient',
             frame = 'jobIcons/frame',
         },
-        leader = { path = 'ffxi/Leader', pos = { 28, 10 }, size = { 7, 5 }, color = '#E6E159FF' },
         range = {
             near = { path = 'ffxi/Range', pos = { 30, 30 }, size = { 10, 10 }, color = '#FFFFFFFF' },
             far = { path = 'ffxi/RangeFar', pos = { 30, 30 }, size = { 10, 10 }, color = '#FFFFFFFF' },
             farAlpha = 0.55,
         },
         hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
-        cursor = { path = 'ffxi/Cursor', pos = { -38, 4 }, size = { 37, 24 }, color = '#FFFFFFFF' },
+        cursor = { path = 'ffxi/Cursor', pos = { -45, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
         txtName = { pos = { 38, 3 }, width = 242, size = 17, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE },
         levelBadge = Kit.levelBadge,
+        indicators = Kit.partyIndicators(38, 3),
         buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6 },
         debuffs = { pos = { 284, 16 }, size = 18, spacing = 2, max = 6 },
     },

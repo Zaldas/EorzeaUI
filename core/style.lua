@@ -49,6 +49,26 @@ function Style.Image(parent, layer, spec, subLevel)
     return texture
 end
 
+function Style.HasAtlas(atlas)
+    return C_Texture and C_Texture.GetAtlasInfo and AV.SafeValue(C_Texture.GetAtlasInfo, atlas) ~= nil
+end
+
+-- Applies a Blizzard atlas, or fallback = { path, coords = {l, r, t, b} } when the client lacks it.
+-- Returns true when the atlas was used.
+function Style.SetAtlas(texture, atlas, fallback)
+    if Style.HasAtlas(atlas) and pcall(texture.SetAtlas, texture, atlas) then
+        return true
+    end
+    AV.LogOnce('atlas:' .. atlas, 'atlas %s missing; using fallback', atlas)
+    if fallback then
+        texture:SetTexture(fallback.path)
+        if fallback.coords then
+            texture:SetTexCoord(unpack(fallback.coords))
+        end
+    end
+    return false
+end
+
 -- Horizontal three-slice: caps keep their aspect, the middle stretches.
 -- spec = { path, texSize = {w, h}, cap = texture pixels per cap, color }
 function Style.ThreeSlice(parent, layer, spec, width, height, subLevel)

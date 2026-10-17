@@ -25,7 +25,11 @@ function AV.SafeValue(fn, ...)
         return nil
     end
     local ok, value = pcall(fn, ...)
-    if not ok or not AV.CanAccess(value) then
+    if not ok then
+        AV.LogOnce('safe:' .. tostring(value), 'call failed: %s', tostring(value))
+        return nil
+    end
+    if not AV.CanAccess(value) then
         return nil
     end
     return value

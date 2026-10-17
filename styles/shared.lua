@@ -41,6 +41,27 @@ Kit.FONTS = { name = 'arial.ttf', number = 'grammara.ttf', timer = 'consola.ttf'
 -- Level number on the class icon's bottom edge.
 Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, color = '#FFFFFFFF', edge = 'BOTTOM', overlap = 0.5 }
 
+-- Party row indicators, in row coordinates. The class icon spans x -11..25, y -2..34.
+-- nameX/nameY are the style's txtName pos; a raid marker takes that spot and shifts the name.
+-- leader: crown on the icon's top edge; rowSpacing keeps it clear of the level number above.
+-- rest/combat: player row only, on the icon's top-right corner. status: ready check, summon,
+-- resurrect or phased, centred on the icon. role/pvp: straddling the icon's left edge.
+-- tagColor: the [AFK]/[DND] prefix on the name.
+function Kit.partyIndicators(nameX, nameY)
+    return {
+        leader = { pos = { 0, -8 }, size = { 14, 14 } },
+        rest = { pos = { 14, -10 }, size = { 24, 24 } },
+        combat = { pos = { 16, -6 }, size = { 18, 18 } },
+        status = { pos = { -5, 4 }, size = { 24, 24 } },
+        raidMarker = { pos = { nameX, nameY + 1 }, size = { 16, 16 } },
+        role = { pos = { -18, -1 }, size = { 16, 16 } },
+        pvp = { pos = { -20, 15 }, size = { 20, 20 } },
+        tagColor = '#A0A0A0FF',
+        stateColor = '#A0A0A0FF',
+        healPrediction = { color = '#7CFC8C80' },
+    }
+end
+
 Kit.HP_THRESHOLDS = {
     { below = 0.25, color = '#FC8182FF' },
     { below = 0.50, color = '#F8BA80FF' },

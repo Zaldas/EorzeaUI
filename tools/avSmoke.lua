@@ -54,6 +54,29 @@ UnitHealthPercent = function() return nil end
 UnitCastingInfo = function() return nil end
 UnitChannelInfo = function() return nil end
 IsInRaid = function() return false end
+UnitAffectingCombat = function() return false end
+IsResting = function() return true end
+UnitIsConnected = function() return true end
+UnitIsDead = function() return false end
+UnitIsGhost = function() return false end
+UnitIsDND = function() return false end
+GetReadyCheckStatus = function() return 'waiting' end
+GetRaidTargetIndex = function() return 8 end
+UnitHasIncomingResurrection = function() return false end
+UnitPhaseReason = function() return nil end
+UnitInRange = function() return true, true end
+UnitGroupRolesAssigned = function() return 'HEALER' end
+UnitIsPVP = function() return true end
+UnitIsPVPFreeForAll = function() return false end
+UnitFactionGroup = function() return 'Horde', 'Horde' end
+UnitIsAFK = function() return true end
+C_IncomingSummon = { HasIncomingSummon = function() return true end, IncomingSummonStatus = function() return 1 end }
+-- Heal prediction stays unstubbed so the missing-API path runs.
+date = os.date
+GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
+debugstack = function() return '' end
+geterrorhandler = function() return function(err) error(err, 0) end end
+AzerothVistaLog = nil
 RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 } }
 CLASS_ICON_TCOORDS = { PALADIN = { 0, 0.25, 0.5, 0.75 } }
 C_Timer = { NewTicker = function(_, fn) TICK = fn end, After = function(_, fn) fn() end }
@@ -99,6 +122,21 @@ onEvent(nil, 'UNIT_HEALTH', 'player')
 onEvent(nil, 'UNIT_POWER_UPDATE', 'player')
 onEvent(nil, 'UNIT_SPELLCAST_START', 'player')
 onEvent(nil, 'UNIT_TARGET', 'target')
+onEvent(nil, 'PLAYER_UPDATE_RESTING')
+onEvent(nil, 'PLAYER_REGEN_DISABLED')
+onEvent(nil, 'PLAYER_REGEN_ENABLED')
+onEvent(nil, 'UNIT_CONNECTION', 'player')
+onEvent(nil, 'PLAYER_FLAGS_CHANGED', 'player')
+onEvent(nil, 'UNIT_HEAL_PREDICTION', 'player')
+onEvent(nil, 'INCOMING_SUMMON_CHANGED', 'player')
+onEvent(nil, 'RAID_TARGET_UPDATE')
+onEvent(nil, 'UNIT_FACTION', 'player')
+onEvent(nil, 'PLAYER_ROLES_ASSIGNED')
+onEvent(nil, 'READY_CHECK')
+onEvent(nil, 'READY_CHECK_CONFIRM', 'player')
+onEvent(nil, 'READY_CHECK_FINISHED')
+onEvent(nil, 'PLAYER_DEAD')
+onEvent(nil, 'ADDON_ACTION_BLOCKED', 'AzerothVista', 'TestFunction()')
 TICK()
 AV.EditMode.SetUnlocked(true)
 AV.EditMode.SetUnlocked(false)
@@ -111,4 +149,12 @@ SlashCmdList.AZEROTHVISTA('style ffxiexpanded')
 assert(RELOADED and AV.db.style == 'ffxiExpanded', 'style switch failed')
 SlashCmdList.AZEROTHVISTA('scale 1.2')
 SlashCmdList.AZEROTHVISTA('reset')
+SlashCmdList.AZEROTHVISTA('log')
+assert(AzerothVistaLog and #AzerothVistaLog.entries > 0, 'log empty')
+local blocked = false
+for _, entry in ipairs(AzerothVistaLog.entries) do
+    if entry.msg:find('ADDON_ACTION_BLOCKED', 1, true) then blocked = true end
+end
+assert(blocked, 'blocked action not logged')
+SlashCmdList.AZEROTHVISTA('log clear')
 print('SMOKE OK')

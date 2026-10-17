@@ -17,6 +17,7 @@ AV.styles.xiv = {
     party = {
         width = 410,
         rowHeight = 46,
+        rowSpacing = 5,
         background = {
             color = '#FFFFFFDD',
             pos = { 0, -21 },
@@ -44,7 +45,6 @@ AV.styles.xiv = {
             gradient = 'jobIcons/gradient',
             frame = 'jobIcons/frame',
         },
-        leader = { path = 'xiv/Leader', pos = { -24, -8 }, size = { 24, 24 }, color = '#E6E159FF' },
         range = {
             near = { path = 'xiv/Range', pos = { 30, 28.5 }, size = { 14, 12 }, color = '#FFFFFFFF' },
             far = { path = 'xiv/RangeFar', pos = { 30, 28.5 }, size = { 14, 12 }, color = '#FFFFFFFF' },
@@ -54,6 +54,7 @@ AV.styles.xiv = {
         cursor = { path = 'xiv/Cursor', pos = { 20, -8 }, size = { 390, 60 }, color = '#FFFFFFFF' },
         txtName = { pos = { 34, 1 }, width = 246, size = 17, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE },
         levelBadge = Kit.levelBadge,
+        indicators = Kit.partyIndicators(34, 1),
         buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6 },
         debuffs = { pos = { 284, 16 }, size = 18, spacing = 2, max = 6 },
     },
