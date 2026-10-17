@@ -255,8 +255,14 @@ local function thresholdColor(style, fraction)
     return style.hp.textColor
 end
 
+-- The height a demo row needs to show member: the base row plus its form and pet sub-rows.
+function Row:DemoHeight(member)
+    local style = self.style
+    return style.rowHeight + (member.form and style.formRowHeight or 0) + (member.pet and style.pet.rowHeight or 0)
+end
+
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
---            state, resting, status, raidMarker, tag, role, pvp, cast, threat, powerType,
+--            state, resting, combat, status, raidMarker, tag, role, pvp, cast, threat, powerType,
 --            combo, form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
 --            buffs, debuffs, pet (see PetRow ShowDemo) }
 function Row:ShowDemo(member)
@@ -280,7 +286,13 @@ function Row:ShowDemo(member)
     end
 
     local indicators = self.indicators
-    indicators:SetPlayerState(member.resting and 'rest' or nil)
+    local playerState
+    if member.combat then
+        playerState = 'combat'
+    elseif member.resting then
+        playerState = 'rest'
+    end
+    indicators:SetPlayerState(playerState)
     indicators:SetStatus(member.status)
     indicators:SetRaidMarker(member.raidMarker)
     indicators:SetRole(member.role)

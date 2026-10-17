@@ -86,6 +86,38 @@ function Demo.Toggle()
     AV.Print('demo mode %s', Demo.toggled and 'on' or 'off')
 end
 
+local GALLERY = 'AzerothVista_Gallery'
+
+-- Loads the AzerothVista_Gallery addon on first use; it builds its window when first shown.
+function Demo.ToggleGallery()
+    if not AV.ready then
+        return
+    end
+    local loaded, reason = C_AddOns.LoadAddOn(GALLERY)
+    if not loaded then
+        AV.Print('%s not loaded: %s', GALLERY, tostring(reason))
+        return
+    end
+    AzerothVistaGallery.Toggle()
+end
+
+-- The gallery's only way into this addon. Valid once the party list exists.
+AzerothVista = {
+    -- Returns a non-secure demo row: row:ShowDemo(member), row:DemoHeight(member).
+    CreateDemoRow = function(parent, index)
+        return AV.PartyRow.CreateDemo(parent, AV.PartyList.style, AV.PartyList.fonts, index)
+    end,
+    StackDemoRows = function(...)
+        return AV.PartyList.StackDemoRows(...)
+    end,
+    CreateBackground = function(anchor)
+        return AV.PartyList.CreateBackground(anchor)
+    end,
+    RootScale = function()
+        return AV.Style.RootScale()
+    end,
+}
+
 function Demo.Refresh()
     local active = Demo.toggled or AV.EditMode.unlocked
     if active == Demo.active then

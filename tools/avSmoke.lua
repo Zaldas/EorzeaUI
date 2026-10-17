@@ -3,7 +3,7 @@ local root = ADDON_ROOT
 
 local methodOverrides = {
     GetHeight = 768, GetWidth = 1366, GetFrameLevel = 1, IsShown = true, IsVisible = true, IsProtected = false,
-    GetName = 'mock',
+    GetName = 'mock', GetScale = 1,
 }
 
 local newFrame
@@ -125,6 +125,8 @@ CreateColor = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 Enum = { StatusBarInterpolation = { ExponentialEaseOut = 1, Immediate = 0 }, StatusBarTimerDirection = { ElapsedTime = 0, RemainingTime = 1 } }
 EventRegistry = { RegisterCallback = function() end }
 GameTooltip = newFrame()
+CHAT = {}
+DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) CHAT[#CHAT + 1] = msg end }
 SlashCmdList = {}
 ReloadUI = function() RELOADED = true end
 AzerothVistaDB = { style = STYLE }
@@ -136,18 +138,35 @@ for i = 1, 5 do
 end
 
 -- Load order comes from the .toc; XML files are skipped (templates only exist in the real client).
-local AV = {}
-local order = {}
-for line in io.lines(root .. 'AzerothVista.toc') do
-    local file = line:match('^%s*([^#%s].-%.lua)%s*$')
-    if file then
-        order[#order + 1] = file:gsub('\\', '/')
+local function loadToc(dir, name, ns)
+    local order = {}
+    for line in io.lines(dir .. name .. '.toc') do
+        local file = line:match('^%s*([^#%s].-%.lua)%s*$')
+        if file then
+            order[#order + 1] = file:gsub('\\', '/')
+        end
+    end
+    assert(#order > 0, 'no lua files found in ' .. name .. '.toc')
+    for _, file in ipairs(order) do
+        local fn = assert(loadfile(dir .. file))
+        fn(name, ns)
     end
 end
-assert(#order > 0, 'no lua files found in AzerothVista.toc')
-for _, file in ipairs(order) do
-    local fn = assert(loadfile(root .. file))
-    fn('AzerothVista', AV)
+
+local AV = {}
+loadToc(root, 'AzerothVista', AV)
+
+-- Load-on-demand addons load from the sibling folder on the first LoadAddOn.
+local loadedAddOns = {}
+C_AddOns.LoadAddOn = function(name)
+    if name ~= 'AzerothVista_Gallery' then
+        return false, 'MISSING'
+    end
+    if not loadedAddOns[name] then
+        loadedAddOns[name] = true
+        loadToc(root .. '../' .. name .. '/', name, {})
+    end
+    return true
 end
 
 local onEvent = eventFrames[#eventFrames]._OnEvent
@@ -254,8 +273,39 @@ AV.EditMode.SetUnlocked(true)
 AV.EditMode.SetUnlocked(false)
 SlashCmdList.AZEROTHVISTA('demo')
 assert(AV.Demo.active, 'demo not active')
+assert(AV.PartyList.demoHeight == 5 * 46 + 22 + 2 * 29 + 4 * 13, 'demo height: ' .. tostring(AV.PartyList.demoHeight))
 SlashCmdList.AZEROTHVISTA('demo')
 assert(not AV.Demo.active, 'demo still active')
+
+-- Gallery: loads on the first toggle, builds once, and every state key has a row.
+SlashCmdList.AZEROTHVISTA('gallery')
+local Gallery = AzerothVistaGallery
+assert(Gallery and Gallery.window, 'gallery not built')
+local window = Gallery.window
+SlashCmdList.AZEROTHVISTA('gallery')
+SlashCmdList.AZEROTHVISTA('gallery')
+assert(Gallery.window == window, 'gallery rebuilt')
+local _, missing = Gallery.Coverage()
+assert(#missing == 0, 'gallery states without a row: ' .. table.concat(missing, ', '))
+assert(#CHAT == 0, 'gallery printed: ' .. tostring(CHAT[1]))
+
+-- Shared stacking: row heights follow sub-rows, and a full column wraps.
+local stackRows = {}
+local stackMembers = {
+    { name = 'a', hp = 1, hpMax = 1, power = 1, powerMax = 1 },
+    { name = 'b', hp = 1, hpMax = 1, power = 1, powerMax = 1, form = { powerType = 3, power = 1, powerMax = 1 } },
+    { name = 'c', hp = 1, hpMax = 1, power = 1, powerMax = 1, pet = Gallery.members[3].pet },
+}
+for i in ipairs(stackMembers) do
+    stackRows[i] = AzerothVista.CreateDemoRow(UIParent, i)
+end
+assert(stackRows[2]:DemoHeight(stackMembers[2]) == 46 + 22, 'form row height')
+assert(stackRows[3]:DemoHeight(stackMembers[3]) == 46 + 29, 'pet row height')
+local columns, stackWidth, stackHeight = AzerothVista.StackDemoRows(stackRows, stackMembers, UIParent)
+assert(#columns == 1 and stackHeight == 46 + 68 + 75 + 2 * 13, 'one column height: ' .. stackHeight)
+columns, stackWidth, stackHeight = AzerothVista.StackDemoRows(stackRows, stackMembers, UIParent, 130)
+assert(#columns == 2 and columns[2].x == 487 and stackWidth == 487 + 410, 'wrap columns: ' .. #columns)
+assert(columns[1].height == 46 + 68 + 13 and columns[2].height == 75, 'wrap heights')
 assert(AV.db.style == STYLE, 'style not applied: ' .. tostring(AV.db.style))
 SlashCmdList.AZEROTHVISTA('style ffxiexpanded')
 assert(RELOADED and AV.db.style == 'ffxiExpanded', 'style switch failed')

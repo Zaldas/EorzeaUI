@@ -72,6 +72,8 @@ function Kit.partyIndicators(nameX, nameY)
         rest = { pos = { 16, -12 }, size = { 24, 24 } },
         combat = { pos = { 18, -8 }, size = { 18, 18 } },
         status = { pos = { -5, 4 }, size = { 24, 24 } },
+        -- The summon atlases carry more padding; same centre as status.
+        summon = { pos = { -9, 0 }, size = { 32, 32 } },
         raidMarker = { pos = { nameX, nameY + 1 }, size = { 16, 16 } },
         role = { pos = { -20, -1 }, size = { 16, 16 } },
         pvp = { pos = { -22, 15 }, size = { 20, 20 } },

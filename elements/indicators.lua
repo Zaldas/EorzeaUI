@@ -21,9 +21,9 @@ local STATUS_ICONS = {
     ready = { path = 'Interface\\RaidFrame\\ReadyCheck-Ready' },
     notready = { path = 'Interface\\RaidFrame\\ReadyCheck-NotReady' },
     waiting = { path = 'Interface\\RaidFrame\\ReadyCheck-Waiting' },
-    summonPending = { atlas = 'Raid-Icon-SummonPending' },
-    summonAccepted = { atlas = 'Raid-Icon-SummonAccepted' },
-    summonDeclined = { atlas = 'Raid-Icon-SummonDeclined' },
+    summonPending = { atlas = 'Raid-Icon-SummonPending', summon = true },
+    summonAccepted = { atlas = 'Raid-Icon-SummonAccepted', summon = true },
+    summonDeclined = { atlas = 'Raid-Icon-SummonDeclined', summon = true },
     resurrect = { atlas = 'RaidFrame-Icon-Rez' },
     phased = { path = 'Interface\\TargetingFrame\\UI-PhasingIcon', coords = { 0.15625, 0.84375, 0.15625, 0.84375 } },
 }
@@ -159,6 +159,9 @@ function Indicators:SetStatus(kind)
         self.status:Hide()
         return
     end
+    local slot = icon.summon and self.spec.summon or self.spec.status
+    self.status:SetSize(slot.size[1], slot.size[2])
+    Style.Place(self.status, self.parent, slot.pos)
     if icon.atlas then
         if not Style.SetAtlas(self.status, icon.atlas) then
             self.status:Hide()

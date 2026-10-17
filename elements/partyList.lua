@@ -143,18 +143,10 @@ function PartyList.UpdateFormRows()
     end, 'formRows')
 end
 
-function PartyList.Create(style, fonts)
-    local partyStyle = style.party
-    PartyList.style = partyStyle
-    PartyList.fonts = fonts
-
-    local anchor = CreateFrame('Frame', 'AzerothVistaPartyAnchor', UIParent)
-    anchor:SetSize(partyStyle.width, partyStyle.rowHeight * MAX_ROWS + partyStyle.rowSpacing * (MAX_ROWS - 1))
-    anchor:SetMovable(true)
-    anchor:SetClampedToScreen(true)
-    PartyList.anchor = anchor
-
-    local bgSpec = partyStyle.background
+-- The list's background behind rows stacked from anchor's top-left. Size it with bg.mid:SetHeight
+-- (the rows' total height).
+function PartyList.CreateBackground(anchor)
+    local bgSpec = PartyList.style.background
     local bg = CreateFrame('Frame', nil, anchor)
     bg:SetAllPoints(anchor)
     bg:SetFrameLevel(anchor:GetFrameLevel())
@@ -175,7 +167,23 @@ function PartyList.Create(style, fonts)
     AV.Style.Place(top, anchor, bgSpec.pos)
     mid:SetPoint('TOPLEFT', top, 'BOTTOMLEFT', 0, 0)
     bottom:SetPoint('TOPLEFT', mid, 'BOTTOMLEFT', 0, 0)
-    PartyList.bgMid = mid
+    bg.mid = mid
+    return bg
+end
+
+function PartyList.Create(style, fonts)
+    local partyStyle = style.party
+    PartyList.style = partyStyle
+    PartyList.fonts = fonts
+
+    local anchor = CreateFrame('Frame', 'AzerothVistaPartyAnchor', UIParent)
+    anchor:SetSize(partyStyle.width, partyStyle.rowHeight * MAX_ROWS + partyStyle.rowSpacing * (MAX_ROWS - 1))
+    anchor:SetMovable(true)
+    anchor:SetClampedToScreen(true)
+    PartyList.anchor = anchor
+
+    local bg = PartyList.CreateBackground(anchor)
+    PartyList.bgMid = bg.mid
     PartyList.groupText = AV.Style.Text(bg, partyStyle.groupNumber, fonts)
 
     local header = CreateFrame('Frame', 'AzerothVistaPartyHeader', anchor, 'SecureGroupHeaderTemplate')
@@ -235,22 +243,47 @@ function PartyList.SetDemo(members)
     end
     PartyList.demoCount = members and #members or nil
     setGroupNumber(members and 1 or PartyList.subgroup)
-    local style = PartyList.style
-    local y, extra = 0, 0
-    for i, row in ipairs(PartyList.demoRows) do
-        local member = members and members[i]
-        row:ShowDemo(member)
-        row.host:ClearAllPoints()
-        row.host:SetPoint('TOPLEFT', PartyList.demoFrame, 'TOPLEFT', 0, -y)
-        local subRows = ((member and member.form) and style.formRowHeight or 0)
-            + ((member and member.pet) and style.pet.rowHeight or 0)
-        extra = extra + subRows
-        y = y + style.rowHeight + subRows + style.rowSpacing
-    end
-    PartyList.demoExtra = extra
+    local _, _, height = PartyList.StackDemoRows(PartyList.demoRows, members, PartyList.demoFrame)
+    PartyList.demoHeight = height
     PartyList.demoFrame:SetShown(members ~= nil)
     PartyList.header:SetShown(members == nil)
     PartyList.UpdateBackground()
+end
+
+-- Shows members[i] on demo row demoRows[i] (nil hides it) and stacks the shown rows down from
+-- parent's top-left, each as tall as its sub-rows need. A row that would end below maxHeight
+-- starts a new column (nil: one column). Columns step by the background's width plus the target
+-- cursor's overhang left of the row, so neither overlaps the column before.
+-- Returns the columns ({ x, height } each) and the stack's total width and height.
+function PartyList.StackDemoRows(demoRows, members, parent, maxHeight)
+    local style = PartyList.style
+    local bgSpec = style.background
+    local columnStep = bgSpec.pos[1] + bgSpec.width - style.cursor.pos[1] + style.rowSpacing
+    local columns = {}
+    local column
+    local y, height = 0, 0
+    for i, row in ipairs(demoRows) do
+        local member = members and members[i]
+        row:ShowDemo(member)
+        if member then
+            local needed = row:DemoHeight(member)
+            if column and maxHeight and y + needed > maxHeight then
+                column = nil
+            end
+            if not column then
+                column = { x = #columns * columnStep, height = 0 }
+                columns[#columns + 1] = column
+                y = 0
+            end
+            row.host:ClearAllPoints()
+            row.host:SetPoint('TOPLEFT', parent, 'TOPLEFT', column.x, -y)
+            column.height = y + needed
+            height = math.max(height, column.height)
+            y = column.height + style.rowSpacing
+        end
+    end
+    local width = column and column.x + style.width or 0
+    return columns, width, height
 end
 
 function PartyList.OnRowUnitChanged(row, previous, unit)
@@ -314,18 +347,17 @@ end
 
 function PartyList.UpdateBackground()
     local style = PartyList.style
-    local shown = PartyList.demoCount or 0
-    local extra
     if PartyList.demoCount then
-        extra = PartyList.demoExtra or 0
-    else
-        extra = AV.Druid.IsShifted() and style.formRowHeight or 0
-        for _, row in ipairs(rows) do
-            if row.button:IsShown() then
-                shown = shown + 1
-                if row.pet and row.pet.button:IsShown() then
-                    extra = extra + style.pet.rowHeight
-                end
+        PartyList.bgMid:SetHeight(math.max(style.rowHeight, PartyList.demoHeight or 0))
+        return
+    end
+    local shown = 0
+    local extra = AV.Druid.IsShifted() and style.formRowHeight or 0
+    for _, row in ipairs(rows) do
+        if row.button:IsShown() then
+            shown = shown + 1
+            if row.pet and row.pet.button:IsShown() then
+                extra = extra + style.pet.rowHeight
             end
         end
     end

@@ -292,6 +292,8 @@ SlashCmdList.AZEROTHVISTA = function(msg)
         AV.Print('scale %.2f', AV.db.scale)
     elseif msg == 'demo' then
         AV.Demo.Toggle()
+    elseif msg == 'gallery' then
+        AV.Demo.ToggleGallery()
     elseif msg == 'log' then
         AV.PrintLog(15)
     elseif msg == 'log clear' then
@@ -323,6 +325,6 @@ SlashCmdList.AZEROTHVISTA = function(msg)
             AV.EditMode.RestorePosition('cast', AV.castAnchor)
         end)
     else
-        AV.Print('/av demo | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
+        AV.Print('/av demo | gallery | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
     end
 end
