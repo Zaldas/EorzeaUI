@@ -61,7 +61,7 @@ local function makeInitializer(spec, fonts)
 
         local border = button:CreateTexture(nil, 'BACKGROUND')
         border:SetAllPoints()
-        border:SetColorTexture(0, 0, 0, 0.85)
+        border:SetColorTexture(AV.Style.Color(spec.border or '#000000D9'))
 
         local icon = button:CreateTexture(nil, 'ARTWORK')
         icon:SetPoint('TOPLEFT', 1, -1)
@@ -88,7 +88,7 @@ local function makeInitializer(spec, fonts)
     end
 end
 
--- spec = { pos, size, spacing, max, timers }
+-- spec = { pos, size, spacing, max, timers, border = '#RRGGBBAA' edge colour }
 -- filter: an aura filter, or a list of filters laid out one after another in the row, each
 -- showing up to spec.max auras.
 function AV.AuraRow.Create(parent, unit, filter, spec, fonts)

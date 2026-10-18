@@ -8,6 +8,8 @@ AV.StyleKit = Kit
 
 Kit.STROKE_BLUE = '#062D54C8'
 Kit.STROKE_RED = '#3B0B0BC8'
+-- 1px edge around every aura icon (the icon is inset over this colour).
+Kit.AURA_BORDER = '#4A4A4AFF'
 
 -- 128x64 party bar on a 256x128 texture; no slicing needed at uniform half scale.
 -- art: asset folder, e.g. 'ffxi'
@@ -146,8 +148,8 @@ function Kit.target(cast)
         raidMarker = { pos = { 20, 16 }, size = { 16, 16 } },
         healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
         txtHpp = { pos = { 523, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
-        debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true },
-        buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true },
+        debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER },
+        buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER },
         cast = {
             pos = { 233, -15 },
             bar = Kit.wideBar(234, cast.frame, cast.fill),
