@@ -77,7 +77,7 @@ Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, colo
 -- role/pvp on the left. Either one alone centres between the two slots.
 -- rest/combat: player row only, on the icon's top-right corner. status: ready check, summon,
 -- resurrect or phased, centred on the icon. role/pvp: straddling the icon's left edge.
--- tagColor: the [AFK]/[DND] prefix on the name.
+-- flag: the AFK/DND badge on the name line, after any raid marker.
 function Kit.partyIndicators(nameX, nameY)
     return {
         leader = { pos = { 0, -10 }, size = { 14, 14 } },
@@ -91,7 +91,7 @@ function Kit.partyIndicators(nameX, nameY)
         raidMarker = { pos = { nameX, nameY + 1 }, size = { 16, 16 } },
         role = { pos = { -20, -1 }, size = { 16, 16 } },
         pvp = { pos = { -22, 15 }, size = { 20, 20 } },
-        tagColor = '#A0A0A0FF',
+        flag = { pos = { nameX, nameY + 1 }, size = { 38, 15 } },
         stateColor = '#A0A0A0FF',
         healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
     }
@@ -148,8 +148,6 @@ function Kit.target(cast)
             bg = 'jobIcons/bg',
             gradient = 'jobIcons/gradient',
             frame = 'jobIcons/frame',
-            -- Frame tint by UnitClassification; others keep the art's colour.
-            classification = { worldboss = '#FFD100FF', elite = '#FFD100FF', rareelite = '#D0D8E8FF', rare = '#D0D8E8FF' },
         },
         levelBadge = Kit.levelBadge,
         -- Straddles the icon's left edge in its lower half, as on the party rows.
@@ -159,19 +157,22 @@ function Kit.target(cast)
         -- Secure click area: left-click targets, right-click opens the unit menu, hover shows the
         -- tooltip. Spans the icon and bar from the icon's top to the debuff row's top.
         click = { pos = { -38, 5 }, size = { 575, 39 } },
-        -- Your threat on the target: a diamond on the icon's top-right corner, tinted with
-        -- Blizzard's threat colours, and the percent under HP% (raw, or lead while tanking).
-        threat = { path = 'ffxi/Range', pos = { 3, 0 }, size = { 12, 12 } },
+        -- Your threat on the target: a diamond on the icon's bottom-right corner, right of the
+        -- level badge, tinted with Blizzard's threat colours, and the percent under HP% (raw, or
+        -- lead while tanking).
+        threat = { path = 'pips/diamondFill-16', pos = { 1.5, 42.5 }, size = { 15, 15 } },
         txtThreat = { pos = { 523, 38 }, size = 12, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         txtName = { pos = { 20, 15 }, size = 17, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE },
         -- Before the name, which shifts right while it shows; as on the party rows.
         raidMarker = { pos = { 20, 16 }, size = { 16, 16 } },
+        -- AFK/DND on players, after any raid marker.
+        flag = { pos = { 20, 16 }, size = { 38, 15 } },
         healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
         txtHpp = { pos = { 523, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
-        debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'dispel', dispelColors = Kit.DISPEL_COLORS },
-        buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'stealable', dispelColors = { Magic = Kit.STEALABLE_COLOR } },
+        debuffs = { pos = { 25, 44 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'dispel', dispelColors = Kit.DISPEL_COLORS },
+        buffs = { pos = { 25, 82 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'stealable', dispelColors = { Magic = Kit.STEALABLE_COLOR } },
         cast = {
             pos = { 233, -15 },
             bar = Kit.wideBar(234, cast.frame, cast.fill),

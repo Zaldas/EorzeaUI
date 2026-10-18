@@ -278,16 +278,31 @@ assert(AV.PartyList.demoHeight == 5 * 46 + 22 + 2 * 29 + 4 * 13, 'demo height: '
 SlashCmdList.AZEROTHVISTA('demo')
 assert(not AV.Demo.active, 'demo still active')
 
--- Gallery: loads on the first toggle, builds once, and every state key has a row.
+-- Gallery: loads on the first toggle, builds each window once, and every state key has a sample.
 SlashCmdList.AZEROTHVISTA('gallery')
 local Gallery = AzerothVistaGallery
-assert(Gallery and Gallery.window, 'gallery not built')
-local window = Gallery.window
+assert(Gallery and Gallery.Window('party'), 'gallery not built')
+local window = Gallery.Window('party')
 SlashCmdList.AZEROTHVISTA('gallery')
 SlashCmdList.AZEROTHVISTA('gallery')
-assert(Gallery.window == window, 'gallery rebuilt')
-local _, missing = Gallery.Coverage()
-assert(#missing == 0, 'gallery states without a row: ' .. table.concat(missing, ', '))
+assert(Gallery.Window('party') == window, 'gallery rebuilt')
+SlashCmdList.AZEROTHVISTA('gallery target')
+assert(Gallery.Window('target'), 'target gallery not built')
+for _, kind in ipairs({ 'party', 'target' }) do
+    local _, missing = Gallery.Coverage(kind)
+    assert(#missing == 0, kind .. ' gallery states without a sample: ' .. table.concat(missing, ', '))
+end
+
+-- Target bars: the live bar routes events by unit; demo bars stay out of routing.
+assert(AV.TargetBar.ForUnit('target') == AV.TargetBar.target, 'live target bar not routed')
+local liveBars = 0
+AV.TargetBar.ForEach(function() liveBars = liveBars + 1 end)
+assert(liveBars == 1, 'demo target bars registered as live: ' .. liveBars)
+onEvent(nil, 'UNIT_HEALTH', 'target')
+onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', 'target')
+onEvent(nil, 'UNIT_FLAGS', 'target')
+onEvent(nil, 'RAID_TARGET_UPDATE')
+TICK()
 assert(#CHAT == 0, 'gallery printed: ' .. tostring(CHAT[1]))
 
 -- Shared stacking: row heights follow sub-rows, and a full column wraps.
@@ -295,7 +310,7 @@ local stackRows = {}
 local stackMembers = {
     { name = 'a', hp = 1, hpMax = 1, power = 1, powerMax = 1 },
     { name = 'b', hp = 1, hpMax = 1, power = 1, powerMax = 1, form = { powerType = 3, power = 1, powerMax = 1 } },
-    { name = 'c', hp = 1, hpMax = 1, power = 1, powerMax = 1, pet = Gallery.members[3].pet },
+    { name = 'c', hp = 1, hpMax = 1, power = 1, powerMax = 1, pet = Gallery.party.Members()[3].pet },
 }
 for i in ipairs(stackMembers) do
     stackRows[i] = AzerothVista.CreateDemoRow(UIParent, i)

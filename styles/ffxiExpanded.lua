@@ -76,7 +76,7 @@ AV.styles.ffxiExpanded = {
         },
         range = { farAlpha = 0.55 },
         -- Tinted with Blizzard's threat colours; hidden without threat.
-        threat = { path = 'ffxi/Range', pos = { 30, 30 }, size = { 10, 10 } },
+        threat = { path = 'pips/diamondFill-16', pos = { 29, 29 }, size = { 12, 12 } },
         hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
         cursor = { path = 'ffxi/Cursor', pos = { -47, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
         txtName = { pos = { 38, 3 }, width = 242, size = 17, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE },

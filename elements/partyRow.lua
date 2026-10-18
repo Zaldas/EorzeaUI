@@ -100,16 +100,11 @@ local function buildArt(self, host, style, fonts)
         self.cursor = Style.Image(pointer, 'OVERLAY', style.cursor)
         self.cursor:Hide()
     end
-    self.tagFormat = '|cff' .. style.indicators.tagColor:sub(2, 7) .. '[%s]|r %s'
 end
 
--- name may be secret: SetFormattedText accepts it, concatenation would not.
+-- name may be secret.
 local function setName(self, name)
-    if self.flagTag then
-        pcall(self.name.SetFormattedText, self.name, self.tagFormat, self.flagTag, name)
-    else
-        pcall(self.name.SetText, self.name, name)
-    end
+    pcall(self.name.SetText, self.name, name)
 end
 
 -- status: UnitThreatSituation result. 1 high threat, 2 tanking but not highest, 3 securely tanking.
@@ -258,7 +253,6 @@ function Row:ShowDemo(member)
         return
     end
     setClassIcon(self, member.class)
-    self.flagTag = member.tag
     setName(self, member.name)
     self.levelBadge:Set(member.level)
 
@@ -282,6 +276,7 @@ function Row:ShowDemo(member)
     indicators:SetPlayerState(playerState)
     indicators:SetStatus(member.status)
     indicators:SetRaidMarker(member.raidMarker)
+    indicators:SetFlag(member.tag)
     indicators:SetRole(member.role)
     indicators:SetPvP(member.pvp)
     if self.cast then
@@ -434,8 +429,8 @@ function Row:UpdateFlags()
     elseif AV.Read('UnitIsDND', UnitIsDND, unit) then
         tag = 'DND'
     end
-    self.flagTag = tag
-    setName(self, AV.UnitDisplayName(unit))
+    self.indicators:SetFlag(tag)
+    self.indicators:LayoutNameLine(self.name)
 end
 
 function Row:UpdateRole()

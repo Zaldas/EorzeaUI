@@ -22,7 +22,7 @@ local function applyScale()
     AV.RunOutOfCombat(function()
         local scale = AV.Style.RootScale()
         AV.PartyList.anchor:SetScale(scale)
-        AV.TargetBar.anchor:SetScale(scale)
+        AV.TargetBar.target.anchor:SetScale(scale)
         AV.castAnchor:SetScale(scale)
     end, 'scale')
 end
@@ -78,7 +78,7 @@ local function initialize()
     createPlayerCastBar(style, fonts)
 
     AV.EditMode.Register('party', AV.PartyList.anchor, 'Party')
-    AV.EditMode.Register('target', AV.TargetBar.anchor, 'Target')
+    AV.EditMode.Register('target', AV.TargetBar.target.anchor, 'Target')
     AV.EditMode.Register('cast', AV.castAnchor, 'Cast bar')
     AV.EditMode.Initialize()
 
@@ -89,24 +89,27 @@ local function initialize()
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateRange()
         end)
-        AV.TargetBar.UpdateIdentity()
-        AV.TargetBar.UpdateThreat()
-        AV.TargetBar.UpdateTargetOfTarget()
+        AV.TargetBar.ForEach(function(bar)
+            bar:UpdateIdentity()
+            bar:UpdateThreat()
+            bar:UpdateTargetOfTarget()
+        end)
     end))
 
     AV.ready = true
     AV.PartyList.RefreshAll()
-    AV.TargetBar.Refresh()
+    AV.TargetBar.target:Refresh()
 end
 
--- Unit events route to the party row or pet sub-row showing that unit and/or the target bar.
+-- Unit events route to the party row, pet sub-row and target-style bar showing that unit.
 local function onUnitEvent(event, unit, arg3)
     local row = AV.PartyList.RowForUnit(unit)
     local pet = AV.PartyList.PetForUnit(unit)
+    local bar = AV.TargetBar.ForUnit(unit)
     if event == 'UNIT_HEALTH' or event == 'UNIT_MAXHEALTH' then
         if row then row:UpdateHealth(event == 'UNIT_HEALTH') end
         if pet then pet:UpdateHealth(event == 'UNIT_HEALTH') end
-        if unit == 'target' then AV.TargetBar.UpdateHealth(event == 'UNIT_HEALTH') end
+        if bar then bar:UpdateHealth(event == 'UNIT_HEALTH') end
     elseif event == 'UNIT_POWER_UPDATE' or event == 'UNIT_MAXPOWER' or event == 'UNIT_DISPLAYPOWER' then
         if row then
             row:UpdatePower(event == 'UNIT_POWER_UPDATE')
@@ -120,18 +123,18 @@ local function onUnitEvent(event, unit, arg3)
         end)
     elseif event == 'UNIT_PORTRAIT_UPDATE' then
         if pet then pet:UpdatePortrait() end
-        if unit == 'target' then AV.TargetBar.UpdateIcon() end
+        if bar then bar:UpdateIcon() end
     elseif event == 'UNIT_HAPPINESS' then
         if pet then pet:UpdateHappiness() end
     elseif event == 'UNIT_NAME_UPDATE' or event == 'UNIT_LEVEL' then
         if row then row:UpdateName() end
         if pet then pet:UpdateName() end
-        if unit == 'target' then AV.TargetBar.Refresh() end
+        if bar then bar:Refresh() end
     elseif event == 'UNIT_TARGET' then
-        if unit == 'target' then AV.TargetBar.UpdateTargetOfTarget() end
+        if bar then bar:UpdateTargetOfTarget() end
     elseif event == 'UNIT_HEAL_PREDICTION' or event == 'UNIT_ABSORB_AMOUNT_CHANGED' then
         if row then row:UpdateHealPrediction() end
-        if unit == 'target' then AV.TargetBar.UpdateHealPrediction() end
+        if bar then bar:UpdateHealPrediction() end
     elseif event == 'UNIT_CONNECTION' then
         if row then row:UpdateState() end
     elseif event == 'UNIT_FLAGS' or event == 'PLAYER_FLAGS_CHANGED' then
@@ -140,10 +143,17 @@ local function onUnitEvent(event, unit, arg3)
             row:UpdateState()
             row:UpdatePvP()
         end
-        if unit == 'target' then AV.TargetBar.UpdateIdentity() end
+        if bar then
+            bar:UpdateIdentity()
+        end
+        -- PLAYER_FLAGS_CHANGED may name the target by another token (party1, raid3).
+        local flagBar = event == 'PLAYER_FLAGS_CHANGED' and AV.TargetBar.target or bar
+        if flagBar then
+            flagBar:UpdateFlags()
+        end
     elseif event == 'UNIT_FACTION' then
         if row then row:UpdatePvP() end
-        if unit == 'target' then AV.TargetBar.UpdateIdentity() end
+        if bar then bar:UpdateIdentity() end
     elseif event == 'UNIT_THREAT_SITUATION_UPDATE' then
         if row then row:UpdateThreat() end
     elseif event == 'INCOMING_SUMMON_CHANGED' or event == 'INCOMING_RESURRECT_CHANGED' or event == 'UNIT_PHASE' then
@@ -155,13 +165,13 @@ local function onUnitEvent(event, unit, arg3)
             row:UpdateCostPreview(event, arg3)
         end
         if pet then pet:UpdateCast() end
-        if unit == 'target' then
+        if bar then
             if event == 'UNIT_SPELLCAST_INTERRUPTED' then
-                AV.TargetBar.cast:ShowFailure(INTERRUPTED or 'Interrupted')
+                bar.cast:ShowFailure(INTERRUPTED or 'Interrupted')
             elseif event == 'UNIT_SPELLCAST_FAILED' then
-                AV.TargetBar.cast:ShowFailure(FAILED or 'Failed')
+                bar.cast:ShowFailure(FAILED or 'Failed')
             else
-                AV.TargetBar.cast:Update()
+                bar.cast:Update()
             end
         end
     end
@@ -243,10 +253,12 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         AV.PartyList.UpdateGroupFilter()
         AV.PartyList.RefreshAll()
         AV.PartyList.UpdateFormRows()
-        AV.TargetBar.Refresh()
+        AV.TargetBar.ForEach(function(bar)
+            bar:Refresh()
+        end)
         AV.playerCast:Update()
     elseif event == 'PLAYER_TARGET_CHANGED' then
-        AV.TargetBar.Refresh()
+        AV.TargetBar.target:Refresh()
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateCursor()
             row:UpdateCombo()
@@ -276,7 +288,9 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         AV.PartyList.OnReadyCheck(event)
     elseif event == 'RAID_TARGET_UPDATE' then
         forEachRow('UpdateRaidMarker')
-        AV.TargetBar.UpdateRaidMarker()
+        AV.TargetBar.ForEach(function(bar)
+            bar:UpdateRaidMarker()
+        end)
     elseif event == 'PLAYER_ROLES_ASSIGNED' or event == 'ROLE_CHANGED_INFORM' then
         forEachRow('UpdateRole')
     elseif event == 'PET_UI_UPDATE' then
@@ -304,8 +318,8 @@ SlashCmdList.AZEROTHVISTA = function(msg)
         AV.Print('scale %.2f', AV.db.scale)
     elseif msg == 'demo' then
         AV.Demo.Toggle()
-    elseif msg == 'gallery' then
-        AV.Demo.ToggleGallery()
+    elseif msg == 'gallery' or msg == 'gallery target' then
+        AV.Demo.ToggleGallery(msg == 'gallery target' and 'target' or 'party')
     elseif msg == 'log' then
         AV.PrintLog(15)
     elseif msg == 'log clear' then
@@ -333,10 +347,10 @@ SlashCmdList.AZEROTHVISTA = function(msg)
         AV.RunOutOfCombat(function()
             AV.db.positions = {}
             AV.EditMode.RestorePosition('party', AV.PartyList.anchor)
-            AV.EditMode.RestorePosition('target', AV.TargetBar.anchor)
+            AV.EditMode.RestorePosition('target', AV.TargetBar.target.anchor)
             AV.EditMode.RestorePosition('cast', AV.castAnchor)
         end)
     else
-        AV.Print('/av demo | gallery | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
+        AV.Print('/av demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
     end
 end

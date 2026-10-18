@@ -103,8 +103,9 @@ end
 
 local GALLERY = 'AzerothVista_Gallery'
 
--- Loads the AzerothVista_Gallery addon on first use; it builds its window when first shown.
-function Demo.ToggleGallery()
+-- Loads the AzerothVista_Gallery addon on first use; it builds each window when first shown.
+-- kind: 'party' or 'target'.
+function Demo.ToggleGallery(kind)
     if not AV.ready then
         return
     end
@@ -113,7 +114,7 @@ function Demo.ToggleGallery()
         AV.Print('%s not loaded: %s', GALLERY, tostring(reason))
         return
     end
-    AzerothVistaGallery.Toggle()
+    AzerothVistaGallery.Toggle(kind)
 end
 
 -- The gallery's only way into this addon. Valid once the party list exists.
@@ -124,6 +125,11 @@ AzerothVista = {
     end,
     StackDemoRows = function(...)
         return AV.PartyList.StackDemoRows(...)
+    end,
+    -- Returns a demo target bar: bar:SetPreview(data); bar.anchor is its frame, bar.spec its style.
+    CreateDemoTarget = function(parent)
+        local live = AV.TargetBar.target
+        return AV.TargetBar.CreateDemo(parent, live.spec, live.fonts)
     end,
     CreateBackground = function(anchor)
         return AV.PartyList.CreateBackground(anchor)
@@ -140,6 +146,6 @@ function Demo.Refresh()
     end
     Demo.active = active
     AV.PartyList.SetDemo(active and members() or nil)
-    AV.TargetBar.SetPreview(active and target() or nil)
+    AV.TargetBar.target:SetPreview(active and target() or nil)
     AV.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)
 end

@@ -44,6 +44,11 @@ local PVP_ICONS = {
     Horde = { atlas = 'ui-hud-unitframe-player-pvp-hordeicon', path = 'Interface\\TargetingFrame\\UI-PVP-Horde' },
 }
 
+local FLAG_ICONS = {
+    AFK = Style.AssetPath('flags/afk'),
+    DND = Style.AssetPath('flags/dnd'),
+}
+
 -- Blizzard's GetThreatStatusColor values for statuses 1-3, used when that function is absent.
 local THREAT_COLORS = { { 1, 1, 0.47 }, { 1, 0.6, 0 }, { 1, 0, 0 } }
 
@@ -119,6 +124,7 @@ function AV.Indicators.Create(parent, top, style)
     self.status = sizedTexture(parent, spec.status)
     self.raidMarker = sizedTexture(top, spec.raidMarker)
     self.raidMarker:SetTexture(RAID_MARKERS)
+    self.flag = sizedTexture(top, spec.flag)
     self.role = sizedTexture(parent, spec.role)
     self.pvp = sizedTexture(parent, spec.pvp)
     return self
@@ -258,10 +264,30 @@ function AV.Indicators.SetPvPIcon(texture, kind)
     return true
 end
 
--- A raid marker sits where the name starts and pushes the name right.
+-- kind: 'AFK' | 'DND' | nil. Call LayoutNameLine afterwards.
+function Indicators:SetFlag(kind)
+    AV.Indicators.SetFlagIcon(self.flag, kind)
+end
+
+-- Shows the badge for kind ('AFK' | 'DND') on texture, or hides it for nil. Returns whether it shows.
+function AV.Indicators.SetFlagIcon(texture, kind)
+    local path = kind and FLAG_ICONS[kind]
+    if path then
+        texture:SetTexture(path)
+    end
+    texture:SetShown(path ~= nil)
+    return path ~= nil
+end
+
+-- A raid marker, then an AFK/DND flag, sit where the name starts and push the name right.
 function Indicators:LayoutNameLine(nameText)
     local nameSpec = self.nameSpec
     local shift = self.raidMarker:IsShown() and (self.spec.raidMarker.size[1] + 3) or 0
+    if self.flag:IsShown() then
+        local flagSpec = self.spec.flag
+        Style.Place(self.flag, self.top, { flagSpec.pos[1] + shift, flagSpec.pos[2] })
+        shift = shift + flagSpec.size[1] + 3
+    end
     nameText:ClearAllPoints()
     nameText:SetPoint('TOPLEFT', self.top, 'TOPLEFT', nameSpec.pos[1] + shift, -nameSpec.pos[2])
     nameText:SetWidth(nameSpec.width - shift)
