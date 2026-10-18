@@ -2,6 +2,8 @@
 ## Title: AzerothVista
 ## Notes: VanaVista-style party list, target bar and cast bars for WoW Forever.
 ## Version: 0.1
+## IconTexture: Interface\AddOns\AzerothVista\Media\AddonIcon
+## Category: Unit Frames
 ## SavedVariables: AzerothVistaDB, AzerothVistaLog
 
 core\secret.lua
