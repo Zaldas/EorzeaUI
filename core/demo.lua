@@ -68,6 +68,15 @@ local function pick(list, count)
     return out
 end
 
+-- count entries, repeating list; the first keeps list's order.
+local function cycle(list, count)
+    local out = {}
+    for i = 1, count do
+        out[i] = list[(i - 1) % #list + 1]
+    end
+    return out
+end
+
 -- One aura flow, in the live order. Called when the demo builds its samples: StaticIcons loads
 -- after this file.
 local function petAuras(debuffCount, buffCount)
@@ -152,8 +161,20 @@ local function raidMembers()
     return groups
 end
 
--- Two main tanks on a boss and its add, and a main assist on the add's pack, picked from the
--- demo raid; their cells show the raid role in place of the assigned one.
+-- A full Assists block: four main tanks, each on a mob, then four main assists on the tanks'
+-- mobs, picked from the demo raid; their cells show the raid role in place of the assigned one.
+local ASSIST_MOBS = {
+    { name = 'Ragnaros', colorKey = 'hostile', hpPercent = 64, raidMarker = 8 },
+    { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 38, raidMarker = 7 },
+    { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 81, raidMarker = 6 },
+    { name = 'Lava Surger', colorKey = 'hostile', hpPercent = 22, raidMarker = 5 },
+}
+-- { group, member, role, mob }
+local ASSIST_PICKS = {
+    { 2, 5, 'MAINTANK', 1 }, { 4, 4, 'MAINTANK', 2 }, { 3, 1, 'MAINTANK', 3 }, { 7, 2, 'MAINTANK', 4 },
+    { 6, 3, 'MAINASSIST', 2 }, { 5, 5, 'MAINASSIST', 1 }, { 8, 4, 'MAINASSIST', 3 }, { 1, 2, 'MAINASSIST', 4 },
+}
+
 local function assistMembers(groups)
     local function flagged(member, role)
         local copy = {}
@@ -163,30 +184,30 @@ local function assistMembers(groups)
         copy.role = role
         return copy
     end
-    local tank, offTank, assist = groups[2][5], groups[4][4], groups[6][3]
-    return {
-        {
-            member = flagged(tank, 'MAINTANK'),
-            target = { name = 'Ragnaros', colorKey = 'hostile', hpPercent = 64, raidMarker = 8 },
+    -- Each mob targets the tank on it.
+    local tanks = {}
+    for _, entry in ipairs(ASSIST_PICKS) do
+        if entry[3] == 'MAINTANK' then
+            tanks[entry[4]] = groups[entry[1]][entry[2]]
+        end
+    end
+    local out = {}
+    for i, entry in ipairs(ASSIST_PICKS) do
+        local tank = tanks[entry[4]]
+        out[i] = {
+            member = flagged(groups[entry[1]][entry[2]], entry[3]),
+            target = ASSIST_MOBS[entry[4]],
             tot = { name = tank.name, colorKey = 'party', hpPercent = math.floor(tank.hp / tank.hpMax * 100) },
-        },
-        {
-            member = flagged(offTank, 'MAINTANK'),
-            target = { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 38, raidMarker = 7 },
-            tot = { name = offTank.name, colorKey = 'party', hpPercent = math.floor(offTank.hp / offTank.hpMax * 100) },
-        },
-        {
-            member = flagged(assist, 'MAINASSIST'),
-            target = { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 38, raidMarker = 7 },
-            tot = { name = offTank.name, colorKey = 'party', hpPercent = math.floor(offTank.hp / offTank.hpMax * 100) },
-        },
-    }
+        }
+    end
+    return out
 end
 
--- A pet for each hunter and warlock in the demo raid, in raid order.
+-- A full pets block: a pet for every member of the demo raid, in raid order, alternating beasts
+-- and imps.
 local RAID_PET_KINDS = {
-    HUNTER = { icon = ICON .. 'Ability_Hunter_Pet_Wolf', powerType = 2, hpMax = 1920 },
-    WARLOCK = { icon = ICON .. 'Spell_Shadow_SummonImp', powerType = 0, hpMax = 1210 },
+    { icon = ICON .. 'Ability_Hunter_Pet_Wolf', powerType = 2, hpMax = 1920 },
+    { icon = ICON .. 'Spell_Shadow_SummonImp', powerType = 0, hpMax = 1210 },
 }
 local RAID_PET_NAMES = { 'Fang', 'Zhaztak', 'Grimtooth', 'Vexira', 'Shadowclaw', 'Brakkus', 'Skitter', 'Fizznik' }
 
@@ -194,15 +215,13 @@ local function raidPets(groups)
     local pets = {}
     for _, list in ipairs(groups) do
         for _, member in ipairs(list) do
-            local kind = RAID_PET_KINDS[member.class]
-            if kind and member.state ~= 'offline' then
-                local n = #pets + 1
-                pets[n] = {
-                    name = RAID_PET_NAMES[(n - 1) % #RAID_PET_NAMES + 1], icon = kind.icon, ownerClass = member.class,
-                    hp = math.floor(kind.hpMax * (0.4 + (n * 23 % 60) / 100)), hpMax = kind.hpMax,
-                    power = 70, powerMax = 100, powerType = kind.powerType,
-                }
-            end
+            local n = #pets + 1
+            local kind = RAID_PET_KINDS[(n - 1) % #RAID_PET_KINDS + 1]
+            pets[n] = {
+                name = RAID_PET_NAMES[(n - 1) % #RAID_PET_NAMES + 1], icon = kind.icon, ownerClass = member.class,
+                hp = math.floor(kind.hpMax * (0.4 + (n * 23 % 60) / 100)), hpMax = kind.hpMax,
+                power = 70, powerMax = 100, powerType = kind.powerType,
+            }
         end
     end
     pets[2].targeted = true
@@ -213,7 +232,7 @@ end
 local function target()
     return {
         name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'hostile', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
-        debuffs = TARGET_DEBUFFS, buffs = TARGET_BUFFS,
+        debuffs = cycle(TARGET_DEBUFFS, 16), buffs = cycle(TARGET_BUFFS, 32),
         castName = 'Fireball', castProgress = 0.6, castNotInterruptible = true,
         totName = playerDisplayName(), totColorKey = 'party', totPercent = 92,
         totDebuffs = { TARGET_DEBUFFS[1], TARGET_DEBUFFS[3], TARGET_DEBUFFS[6] },
@@ -224,14 +243,15 @@ end
 local function focus()
     return {
         name = 'Defias Conjurer', level = 17, colorKey = 'hostile', leader = true, raidMarker = 5, portraitUnit = 'player', hpPercent = 78,
-        debuffs = { { ICON .. 'Spell_Nature_Polymorph', '41', dispel = 'Magic' }, TARGET_DEBUFFS[1] },
-        buffs = { { ICON .. 'Spell_Frost_FrostArmor02', '9m', stealable = true } },
+        debuffs = cycle({ { ICON .. 'Spell_Nature_Polymorph', '41', dispel = 'Magic' }, unpack(TARGET_DEBUFFS) }, 8),
+        buffs = cycle({ { ICON .. 'Spell_Frost_FrostArmor02', '9m', stealable = true }, unpack(TARGET_BUFFS, 2) }, 8),
         castName = 'Frostbolt', castProgress = 0.3,
         totName = 'Brightmane Stormhold', totColorKey = 'party', totPercent = 100,
     }
 end
 
--- An encounter: the boss casting on its tank, a lieutenant on a healer, and a dead add.
+-- An encounter filling every slot: the boss casting on its tank, a lieutenant on a healer, two
+-- adds, and a dead one.
 local function bosses()
     return {
         {
@@ -243,6 +263,16 @@ local function bosses()
             name = 'Majordomo Executus', level = 63, classification = 'elite', colorKey = 'hostile', raidMarker = 7, portraitUnit = 'player',
             hpPercent = 38, threat = 1, threatPercent = 72,
             totName = 'Velisandre Ashby', totColorKey = 'party', totPercent = 55,
+        },
+        {
+            name = 'Son of Flame', level = 62, classification = 'elite', colorKey = 'hostile', raidMarker = 6, portraitUnit = 'player',
+            hpPercent = 81, threat = 2, threatPercent = 96,
+            totName = 'Korgath Ironhide', totColorKey = 'party', totPercent = 17,
+        },
+        {
+            name = 'Lava Surger', level = 62, classification = 'elite', colorKey = 'hostile', raidMarker = 5, portraitUnit = 'player',
+            hpPercent = 22, castName = 'Surge', castProgress = 0.7,
+            totName = 'Ashwind Vale', totColorKey = 'party', totPercent = 73,
         },
         {
             name = 'Flamewaker Healer', level = 62, classification = 'elite', colorKey = 'hostile', portraitUnit = 'player',

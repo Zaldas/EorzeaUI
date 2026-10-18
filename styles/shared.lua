@@ -194,6 +194,7 @@ function Kit.target(p, castText, size)
     local nameX, nameY, nameRight = 20, 32 - size.name, barWidth - 64
     -- The aura row's top; the click areas end there.
     local aurasY = 44
+    local auraSize, auraLineSpacing = 22, 16
     -- Compact: the arrow starts 4px after the HP line's end (11px inside a wide bar) and the mini
     -- bar's line 4px after the 11px arrow.
     local attentionX, totX = barWidth + 8, barWidth + 23
@@ -203,9 +204,21 @@ function Kit.target(p, castText, size)
     end
     local totDebuffs = size.totDebuffs or 4
     local bar = Kit.wideBar(barWidth, p.hp, p.hp)
+    local levelBadge = Kit.levelBadge(p)
+    -- Everything drawn, at full aura rows: combo points, PvP badge and icon on the left; the
+    -- header, else the leader crown, on top; the level badge or the aura rows at the bottom.
+    local left = size.combo and iconX - 30 or iconX - 11
+    local top = size.label and iconY - 24 or iconY - 8
+    local bottom = iconY + iconSize + levelBadge.size[2] * levelBadge.overlap
+    if size.debuffs then
+        local lines = math.ceil((size.debuffs + size.buffs) / size.perLine)
+        bottom = math.max(bottom, aurasY + lines * (auraSize + auraLineSpacing))
+    end
     return {
         width = totX + size.tot,
         height = size.height,
+        -- Edit Mode handle (EditMode.Register's box).
+        editBox = { left = -left, top = -top, right = 0, bottom = bottom - size.height },
         bar = bar,
         -- Keyed by the unit's reaction as Blizzard's target frame tracks it
         -- (UnitInfo.ReactionKey). They tint the separator and nameBg; the name too unless
@@ -247,7 +260,7 @@ function Kit.target(p, castText, size)
             size = 64,
             paths = { worldboss = 'tiers/boss', elite = 'tiers/elite', rareelite = 'tiers/rareElite', rare = 'tiers/rare' },
         },
-        levelBadge = Kit.levelBadge(p),
+        levelBadge = levelBadge,
         -- Straddles the icon's left edge in its lower half, as on the party rows.
         pvp = { pos = { iconX - 11, iconY + 22 }, size = { 22, 22 } },
         -- Your combo points on the unit (size.combo only): a zigzag left of the PvP badge, centred
@@ -285,7 +298,7 @@ function Kit.target(p, castText, size)
         -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
         auras = size.debuffs and {
-            pos = { 25, aurasY }, size = 22, spacing = 3, perLine = size.perLine, lineSpacing = 16, timers = true, border = Kit.AURA_BORDER,
+            pos = { 25, aurasY }, size = auraSize, spacing = 3, perLine = size.perLine, lineSpacing = auraLineSpacing, timers = true, border = Kit.AURA_BORDER,
             groups = {
                 HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = p.dispel },
                 HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
@@ -336,13 +349,17 @@ end
 
 function Kit.castBar(p, castText)
     local width = 467
+    local txtName = Kit.castName(castText)
     return {
         width = width,
         height = 64,
+        -- Edit Mode handle (EditMode.Register's box): the spell name's top to the bar line's bottom
+        -- (y 36 of the art).
+        editBox = { top = -txtName.pos[2], bottom = -(64 - 36) },
         bar = Kit.wideBar(width, p.cast, p.cast),
         channelColor = p.channel,
         sparkColor = p.spark,
         failure = { color = p.castFailure, hold = 1 },
-        txtName = Kit.castName(castText),
+        txtName = txtName,
     }
 end

@@ -171,6 +171,15 @@ local PET_HOOKS = {
     end,
 }
 
+-- Edit Mode handle (EditMode.Register's box): the background, widened left over the class icon
+-- and the badges straddling it.
+function PartyList.EditBox()
+    local style, bg = PartyList.style, PartyList.background
+    local indicators = style.indicators
+    local left = math.min(style.classIcon.pos[1], indicators.role.pos[1], indicators.pvp.pos[1])
+    return { topRegion = bg.top, bottomRegion = bg.bottom, left = style.background.pos[1] - left }
+end
+
 function PartyList.Create(style, fonts)
     local partyStyle = style.party
     PartyList.style = partyStyle

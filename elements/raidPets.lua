@@ -227,6 +227,13 @@ local function attachRow(button)
     rows[#rows + 1] = self
 end
 
+-- Edit Mode handle (EditMode.Register's box): the left edge moves in from the cursor's overhang
+-- to the portrait.
+function RaidPets.EditBox()
+    local spec = RaidPets.spec
+    return { left = -(-spec.cursor.pos[1] + spec.portrait.pos[1]) }
+end
+
 function RaidPets.Create(style, fonts)
     RaidPets.style = style.raid
     RaidPets.spec = style.raid.pets

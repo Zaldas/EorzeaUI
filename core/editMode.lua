@@ -72,16 +72,15 @@ local function applySelectionArt(frame, blendMode)
     return true
 end
 
--- frame: the root to move. label: text on the handle. bounds: optional { topLeft, bottomRight }
--- regions whose corners the handle spans, for content that outgrows frame.
-function EditMode.Register(key, frame, label, bounds)
+-- frame: the root to move. label: text above the handle. box (optional): where the handle spans,
+-- so it covers everything the frame draws at full capacity = { left, top, right, bottom } in
+-- pixels past the frame's edges (negative: inside them), measured from topRegion's top-left and
+-- bottomRegion's bottom-right instead when given, for content that outgrows frame.
+function EditMode.Register(key, frame, label, box)
     local mover = CreateFrame('Frame', nil, frame)
-    if bounds then
-        mover:SetPoint('TOPLEFT', bounds[1], 'TOPLEFT')
-        mover:SetPoint('BOTTOMRIGHT', bounds[2], 'BOTTOMRIGHT')
-    else
-        mover:SetAllPoints(frame)
-    end
+    box = box or {}
+    mover:SetPoint('TOPLEFT', box.topRegion or frame, 'TOPLEFT', -(box.left or 0), box.top or 0)
+    mover:SetPoint('BOTTOMRIGHT', box.bottomRegion or frame, 'BOTTOMRIGHT', box.right or 0, -(box.bottom or 0))
     mover:SetFrameStrata('DIALOG')
     -- Later registrations draw above earlier ones, so a small frame placed over a larger one
     -- (Assists over the raid) can still be grabbed.
@@ -105,8 +104,9 @@ function EditMode.Register(key, frame, label, bounds)
         bg:SetAllPoints()
         bg:SetColorTexture(0.2, 0.6, 1, 0.25)
     end
+    -- Above the selection art, which reaches 8px past the handle, so it never covers content.
     local text = mover:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightLarge')
-    text:SetPoint('CENTER')
+    text:SetPoint('BOTTOM', mover, 'TOP', 0, 10)
     text:SetText(label)
 
     mover:SetScript('OnDragStart', EUI.Guard('drag start', function()

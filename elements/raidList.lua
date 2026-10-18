@@ -364,6 +364,14 @@ local function createAssists()
     })
 end
 
+-- Edit Mode handle (EditMode.Register's box) for the groups and Assists anchors: their left edge
+-- moves in from the cursor's overhang to the role badge or class icon, whichever is further left.
+function RaidList.EditBox()
+    local style = RaidList.style
+    local left = math.min(style.classIcon.pos[1], style.indicators.role.pos[1])
+    return { left = -(-style.cursor.pos[1] + left) }
+end
+
 function RaidList.Create(style, fonts)
     local raidStyle = style.raid
     RaidList.style = raidStyle
