@@ -182,6 +182,33 @@ local function assistMembers(groups)
     }
 end
 
+-- A pet for each hunter and warlock in the demo raid, in raid order.
+local RAID_PET_KINDS = {
+    HUNTER = { icon = ICON .. 'Ability_Hunter_Pet_Wolf', powerType = 2, hpMax = 1920 },
+    WARLOCK = { icon = ICON .. 'Spell_Shadow_SummonImp', powerType = 0, hpMax = 1210 },
+}
+local RAID_PET_NAMES = { 'Fang', 'Zhaztak', 'Grimtooth', 'Vexira', 'Shadowclaw', 'Brakkus', 'Skitter', 'Fizznik' }
+
+local function raidPets(groups)
+    local pets = {}
+    for _, list in ipairs(groups) do
+        for _, member in ipairs(list) do
+            local kind = RAID_PET_KINDS[member.class]
+            if kind and member.state ~= 'offline' then
+                local n = #pets + 1
+                pets[n] = {
+                    name = RAID_PET_NAMES[(n - 1) % #RAID_PET_NAMES + 1], icon = kind.icon, ownerClass = member.class,
+                    hp = math.floor(kind.hpMax * (0.4 + (n * 23 % 60) / 100)), hpMax = kind.hpMax,
+                    power = 70, powerMax = 100, powerType = kind.powerType,
+                }
+            end
+        end
+    end
+    pets[2].targeted = true
+    pets[#pets].far = true
+    return pets
+end
+
 local function target()
     return {
         name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'hostile', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
@@ -264,6 +291,7 @@ function Demo.Refresh()
     EUI.PartyList.SetDemo(active and members() or nil)
     local raid = active and raidMembers() or nil
     EUI.RaidList.SetDemo(raid, raid and assistMembers(raid))
+    EUI.RaidPets.SetDemo(raid and raidPets(raid))
     EUI.TargetBar.target:SetPreview(active and target() or nil)
     EUI.TargetBar.focus:SetPreview(active and focus() or nil)
     EUI.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)

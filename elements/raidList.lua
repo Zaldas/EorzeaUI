@@ -22,8 +22,9 @@ local cells = {}
 local cellsByUnit = {}
 local targetCells = {}
 
-local function cellsHeight(style, count)
-    return count * style.rowHeight + (count - 1) * style.rowSpacing
+-- rowHeight (optional) overrides style.rowHeight, for the pet rows.
+local function cellsHeight(style, count, rowHeight)
+    return count * (rowHeight or style.rowHeight) + (count - 1) * style.rowSpacing
 end
 
 -- Group slots step by the background's width plus the target cursor's overhang left of the
@@ -69,11 +70,19 @@ local function createChrome(parent, label, bgSpec, labelSpec, fonts)
     return bg
 end
 
-local function sizeChrome(bg, count, style)
+local function sizeChrome(bg, count, style, rowHeight)
     bg:SetShown(count > 0)
     if count > 0 then
-        bg.mid:SetHeight(cellsHeight(style, count))
+        bg.mid:SetHeight(cellsHeight(style, count, rowHeight))
     end
+end
+
+-- Shared with the pets block (elements/raidPets.lua).
+RaidList.CreateChrome = createChrome
+RaidList.SizeChrome = sizeChrome
+-- Distance between group columns.
+function RaidList.ColumnStep(style)
+    return (slotSteps(style))
 end
 
 local slotOrder

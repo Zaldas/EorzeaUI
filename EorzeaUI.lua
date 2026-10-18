@@ -10,6 +10,7 @@ local function applyScale()
         EUI.PartyList.anchor:SetScale(scale)
         EUI.RaidList.anchor:SetScale(scale)
         EUI.RaidList.assistsAnchor:SetScale(scale)
+        EUI.RaidPets.anchor:SetScale(scale)
         EUI.TargetBar.target.anchor:SetScale(scale)
         EUI.TargetBar.focus.anchor:SetScale(scale)
         EUI.castAnchor:SetScale(scale)
@@ -86,6 +87,7 @@ local function initialize()
 
     EUI.PartyList.Create(style, fonts)
     EUI.RaidList.Create(style, fonts)
+    EUI.RaidPets.Create(style, fonts)
     EUI.TargetBar.Create(style, fonts)
     createPlayerCastBar(style, fonts)
 
@@ -93,6 +95,7 @@ local function initialize()
     EUI.EditMode.Register('party', EUI.PartyList.anchor, 'Party', { partyBg.top, partyBg.bottom })
     EUI.EditMode.Register('raid', EUI.RaidList.anchor, 'Raid')
     EUI.EditMode.Register('assists', EUI.RaidList.assistsAnchor, 'Assists')
+    EUI.EditMode.Register('pets', EUI.RaidPets.anchor, 'Pets')
     EUI.EditMode.Register('target', EUI.TargetBar.target.anchor, 'Target')
     EUI.EditMode.Register('focus', EUI.TargetBar.focus.anchor, 'Focus')
     EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar')
@@ -112,6 +115,9 @@ local function initialize()
             cell:UpdateRange()
         end)
         EUI.RaidList.UpdateTargets()
+        EUI.RaidPets.ForEachVisible(function(pet)
+            pet:UpdateRange()
+        end)
         EUI.TargetBar.ForEach(function(bar)
             bar:UpdateIdentity()
             bar:UpdateThreat()
@@ -124,6 +130,7 @@ local function initialize()
     EUI.Blizzard.HideReplaced()
     EUI.PartyList.RefreshAll()
     EUI.RaidList.RefreshAll()
+    EUI.RaidPets.RefreshAll()
     EUI.TargetBar.ForEach(function(bar)
         bar:Refresh()
     end)
@@ -149,7 +156,7 @@ local function forEachBar(method)
 end
 
 -- Unit events, by the frames showing the event's unit: row (party row and raid cell), pet (pet
--- sub-row), bar (target or focus bar). Each is a method name, a list of them, or fn(frame, event,
+-- sub-row; also raid pet rows unless raidPet is set, false for none), bar (target or focus bar). Each is a method name, a list of them, or fn(frame, event,
 -- arg3, arg4, arg5). smooth, when set, is passed to named methods (UpdateHealth/UpdatePower ease
 -- the change).
 -- also(unit, event, arg3, arg4, arg5) runs once per event, for frames not tied to the unit.
@@ -169,8 +176,8 @@ local UNIT_ROUTES = {
         end,
     },
     UNIT_TARGET = { bar = 'UpdateTargetOfTarget' },
-    UNIT_HEAL_PREDICTION = { row = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
-    UNIT_ABSORB_AMOUNT_CHANGED = { row = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
+    UNIT_HEAL_PREDICTION = { row = 'UpdateHealPrediction', raidPet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
+    UNIT_ABSORB_AMOUNT_CHANGED = { row = 'UpdateHealPrediction', raidPet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
     UNIT_CONNECTION = { row = { 'UpdateState', 'UpdateStatusIcon' } },
     UNIT_FLAGS = {
         row = { 'UpdateFlags', 'UpdateState', 'UpdatePvP', 'UpdateStatusIcon' },
@@ -206,6 +213,7 @@ local UNIT_ROUTES = {
             EUI.PartyList.ForEachVisiblePet(function(pet)
                 pet:Refresh()
             end)
+            EUI.RaidPets.RefreshAll()
         end,
     },
     UNIT_PORTRAIT_UPDATE = { pet = 'UpdatePortrait', bar = 'UpdateIcon' },
@@ -244,6 +252,7 @@ local CAST_ROUTE = {
     pet = function(pet, event, _, failedCastBarID, interruptedCastBarID)
         castEvent(pet.cast, event, failedCastBarID, interruptedCastBarID)
     end,
+    raidPet = false,
     bar = function(bar, event, _, failedCastBarID, interruptedCastBarID)
         castEvent(bar.cast, event, failedCastBarID, interruptedCastBarID)
     end,
@@ -287,6 +296,11 @@ local function onUnitEvent(route, event, unit, arg3, arg4, arg5)
         end)
     end
     runAction(route.pet and EUI.PartyList.PetForUnit(unit), route.pet, route, event, arg3, arg4, arg5)
+    local raidPet = route.raidPet
+    if raidPet == nil then
+        raidPet = route.pet
+    end
+    runAction(raidPet and EUI.RaidPets.ForUnit(unit), raidPet, route, event, arg3, arg4, arg5)
     runAction(route.bar and EUI.TargetBar.ForUnit(unit), route.bar, route, event, arg3, arg4, arg5)
     if route.also then
         route.also(unit, event, arg3, arg4, arg5)
@@ -298,6 +312,7 @@ local function refreshRoster()
     EUI.PartyList.RefreshAll()
     EUI.PartyList.UpdateFormRows()
     EUI.RaidList.OnRosterChanged()
+    EUI.RaidPets.RefreshAll()
 end
 
 local function updateRowStates()
@@ -327,6 +342,9 @@ local GLOBAL_ROUTES = {
         EUI.TargetBar.target:Refresh()
         forEachRow('UpdateCursor')
         EUI.PartyList.ForEachVisiblePet(function(pet)
+            pet:UpdateCursor()
+        end)
+        EUI.RaidPets.ForEachVisible(function(pet)
             pet:UpdateCursor()
         end)
     end,
@@ -495,6 +513,7 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             EUI.EditMode.RestorePosition('party', EUI.PartyList.anchor)
             EUI.EditMode.RestorePosition('raid', EUI.RaidList.anchor)
             EUI.EditMode.RestorePosition('assists', EUI.RaidList.assistsAnchor)
+            EUI.EditMode.RestorePosition('pets', EUI.RaidPets.anchor)
             EUI.EditMode.RestorePosition('target', EUI.TargetBar.target.anchor)
             EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)
             EUI.EditMode.RestorePosition('cast', EUI.castAnchor)

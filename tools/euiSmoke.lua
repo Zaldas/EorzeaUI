@@ -59,7 +59,7 @@ CreateFrame = function(kind, name, parent, template)
     local f = newFrame()
     if name then _G[name] = f end
     eventFrames[#eventFrames + 1] = f
-    if template == 'SecureGroupHeaderTemplate' then
+    if template == 'SecureGroupHeaderTemplate' or template == 'SecureGroupPetHeaderTemplate' then
         -- As SecureGroupHeader_Update: a startingIndex below 1 builds 1 - startingIndex buttons.
         local setAttribute = f.SetAttribute
         rawset(f, 'SetAttribute', function(self, attr, value)
@@ -779,7 +779,7 @@ local function countDrivers(condition)
     return count
 end
 assert(countDrivers('[group:raid] hide; show') == 1, 'party members visibility driver missing')
-assert(countDrivers('[group:raid] show; hide') == 9, 'raid header drivers: ' .. countDrivers('[group:raid] show; hide'))
+assert(countDrivers('[group:raid] show; hide') == 10, 'raid header drivers: ' .. countDrivers('[group:raid] show; hide'))
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 6 end
 UnitInRaid = function(unit) return unit == 'player' and 3 or nil end
@@ -812,6 +812,18 @@ assert(#cellButtons('raid4') == 2, 'main tank not routed to both cells')
 GetRaidRosterInfo = function(i) return 'm' .. i, 0, 1, 60, 'Warrior', 'WARRIOR', 'Zone', true, false, i == 4 and 'MAINTANK' or nil end
 UnitInRaid = function(unit) if unit == 'player' then return 3 elseif unit == 'raid4' then return 4 end end
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
+TICK()
+-- Raid pets: 40 prebuilt rows route events by raidpetN; cast events skip them.
+local petRow = _G.EorzeaUIRaidPetsUnitButton1
+assert(petRow and _G.EorzeaUIRaidPetsUnitButton40, 'raid pet rows not built')
+petRow:SetAttribute('unit', 'raidpet4')
+assert(EUI.RaidPets.ForUnit('raidpet4'), 'raid pet not routed')
+for _, event in ipairs({ 'UNIT_HEALTH', 'UNIT_POWER_UPDATE', 'UNIT_NAME_UPDATE', 'UNIT_PORTRAIT_UPDATE', 'UNIT_HEAL_PREDICTION',
+    'UNIT_SPELLCAST_START', 'UNIT_HAPPINESS' }) do
+    onEvent(nil, event, 'raidpet4')
+end
+onEvent(nil, 'UNIT_PET', 'raid4')
+onEvent(nil, 'PLAYER_TARGET_CHANGED')
 TICK()
 for _, event in ipairs({ 'UNIT_HEALTH', 'UNIT_POWER_UPDATE', 'UNIT_FLAGS', 'UNIT_SPELLCAST_START', 'UNIT_THREAT_SITUATION_UPDATE' }) do
     onEvent(nil, event, 'raid4')

@@ -207,6 +207,21 @@ function Kit.BuildLayout(p)
                     nameColor = p.targetName,
                 },
             },
+            -- Raid pets: Blizzard keeps them in their own section after the groups; ours is its own
+            -- block with its own mover. The party pet row's portrait beside the raid cell's name and
+            -- bars (txtName, hp, power), in columns of perColumn at the group columns' spacing. No
+            -- auras, as on Blizzard's pet frames.
+            pets = {
+                label = 'Pets',
+                max = 40,
+                perColumn = 10,
+                rowHeight = 32,
+                -- The party pet portrait, its right edge on the cells' class icon's (x 24).
+                portrait = { pos = { -3, 2 }, size = 27, inset = 3.5 },
+                hover = { path = 'ffxi/Hover', pos = { 18, -6 }, size = { 156, 44 }, color = '#9C94E8AA' },
+                -- Tip on the portrait's left edge, centred, as on the cells.
+                cursor = { path = 'ffxi/Cursor', pos = { -35, 4 }, size = { 35, 23 }, color = '#FFFFFFFF' },
+            },
             lowHealth = Kit.LOW_HEALTH,
             -- The bar's line starts under the name (x 27) and keeps VanaVista's right end.
             hp = {

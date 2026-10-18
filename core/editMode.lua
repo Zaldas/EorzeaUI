@@ -13,6 +13,7 @@ local DEFAULT_POSITIONS = {
     party = { 'TOPLEFT', 'TOPLEFT', 60, -260 },
     raid = { 'TOPLEFT', 'TOPLEFT', 60, -420 },
     assists = { 'RIGHT', 'RIGHT', -120, 120 },
+    pets = { 'BOTTOMLEFT', 'BOTTOMLEFT', 60, 220 },
     target = { 'TOP', 'TOP', 0, -140 },
     focus = { 'TOP', 'TOP', 0, -340 },
     cast = { 'CENTER', 'CENTER', 0, -148 },
