@@ -7,7 +7,7 @@ EUI.StaticIcons = {}
 local StaticIcons = {}
 StaticIcons.__index = StaticIcons
 
--- The total of each group's max when spec.groups sets them, else spec.max.
+-- The total of each group's max when spec.groups sets them, else spec.max; spec.max caps it.
 local function slotCount(spec)
     if not spec.groups then
         return spec.max
@@ -16,7 +16,27 @@ local function slotCount(spec)
     for filter in pairs(spec.groups) do
         count = count + EUI.AuraRow.GroupSpec(spec, filter).max
     end
-    return count
+    return spec.max and math.min(count, spec.max) or count
+end
+
+-- Demo auras in the live flow's order for groupAuras specs: debuffs with a dispel type (as if
+-- you could dispel them) in the 'dispel' group, then the other debuffs, then buffs.
+function EUI.StaticIcons.Grouped(debuffs, buffs)
+    local out = {}
+    for _, entry in ipairs(debuffs or {}) do
+        if entry.dispel then
+            out[#out + 1] = { entry[1], entry[2], dispel = entry.dispel, group = 'dispel' }
+        end
+    end
+    for _, entry in ipairs(debuffs or {}) do
+        if not entry.dispel then
+            out[#out + 1] = entry
+        end
+    end
+    for _, entry in ipairs(buffs or {}) do
+        out[#out + 1] = entry
+    end
+    return out
 end
 
 -- spec = { pos, size, spacing, max, timers, border, dispelBorder, dispelColors, perLine,

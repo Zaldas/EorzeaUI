@@ -84,7 +84,7 @@ function EUI.PetRow.Attach(button, owner, partyStyle, fonts, hooks)
     buildArt(self, button, spec, fonts)
 
     -- Created at login (out of combat) with the button's initial unit.
-    self.auras = EUI.AuraRow.Create(self.auraLayer, button:GetAttribute('unit') or 'pet', { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
+    self.auras = EUI.AuraRow.Create(self.auraLayer, button:GetAttribute('unit') or 'pet', spec.auras.order, spec.auras, fonts)
 
     UnitVisual.AttachButton(self, button)
     -- The secure show/hide handlers have resized the owner's row by the time these run.
@@ -103,11 +103,7 @@ function EUI.PetRow.CreateDemo(parent, owner, partyStyle, fonts)
     host:SetSize(partyStyle.width, spec.rowHeight)
     self.host = host
     buildArt(self, host, spec, fonts)
-    local auraSpec = spec.auras
-    self.auras = EUI.StaticIcons.Create(self.auraLayer, {
-        pos = auraSpec.pos, size = auraSpec.size, spacing = auraSpec.spacing, max = auraSpec.max * 2,
-        border = auraSpec.border,
-    }, fonts)
+    self.auras = EUI.StaticIcons.Create(self.auraLayer, spec.auras, fonts)
     return self
 end
 

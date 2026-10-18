@@ -68,18 +68,15 @@ local function pick(list, count)
     return out
 end
 
--- Pet auras run debuffs then buffs in one row.
+-- One aura flow, in the live order. Called when the demo builds its samples: StaticIcons loads
+-- after this file.
 local function petAuras(debuffCount, buffCount)
-    local out = pick(DEBUFFS, debuffCount)
-    for i = 1, buffCount do
-        out[#out + 1] = BUFFS[i]
-    end
-    return out
+    return EUI.StaticIcons.Grouped(pick(DEBUFFS, debuffCount), pick(BUFFS, buffCount))
 end
 
 local HUNTER_PET = {
     name = 'Fang', icon = ICON .. 'Ability_Hunter_Pet_Wolf', hp = 1640, hpMax = 1920, power = 70, powerMax = 100, powerType = 2,
-    happiness = 3, auras = petAuras(1, 2),
+    happiness = 3,
 }
 local IMP = {
     name = 'Zhaztak', icon = ICON .. 'Spell_Shadow_SummonImp', hp = 980, hpMax = 1210, power = 860, powerMax = 1350, powerType = 0,
@@ -87,6 +84,7 @@ local IMP = {
 }
 
 local function members()
+    HUNTER_PET.auras = petAuras(1, 2)
     local playerName = playerDisplayName()
     local playerClass = select(2, UnitClass('player')) or 'PALADIN'
     local playerFaction = UnitFactionGroup and UnitFactionGroup('player') or 'Alliance'
@@ -112,7 +110,7 @@ local NAME_STARTS = { 'Ael', 'Bran', 'Cor', 'Dra', 'Eli', 'Fen', 'Gar', 'Hal', '
 local NAME_ENDS = { 'dor', 'wyn', 'ric', 'tha', 'mir' }
 -- By raid slot (group * 5 + member): states and markers the cells show.
 local RAID_EXTRAS = {
-    [2] = { raidMarker = 8, threat = 3, assistant = true, auras = petAuras(5, 6) },
+    [2] = { raidMarker = 8, threat = 3, assistant = true, auraCounts = { 5, 6 } },
     [4] = { status = 'ready' },
     [7] = { targeted = true, incoming = 640 },
     [9] = { state = 'dead' },
@@ -141,6 +139,9 @@ local function raidMembers()
             }
             for key, value in pairs(RAID_EXTRAS[slot] or {}) do
                 member[key] = value
+            end
+            if member.auraCounts then
+                member.auras = petAuras(member.auraCounts[1], member.auraCounts[2])
             end
             list[m] = member
         end

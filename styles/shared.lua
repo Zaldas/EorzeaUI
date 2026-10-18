@@ -135,6 +135,26 @@ function Kit.raidIndicators(p, nameX, nameY)
     }
 end
 
+-- One flow of auras in Blizzard's unit frame classes (AuraUtil.ProcessAura): debuffs you can
+-- dispel, edged by dispel type; other debuffs, boss and role auras first; then buffs you cast that
+-- others can have. Any group may fill the flow; perLine * lines caps the total and the rest are
+-- clipped. Icons carry a cooldown swipe, as Blizzard's party and raid frames.
+-- spec = { pos, size, spacing, perLine, lines, lineSpacing }
+function Kit.groupAuras(p, spec)
+    local total = spec.perLine * spec.lines
+    return {
+        pos = spec.pos, size = spec.size, spacing = spec.spacing, perLine = spec.perLine, lines = spec.lines,
+        lineSpacing = spec.lineSpacing, max = total, clip = true, swipe = true, border = Kit.AURA_BORDER,
+        processAuras = true,
+        order = { 'dispel', 'debuffs', 'buffs' },
+        groups = {
+            dispel = { filter = 'HARMFUL', auraType = 'Dispel', max = total, sort = 'UnitFrameDebuff', dispelBorder = 'dispel', dispelColors = p.dispel },
+            debuffs = { filter = 'HARMFUL', auraType = 'Debuff', max = total, sort = 'UnitFrameDebuff' },
+            buffs = { filter = 'HELPFUL', auraType = 'Buff', max = total },
+        },
+    }
+end
+
 -- Blizzard's frames tint the portrait red at 20% health or below.
 Kit.LOW_HEALTH = { below = 0.2, color = '#FF0000FF' }
 

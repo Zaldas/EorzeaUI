@@ -104,6 +104,20 @@ local function makeInitializer(spec, fonts)
             end
         end
 
+        -- As Blizzard's party and raid auras: no edge, no countdown numbers.
+        if spec.swipe and button.SetDurationCooldown then
+            local cooldown = CreateFrame('Cooldown', nil, button, 'CooldownFrameTemplate')
+            cooldown:SetPoint('TOPLEFT', 1, -1)
+            cooldown:SetPoint('BOTTOMRIGHT', -1, 1)
+            cooldown:SetDrawEdge(false)
+            cooldown:SetHideCountdownNumbers(true)
+            cooldown:SetReverse(true)
+            local ok, err = pcall(button.SetDurationCooldown, button, cooldown)
+            if not ok then
+                EUI.LogOnce('aura:swipe', 'SetDurationCooldown failed: %s', tostring(err))
+            end
+        end
+
         if spec.timers and button.SetDurationText then
             local timer = button:CreateFontString(nil, 'OVERLAY')
             timer:SetPoint('TOP', button, 'BOTTOM', 0, 0)
@@ -148,6 +162,7 @@ end
 -- spec = { pos, size, spacing, max, timers, border = '#RRGGBBAA' edge colour,
 -- dispelBorder = 'dispel' | 'stealable' | nil, dispelColors = { [dispel type] = '#RRGGBBAA' },
 -- perLine = icons per line before wrapping (nil: one line), lineSpacing = gap between lines,
+-- lines = lines the row shows (default 1), clip = hide icons past them, swipe = cooldown swipe,
 -- groups = { [name] = per-group overrides of max, dispelBorder, dispelColors, ... },
 -- processAuras = classify auras with AuraUtil.ProcessAura, as Blizzard's raid frames do }
 -- A group may also set filter (the aura filter, default its name), auraType ('Debuff', 'Dispel'
@@ -160,18 +175,32 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
     local self = setmetatable({ unit = unit }, AuraRow)
     local filters = type(filter) == 'table' and filter or { filter }
 
-    local ok, container = pcall(CreateFrame, 'AuraContainer', nil, parent, 'CustomAuraContainerTemplate')
-    if not ok or not container then
-        EUI.Print('AuraContainer unavailable (%s)', tostring(container))
-        return self
-    end
     local count = 0
     for _, groupFilter in ipairs(filters) do
         count = count + EUI.AuraRow.GroupSpec(spec, groupFilter).max
     end
     local lineWidth = EUI.AuraRow.LineWidth(spec)
-    container:SetSize(lineWidth or (spec.size + spec.spacing) * count, spec.size)
-    EUI.Style.Place(container, parent, spec.pos)
+    local lines = spec.lines or 1
+    local width = lineWidth or (spec.size + spec.spacing) * count
+    local height = lines * spec.size + (lines - 1) * (spec.lineSpacing or 0)
+
+    -- The container resizes itself to its icons after each layout, so clipping happens on a fixed
+    -- box around it.
+    local holder = parent
+    if spec.clip then
+        holder = CreateFrame('Frame', nil, parent)
+        holder:SetSize(width, height)
+        EUI.Style.Place(holder, parent, spec.pos)
+        holder:SetClipsChildren(true)
+    end
+
+    local ok, container = pcall(CreateFrame, 'AuraContainer', nil, holder, 'CustomAuraContainerTemplate')
+    if not ok or not container then
+        EUI.Print('AuraContainer unavailable (%s)', tostring(container))
+        return self
+    end
+    container:SetSize(width, height)
+    EUI.Style.Place(container, holder, spec.clip and { 0, 0 } or spec.pos)
 
     local defaultSort = AuraContainerSortMethod and (AuraContainerSortMethod.Expiration or AuraContainerSortMethod.ExpirationOnly) or 4
     local sortDirection = AuraContainerSortDirection and AuraContainerSortDirection.Normal or 0

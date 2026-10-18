@@ -179,10 +179,6 @@ function EUI.PartyRow.Attach(button, style, fonts, hooks)
 
     -- AuraContainers are created at login (out of combat) with the button's initial unit.
     local initialUnit = button:GetAttribute('unit') or 'player'
-    if style.buffs then
-        self.buffs = EUI.AuraRow.Create(art, initialUnit, 'HELPFUL', style.buffs, fonts)
-        self.debuffs = EUI.AuraRow.Create(art, initialUnit, 'HARMFUL', style.debuffs, fonts)
-    end
     if style.auras then
         self.auras = EUI.AuraRow.Create(art, initialUnit, style.auras.order, style.auras, fonts)
     end
@@ -200,10 +196,6 @@ function EUI.PartyRow.CreateDemo(parent, style, fonts)
     host:SetSize(style.width, style.rowHeight)
     self.host = host
     buildArt(self, host, style, fonts)
-    if style.buffs then
-        self.buffs = EUI.StaticIcons.Create(self.art, style.buffs, fonts)
-        self.debuffs = EUI.StaticIcons.Create(self.art, style.debuffs, fonts)
-    end
     if style.auras then
         self.auras = EUI.StaticIcons.Create(self.art, style.auras, fonts)
     end
@@ -233,7 +225,8 @@ end
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, guide, targeted, far,
 --            state, resting, combat, status, raidMarker, tag, role, pvp, cast, threat, powerType,
 --            form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
---            buffs, debuffs, auras (one row, for styles with auras), pet (see PetRow ShowDemo) }
+--            buffs, debuffs (shown in the live order), or auras (one prepared list), pet (see PetRow
+--            ShowDemo) }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -298,12 +291,8 @@ function Row:ShowDemo(member)
     setThreat(self, member.threat)
     self.art:SetAlpha(member.far and self.style.range.farAlpha or 1)
 
-    if self.buffs then
-        self.buffs:Set(member.buffs)
-        self.debuffs:Set(member.debuffs)
-    end
     if self.auras then
-        self.auras:Set(member.auras)
+        self.auras:Set(member.auras or EUI.StaticIcons.Grouped(member.debuffs, member.buffs))
     end
 
     if not self.pet then
@@ -325,10 +314,6 @@ function Row:SetUnit(unit)
     self.readyStatus = nil
     self.hooks.unitChanged(self, previous, unit)
     if unit then
-        if self.buffs then
-            self.buffs:SetUnit(unit)
-            self.debuffs:SetUnit(unit)
-        end
         if self.auras then
             self.auras:SetUnit(unit)
         end
@@ -359,10 +344,6 @@ function Row:Refresh()
     self:UpdateRaidMarker()
     self:UpdatePlayerState()
     self:UpdateReadyCheck(self.hooks.readyCheckPhase())
-    if self.buffs then
-        self.buffs:Refresh()
-        self.debuffs:Refresh()
-    end
     if self.auras then
         self.auras:Refresh()
     end

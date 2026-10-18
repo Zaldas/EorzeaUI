@@ -108,12 +108,8 @@ function Kit.BuildLayout(p)
             },
             levelBadge = Kit.levelBadge(p),
             indicators = Kit.partyIndicators(p, 38, 3),
-            buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER },
-            -- dispelBorder: edges debuffs by dispel type, as on the target.
-            debuffs = {
-                pos = { 284, 16 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER,
-                dispelBorder = 'dispel', dispelColors = p.dispel,
-            },
+            -- Two lines of 6 right of the bars (y -6..34).
+            auras = Kit.groupAuras(p, { pos = { 284, -6 }, size = 18, spacing = 2, perLine = 6, lines = 2, lineSpacing = 4 }),
             -- Pet sub-row at the bottom of the owner's row, which grows by rowHeight while the pet
             -- exists. A compact member row, in sub-row coordinates: name line on top, then HP and
             -- power side by side on VanaVista's short alliance bars (lines x 52.5..129.5 and
@@ -155,8 +151,8 @@ function Kit.BuildLayout(p)
                 hover = { path = 'ffxi/Hover', pos = { 20, -6 }, size = { 390, 44 }, color = '#9C94E8AA' },
                 -- Points at the portrait (x 24..51, y 3..30) as the member cursor does at the class icon.
                 cursor = { path = 'ffxi/Cursor', pos = { -10, 5 }, size = { 37, 24 }, color = '#FFFFFFFF' },
-                -- Own pet only: debuffs then buffs in the party aura column, max of each.
-                auras = { pos = { 284, 7 }, size = 18, spacing = 2, max = 3, border = Kit.AURA_BORDER },
+                -- Own pet only: one line of 6 in the party aura column.
+                auras = Kit.groupAuras(p, { pos = { 284, 7 }, size = 18, spacing = 2, perLine = 6, lines = 1 }),
             },
         },
 
@@ -260,7 +256,7 @@ function Kit.BuildLayout(p)
             -- you can dispel, then buffs you cast that others can have. Blizzard shows 5, 3 and 6;
             -- buffs are cut to fit the line. max: the demo's total.
             auras = {
-                pos = { 31, 31 }, size = 12, spacing = 1, max = 11, border = Kit.AURA_BORDER,
+                pos = { 31, 31 }, size = 12, spacing = 1, max = 11, border = Kit.AURA_BORDER, swipe = true,
                 -- Debuffs only; buffs keep the plain edge.
                 dispelBorder = 'dispel', dispelColors = p.dispel,
                 processAuras = true,
