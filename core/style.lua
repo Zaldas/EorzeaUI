@@ -1,10 +1,10 @@
-local addonName, AV = ...
+local addonName, EUI = ...
 
 -- Style coordinates are VanaVista's: pixels at 1440p, origin top-left, y grows downward.
 -- Root frames are scaled so one style pixel is one screen pixel at 1440p.
 
-AV.Style = {}
-local Style = AV.Style
+EUI.Style = {}
+local Style = EUI.Style
 
 local ASSET_ROOT = string.format('Interface\\AddOns\\%s\\assets\\', addonName)
 local FONT_ROOT = string.format('Interface\\AddOns\\%s\\fonts\\', addonName)
@@ -50,7 +50,7 @@ function Style.Image(parent, layer, spec, subLevel)
 end
 
 function Style.HasAtlas(atlas)
-    return C_Texture and C_Texture.GetAtlasInfo and AV.SafeValue(C_Texture.GetAtlasInfo, atlas) ~= nil
+    return C_Texture and C_Texture.GetAtlasInfo and EUI.SafeValue(C_Texture.GetAtlasInfo, atlas) ~= nil
 end
 
 -- Applies a Blizzard atlas, or fallback = { path, coords = {l, r, t, b} } when the client lacks it.
@@ -59,7 +59,7 @@ function Style.SetAtlas(texture, atlas, fallback)
     if Style.HasAtlas(atlas) and pcall(texture.SetAtlas, texture, atlas) then
         return true
     end
-    AV.LogOnce('atlas:' .. atlas, 'atlas %s missing; using fallback', atlas)
+    EUI.LogOnce('atlas:' .. atlas, 'atlas %s missing; using fallback', atlas)
     if fallback then
         texture:SetTexture(fallback.path)
         if fallback.coords then
@@ -113,7 +113,7 @@ function Style.SetFont(fontString, file, size, flags)
     end
     fontString:SetFont(FALLBACK_FONT, size, flags)
     pendingFonts[#pendingFonts + 1] = { fontString = fontString, file = file, size = size, flags = flags }
-    AV.LogOnce('font:' .. file, 'font %s not ready; Friz Quadrata until the loading screen ends', file)
+    EUI.LogOnce('font:' .. file, 'font %s not ready; Friz Quadrata until the loading screen ends', file)
 end
 
 local fontRetry = CreateFrame('Frame')
@@ -122,10 +122,10 @@ fontRetry:SetScript('OnEvent', function()
     local failed = {}
     for _, pending in ipairs(pendingFonts) do
         if pending.fontString:SetFont(Style.FontPath(pending.file), pending.size, pending.flags) then
-            AV.LogOnce('fontRetry:' .. pending.file, 'font %s loaded on retry', pending.file)
+            EUI.LogOnce('fontRetry:' .. pending.file, 'font %s loaded on retry', pending.file)
         else
             failed[#failed + 1] = pending
-            AV.LogOnce('fontFail:' .. pending.file, 'font %s still failed after the loading screen', pending.file)
+            EUI.LogOnce('fontFail:' .. pending.file, 'font %s still failed after the loading screen', pending.file)
         end
     end
     pendingFonts = failed
@@ -197,5 +197,5 @@ function Style.RootScale()
     if not height or height <= 0 then
         return 1
     end
-    return height / 1440 * ((AV.db and AV.db.scale) or 1)
+    return height / 1440 * ((EUI.db and EUI.db.scale) or 1)
 end

@@ -1,10 +1,10 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Hides the Blizzard frames this addon replaces by reparenting them to a hidden frame.
 -- Edit Mode and the managed frame containers reparent some of them back (the cast bar, PetFrame),
 -- so each is re-hidden whenever its parent changes. Protected ones wait until combat ends.
 
-AV.Blizzard = {}
+EUI.Blizzard = {}
 
 local REPLACED = {
     'PlayerFrame',
@@ -25,7 +25,7 @@ local function hide(frame, hider)
         return
     end
     if frame:IsProtected() and InCombatLockdown() then
-        AV.RunOutOfCombat(function()
+        EUI.RunOutOfCombat(function()
             hide(frame, hider)
         end, 'hideBlizzard:' .. tostring(frame:GetName()))
         return
@@ -33,12 +33,12 @@ local function hide(frame, hider)
     pcall(frame.SetParent, frame, hider)
 end
 
-function AV.Blizzard.HideReplaced()
-    local hider = AV.Blizzard.hider
+function EUI.Blizzard.HideReplaced()
+    local hider = EUI.Blizzard.hider
     if not hider then
-        hider = CreateFrame('Frame', 'AzerothVistaBlizzardHider', UIParent)
+        hider = CreateFrame('Frame', 'EorzeaUIBlizzardHider', UIParent)
         hider:Hide()
-        AV.Blizzard.hider = hider
+        EUI.Blizzard.hider = hider
     end
     for _, name in ipairs(REPLACED) do
         local frame = _G[name]

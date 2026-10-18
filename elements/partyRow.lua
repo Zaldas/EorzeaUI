@@ -1,13 +1,13 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Visuals for one secure party button. The party list owns the button's unit attribute and
 -- the unit watch its visibility; this only draws on it and follows unit changes.
 
-AV.PartyRow = {}
+EUI.PartyRow = {}
 local Row = {}
 Row.__index = Row
 
-local Style = AV.Style
+local Style = EUI.Style
 local CLASS_ICONS = 'Interface\\TargetingFrame\\UI-Classes-Circles'
 
 local function classColorHex(classToken)
@@ -32,19 +32,19 @@ local function buildArt(self, host, style, fonts)
         self.cursor:Hide()
     end
 
-    self.hp = AV.Bar.Create(art, style.hp.bar, style.hp.pos, { prediction = style.indicators.healPrediction })
+    self.hp = EUI.Bar.Create(art, style.hp.bar, style.hp.pos, { prediction = style.indicators.healPrediction })
     self.hpText = Style.Text(self.hp.overlay, style.hp.txtValue, fonts)
-    self.hpCurve = AV.Curves.Step(style.hp.thresholds, style.hp.textColor)
-    self.lowHealthCurve = AV.Curves.Step({ style.lowHealth }, '#FFFFFFFF')
+    self.hpCurve = EUI.Curves.Step(style.hp.thresholds, style.hp.textColor)
+    self.lowHealthCurve = EUI.Curves.Step({ style.lowHealth }, '#FFFFFFFF')
 
-    self.power = AV.Bar.Create(art, style.power.bar, style.power.pos, { cost = style.power.cost })
+    self.power = EUI.Bar.Create(art, style.power.bar, style.power.pos, { cost = style.power.cost })
     self.powerText = Style.Text(self.power.overlay, style.power.txtValue, fonts)
-    self.formBar = AV.Bar.Create(art, style.formBar.bar, style.formBar.pos, { cost = style.power.cost })
+    self.formBar = EUI.Bar.Create(art, style.formBar.bar, style.formBar.pos, { cost = style.power.cost })
     self.formText = Style.Text(self.formBar.overlay, style.formBar.txtValue, fonts)
     self.formBar.frame:Hide()
 
     if style.cast then
-        self.cast = AV.CastBar.Create(art, nil, style.cast, fonts, style.cast.pos)
+        self.cast = EUI.CastBar.Create(art, nil, style.cast, fonts, style.cast.pos)
         -- The cast bar takes the name row. Alpha, not Hide, so marker and flag updates mid-cast stick.
         self.cast.onVisibility = function(casting)
             local alpha = casting and 0 or 1
@@ -83,13 +83,13 @@ local function buildArt(self, host, style, fonts)
     self.name:SetWidth(style.txtName.width)
     self.name:SetWordWrap(false)
 
-    self.levelBadge = AV.LevelBadge.Create(iconFrame, iconFrame, style.levelBadge, fonts)
+    self.levelBadge = EUI.LevelBadge.Create(iconFrame, iconFrame, style.levelBadge, fonts)
     self.levelBadge.frame:SetFrameLevel(iconFrame:GetFrameLevel() + 2)
 
     local markers = CreateFrame('Frame', nil, art)
     markers:SetAllPoints(art)
     markers:SetFrameLevel(iconFrame:GetFrameLevel() + 3)
-    self.indicators = AV.Indicators.Create(markers, top, style)
+    self.indicators = EUI.Indicators.Create(markers, top, style)
 
     -- cursor.onTop: a pointer drawn over the indicators rather than a highlight behind the row.
     if style.cursor.onTop then
@@ -112,7 +112,7 @@ local function setThreat(self, status)
         self.threat:Hide()
         return
     end
-    local r, g, b = AV.Indicators.ThreatColor(status)
+    local r, g, b = EUI.Indicators.ThreatColor(status)
     self.threat:SetVertexColor(r, g, b, 1)
     self.threat:Show()
 end
@@ -152,15 +152,15 @@ local function applyState(self, state)
     return true
 end
 
-function AV.PartyRow.Attach(button, style, fonts)
+function EUI.PartyRow.Attach(button, style, fonts)
     local self = setmetatable({ button = button, style = style }, Row)
     buildArt(self, button, style, fonts)
     local art = self.art
 
     -- AuraContainers are created at login (out of combat) with the button's initial unit.
     local initialUnit = button:GetAttribute('unit') or 'player'
-    self.buffs = AV.AuraRow.Create(art, initialUnit, 'HELPFUL', style.buffs, fonts)
-    self.debuffs = AV.AuraRow.Create(art, initialUnit, 'HARMFUL', style.debuffs, fonts)
+    self.buffs = EUI.AuraRow.Create(art, initialUnit, 'HELPFUL', style.buffs, fonts)
+    self.debuffs = EUI.AuraRow.Create(art, initialUnit, 'HARMFUL', style.debuffs, fonts)
 
     button:HookScript('OnEnter', function()
         self.hover:Show()
@@ -168,7 +168,7 @@ function AV.PartyRow.Attach(button, style, fonts)
     button:HookScript('OnLeave', function()
         self.hover:Hide()
     end)
-    AV.AttachUnitTooltip(button, function() return self.unit end)
+    EUI.AttachUnitTooltip(button, function() return self.unit end)
     button:HookScript('OnAttributeChanged', function(_, name, value)
         if name == 'unit' then
             self:SetUnit(value)
@@ -183,16 +183,16 @@ function AV.PartyRow.Attach(button, style, fonts)
 end
 
 -- A non-secure row showing fixed sample data. index is the 1-based row position.
-function AV.PartyRow.CreateDemo(parent, style, fonts, index)
+function EUI.PartyRow.CreateDemo(parent, style, fonts, index)
     local self = setmetatable({ style = style }, Row)
     local host = CreateFrame('Frame', nil, parent)
     host:SetSize(style.width, style.rowHeight)
     host:SetPoint('TOPLEFT', parent, 'TOPLEFT', 0, -(index - 1) * (style.rowHeight + style.rowSpacing))
     self.host = host
     buildArt(self, host, style, fonts)
-    self.buffs = AV.StaticIcons.Create(self.art, style.buffs, fonts)
-    self.debuffs = AV.StaticIcons.Create(self.art, style.debuffs, fonts)
-    self.pet = AV.PetRow.CreateDemo(host, self, style, fonts)
+    self.buffs = EUI.StaticIcons.Create(self.art, style.buffs, fonts)
+    self.debuffs = EUI.StaticIcons.Create(self.art, style.debuffs, fonts)
+    self.pet = EUI.PetRow.CreateDemo(host, self, style, fonts)
     return self
 end
 
@@ -307,7 +307,7 @@ function Row:SetUnit(unit)
     local previous = self.unit
     self.unit = unit
     self.readyStatus = nil
-    AV.PartyList.OnRowUnitChanged(self, previous, unit)
+    EUI.PartyList.OnRowUnitChanged(self, previous, unit)
     if unit then
         self.buffs:SetUnit(unit)
         if self.cast then
@@ -336,24 +336,24 @@ function Row:Refresh()
     self:UpdatePvP()
     self:UpdateRaidMarker()
     self:UpdatePlayerState()
-    self:UpdateReadyCheck(AV.PartyList.ReadyCheckPhase())
+    self:UpdateReadyCheck(EUI.PartyList.ReadyCheckPhase())
     self.buffs:Refresh()
     self.debuffs:Refresh()
 end
 
 function Row:IsPlayer()
-    local guid = self.unit and AV.SafeValue(UnitGUID, self.unit)
-    return guid ~= nil and guid == AV.SafeValue(UnitGUID, 'player')
+    local guid = self.unit and EUI.SafeValue(UnitGUID, self.unit)
+    return guid ~= nil and guid == EUI.SafeValue(UnitGUID, 'player')
 end
 
 local function readState(unit)
-    if AV.Read('UnitIsConnected', UnitIsConnected, unit) == false then
+    if EUI.Read('UnitIsConnected', UnitIsConnected, unit) == false then
         return 'offline'
     end
-    if AV.Read('UnitIsGhost', UnitIsGhost, unit) then
+    if EUI.Read('UnitIsGhost', UnitIsGhost, unit) then
         return 'ghost'
     end
-    if AV.Read('UnitIsDead', UnitIsDead, unit) then
+    if EUI.Read('UnitIsDead', UnitIsDead, unit) then
         return 'dead'
     end
     return nil
@@ -361,9 +361,9 @@ end
 
 function Row:UpdateName()
     local unit = self.unit
-    setClassIcon(self, AV.SafeValue(function() return select(2, UnitClass(unit)) end))
-    setName(self, AV.UnitDisplayName(unit))
-    self.levelBadge:Set(AV.SafeValue(UnitLevel, unit))
+    setClassIcon(self, EUI.SafeValue(function() return select(2, UnitClass(unit)) end))
+    setName(self, EUI.UnitDisplayName(unit))
+    self.levelBadge:Set(EUI.SafeValue(UnitLevel, unit))
 end
 
 function Row:UpdateHealth(smooth)
@@ -375,9 +375,9 @@ function Row:UpdateHealth(smooth)
     end
     local health = UnitHealth(unit)
     self.hp:SetValue(health, smooth)
-    AV.SetNumberText(self.hpText, health)
-    AV.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
-    AV.Curves.ApplyHealthTint(self.classIcon, unit, self.lowHealthCurve)
+    EUI.SetNumberText(self.hpText, health)
+    EUI.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
+    EUI.Curves.ApplyHealthTint(self.classIcon, unit, self.lowHealthCurve)
     self.hp:ShowIncomingHeals(unit, maxHealth)
 end
 
@@ -399,7 +399,7 @@ function Row:UpdateThreat()
         setThreat(self, nil)
         return
     end
-    setThreat(self, AV.Read('UnitThreatSituation', UnitThreatSituation, self.unit))
+    setThreat(self, EUI.Read('UnitThreatSituation', UnitThreatSituation, self.unit))
 end
 
 function Row:UpdateCast()
@@ -411,9 +411,9 @@ end
 function Row:UpdateFlags()
     local unit = self.unit
     local tag
-    if AV.Read('UnitIsAFK', UnitIsAFK, unit) then
+    if EUI.Read('UnitIsAFK', UnitIsAFK, unit) then
         tag = 'AFK'
-    elseif AV.Read('UnitIsDND', UnitIsDND, unit) then
+    elseif EUI.Read('UnitIsDND', UnitIsDND, unit) then
         tag = 'DND'
     end
     self.indicators:SetFlag(tag)
@@ -421,22 +421,22 @@ function Row:UpdateFlags()
 end
 
 function Row:UpdateRole()
-    self.indicators:SetRole(AV.Read('UnitGroupRolesAssigned', UnitGroupRolesAssigned, self.unit))
+    self.indicators:SetRole(EUI.Read('UnitGroupRolesAssigned', UnitGroupRolesAssigned, self.unit))
 end
 
 function Row:UpdatePvP()
     local unit = self.unit
     local kind
-    if AV.Read('UnitIsPVPFreeForAll', UnitIsPVPFreeForAll, unit) then
+    if EUI.Read('UnitIsPVPFreeForAll', UnitIsPVPFreeForAll, unit) then
         kind = 'FFA'
-    elseif AV.Read('UnitIsPVP', UnitIsPVP, unit) then
-        kind = AV.Read('UnitFactionGroup', UnitFactionGroup, unit)
+    elseif EUI.Read('UnitIsPVP', UnitIsPVP, unit) then
+        kind = EUI.Read('UnitFactionGroup', UnitFactionGroup, unit)
     end
     self.indicators:SetPvP(kind)
 end
 
 function Row:UpdateRaidMarker()
-    self.indicators:SetRaidMarker(AV.Indicators.ReadRaidMarker(self.unit))
+    self.indicators:SetRaidMarker(EUI.Indicators.ReadRaidMarker(self.unit))
     self.indicators:LayoutNameLine(self.name)
 end
 
@@ -444,9 +444,9 @@ end
 function Row:UpdatePlayerState()
     local state
     if self:IsPlayer() then
-        if AV.inCombat then
+        if EUI.inCombat then
             state = 'combat'
-        elseif AV.Read('IsResting', IsResting) then
+        elseif EUI.Read('IsResting', IsResting) then
             state = 'rest'
         end
     end
@@ -457,7 +457,7 @@ end
 -- Members still waiting when the check ends count as not ready.
 function Row:UpdateReadyCheck(phase)
     if phase == 'active' then
-        self.readyStatus = AV.Read('GetReadyCheckStatus', GetReadyCheckStatus, self.unit)
+        self.readyStatus = EUI.Read('GetReadyCheckStatus', GetReadyCheckStatus, self.unit)
     elseif phase == 'finished' then
         if self.readyStatus == 'waiting' then
             self.readyStatus = 'notready'
@@ -476,14 +476,14 @@ function Row:UpdateStatusIcon()
     local unit = self.unit
     local kind = self.readyStatus
     local summon = C_IncomingSummon
-    if not kind and summon and AV.Read('HasIncomingSummon', summon.HasIncomingSummon, unit) then
-        kind = SUMMON_ICONS[AV.Read('IncomingSummonStatus', summon.IncomingSummonStatus, unit)]
+    if not kind and summon and EUI.Read('HasIncomingSummon', summon.HasIncomingSummon, unit) then
+        kind = SUMMON_ICONS[EUI.Read('IncomingSummonStatus', summon.IncomingSummonStatus, unit)]
     end
-    if not kind and AV.Read('UnitHasIncomingResurrection', UnitHasIncomingResurrection, unit) then
+    if not kind and EUI.Read('UnitHasIncomingResurrection', UnitHasIncomingResurrection, unit) then
         kind = 'resurrect'
     end
-    if not kind and AV.Read('UnitIsConnected', UnitIsConnected, unit)
-        and AV.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil then
+    if not kind and EUI.Read('UnitIsConnected', UnitIsConnected, unit)
+        and EUI.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil then
         kind = 'phased'
     end
     self.indicators:SetStatus(kind)
@@ -494,34 +494,34 @@ local MANA = 0
 -- A druid's own power bar always shows mana; the form bar carries rage or energy.
 function Row:UpdatePower(smooth)
     local unit = self.unit
-    if self:IsPlayer() and AV.Druid.IsDruid() then
+    if self:IsPlayer() and EUI.Druid.IsDruid() then
         tintPower(self, self.power, MANA)
         self.power:SetRange(UnitPowerMax(unit, MANA))
         local mana = UnitPower(unit, MANA)
         self.power:SetValue(mana, smooth)
-        AV.SetNumberText(self.powerText, mana)
+        EUI.SetNumberText(self.powerText, mana)
         self:UpdateFormBar(smooth)
         return
     end
     self.formBar.frame:Hide()
-    tintPower(self, self.power, AV.Read('UnitPowerType', UnitPowerType, unit))
+    tintPower(self, self.power, EUI.Read('UnitPowerType', UnitPowerType, unit))
     self.power:SetRange(UnitPowerMax(unit))
     local power = UnitPower(unit)
     self.power:SetValue(power, smooth)
-    AV.SetNumberText(self.powerText, power)
+    EUI.SetNumberText(self.powerText, power)
 end
 
 function Row:UpdateFormBar(smooth)
-    local shown = self:IsPlayer() and AV.Druid.IsShifted()
+    local shown = self:IsPlayer() and EUI.Druid.IsShifted()
     self.formBar.frame:SetShown(shown)
     if not shown then
         return
     end
-    tintPower(self, self.formBar, AV.Read('UnitPowerType', UnitPowerType, 'player'))
+    tintPower(self, self.formBar, EUI.Read('UnitPowerType', UnitPowerType, 'player'))
     self.formBar:SetRange(UnitPowerMax('player'))
     local power = UnitPower('player')
     self.formBar:SetValue(power, smooth)
-    AV.SetNumberText(self.formText, power)
+    EUI.SetNumberText(self.formText, power)
 end
 
 -- Loot-method APIs: C_PartyInfo.GetLootMethod (Enum.LootMethod) or the older GetLootMethod
@@ -533,7 +533,7 @@ local function masterLooterGuid()
     end
     local ok, method, partyIndex, raidIndex = pcall(getter)
     if not ok then
-        AV.LogOnce('lootMethod:error', 'loot method: %s', tostring(method))
+        EUI.LogOnce('lootMethod:error', 'loot method: %s', tostring(method))
         return nil
     end
     local masterEnum = Enum and Enum.LootMethod and Enum.LootMethod.Masterlooter
@@ -548,30 +548,30 @@ local function masterLooterGuid()
     elseif partyIndex then
         unit = 'party' .. partyIndex
     end
-    return unit and AV.SafeValue(UnitGUID, unit)
+    return unit and EUI.SafeValue(UnitGUID, unit)
 end
 
 function Row:UpdateGroupRoles()
     local unit = self.unit
-    self.indicators:SetAssistant(AV.Read('UnitIsGroupAssistant', UnitIsGroupAssistant, unit) == true)
+    self.indicators:SetAssistant(EUI.Read('UnitIsGroupAssistant', UnitIsGroupAssistant, unit) == true)
     local looter = masterLooterGuid()
-    self.indicators:SetMasterLooter(looter ~= nil and looter == AV.SafeValue(UnitGUID, unit))
+    self.indicators:SetMasterLooter(looter ~= nil and looter == EUI.SafeValue(UnitGUID, unit))
 end
 
 -- The cost of spellID in the player's current power type, or nil.
 local function spellCost(spellID)
-    if not (C_Spell and C_Spell.GetSpellPowerCost) or not AV.CanAccess(spellID) then
-        AV.LogOnce('cost:unavailable', 'cost preview: spell ID secret or GetSpellPowerCost missing')
+    if not (C_Spell and C_Spell.GetSpellPowerCost) or not EUI.CanAccess(spellID) then
+        EUI.LogOnce('cost:unavailable', 'cost preview: spell ID secret or GetSpellPowerCost missing')
         return nil
     end
-    local powerType = AV.Read('UnitPowerType', UnitPowerType, 'player')
+    local powerType = EUI.Read('UnitPowerType', UnitPowerType, 'player')
     local ok, costs = pcall(C_Spell.GetSpellPowerCost, spellID)
     if not ok or type(costs) ~= 'table' then
         return nil
     end
     for _, info in ipairs(costs) do
         local kind, cost = info.type, info.cost
-        if AV.CanAccess(kind) and AV.CanAccess(cost) and kind == powerType and cost and cost > 0 then
+        if EUI.CanAccess(kind) and EUI.CanAccess(cost) and kind == powerType and cost and cost > 0 then
             return cost
         end
     end
@@ -583,7 +583,7 @@ function Row:UpdateCostPreview(event, spellID)
     if not self:IsPlayer() then
         return
     end
-    local bar = AV.Druid.IsShifted() and self.formBar or self.power
+    local bar = EUI.Druid.IsShifted() and self.formBar or self.power
     if event == 'UNIT_SPELLCAST_START' then
         bar:SetCost(spellCost(spellID), UnitPowerMax('player'))
     elseif event == 'UNIT_SPELLCAST_SUCCEEDED' then
@@ -594,7 +594,7 @@ function Row:UpdateCostPreview(event, spellID)
 end
 
 function Row:UpdateLeader()
-    self.indicators:SetLeader(AV.SafeBool(UnitIsGroupLeader, self.unit))
+    self.indicators:SetLeader(EUI.SafeBool(UnitIsGroupLeader, self.unit))
 end
 
 local function showNear(self, near)
@@ -620,27 +620,27 @@ function Row:UpdateRange()
     if UnitInRange then
         local ok, inRange, checked = pcall(UnitInRange, unit)
         if not ok then
-            AV.LogOnce('range:error', 'UnitInRange failed: %s', tostring(inRange))
-        elseif AV.CanAccess(inRange) then
-            if AV.CanAccess(checked) and checked then
+            EUI.LogOnce('range:error', 'UnitInRange failed: %s', tostring(inRange))
+        elseif EUI.CanAccess(inRange) then
+            if EUI.CanAccess(checked) and checked then
                 showNear(self, inRange == true)
                 return
             end
-        elseif AV.CanAccess(checked) and not checked then
+        elseif EUI.CanAccess(checked) and not checked then
             -- Unchecked: the secret result says nothing; fall through to CheckInteractDistance.
         elseif self.art.SetAlphaFromBoolean and showNearSecret(self, inRange) then
-            AV.LogOnce('range:secret', 'range: UnitInRange is secret; dimming via SetAlphaFromBoolean')
+            EUI.LogOnce('range:secret', 'range: UnitInRange is secret; dimming via SetAlphaFromBoolean')
             return
         else
-            AV.LogOnce('range:fallback', 'range: UnitInRange is secret and SetAlphaFromBoolean failed; using CheckInteractDistance')
+            EUI.LogOnce('range:fallback', 'range: UnitInRange is secret and SetAlphaFromBoolean failed; using CheckInteractDistance')
         end
     end
-    showNear(self, AV.SafeValue(CheckInteractDistance, unit, 4) ~= false)
+    showNear(self, EUI.SafeValue(CheckInteractDistance, unit, 4) ~= false)
 end
 
 -- GUIDs stay readable in combat, unlike UnitIsUnit against compound tokens.
 function Row:UpdateCursor()
-    local guid = self.unit and AV.SafeValue(UnitGUID, self.unit)
-    local targetGuid = AV.SafeValue(UnitGUID, 'target')
+    local guid = self.unit and EUI.SafeValue(UnitGUID, self.unit)
+    local targetGuid = EUI.SafeValue(UnitGUID, 'target')
     self.cursor:SetShown(guid ~= nil and guid == targetGuid)
 end

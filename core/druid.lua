@@ -1,12 +1,12 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Druid bear/cat state, shared by the party row (form power bar) and the party list (the secure
 -- driver that grows the player's row). Read from the bonus action bar offset, which Blizzard
 -- pages the main bar by: cat 1, prowl 2, bear 3, whichever forms the druid knows. [form:N]
 -- cannot be used: form numbers follow the order the forms were learned.
 
-AV.Druid = {}
-local Druid = AV.Druid
+EUI.Druid = {}
+local Druid = EUI.Druid
 
 Druid.CONDITION = '[bonusbar:1/2/3] shifted; caster'
 local SHIFTED_BARS = { [1] = true, [2] = true, [3] = true }
@@ -16,7 +16,7 @@ local getBonusBarOffset = C_ActionBar and C_ActionBar.GetBonusBarOffset or GetBo
 
 function Druid.IsDruid()
     if Druid.isDruid == nil then
-        local class = AV.SafeValue(function() return select(2, UnitClass('player')) end)
+        local class = EUI.SafeValue(function() return select(2, UnitClass('player')) end)
         if class == nil then
             return false
         end
@@ -30,11 +30,11 @@ function Druid.IsShifted()
     if not Druid.IsDruid() then
         return false
     end
-    local offset = AV.Read('GetBonusBarOffset', getBonusBarOffset)
+    local offset = EUI.Read('GetBonusBarOffset', getBonusBarOffset)
     local shifted = SHIFTED_BARS[offset] == true
-    local powerType = AV.Read('UnitPowerType', UnitPowerType, 'player')
+    local powerType = EUI.Read('UnitPowerType', UnitPowerType, 'player')
     if powerType ~= nil and shifted == (powerType == MANA) then
-        AV.LogOnce('druid:mismatch', 'druid: bonus bar %s with power type %s; [bonusbar:1/2/3] may not mean bear/cat here',
+        EUI.LogOnce('druid:mismatch', 'druid: bonus bar %s with power type %s; [bonusbar:1/2/3] may not mean bear/cat here',
             tostring(offset), tostring(powerType))
     end
     return shifted

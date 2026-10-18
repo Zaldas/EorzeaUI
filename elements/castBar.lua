@@ -1,9 +1,9 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Cast timestamps and names are secret on Forever. The bar runs from a duration object via
 -- StatusBar:SetTimerDuration; the name goes straight to SetText. No remaining-time text.
 
-AV.CastBar = {}
+EUI.CastBar = {}
 local CastBar = {}
 CastBar.__index = CastBar
 
@@ -11,17 +11,17 @@ CastBar.__index = CastBar
 -- uninterruptible = { color, lock = { path, pos, size, color } } }.
 -- unit may be nil until SetUnit.
 -- onVisibility(shown), when set, is called whenever the bar shows or hides.
-function AV.CastBar.Create(parent, unit, spec, fonts, pos)
+function EUI.CastBar.Create(parent, unit, spec, fonts, pos)
     local self = setmetatable({ unit = unit, spec = spec }, CastBar)
-    self.bar = AV.Bar.Create(parent, spec.bar, pos)
-    self.name = AV.Style.Text(self.bar.overlay, spec.txtName, fonts)
+    self.bar = EUI.Bar.Create(parent, spec.bar, pos)
+    self.name = EUI.Style.Text(self.bar.overlay, spec.txtName, fonts)
     if spec.txtName.width then
         self.name:SetWidth(spec.txtName.width)
         self.name:SetWordWrap(false)
     end
     local lockSpec = spec.uninterruptible and spec.uninterruptible.lock
     if lockSpec then
-        self.lock = AV.Style.Image(self.bar.overlay, 'OVERLAY', lockSpec)
+        self.lock = EUI.Style.Image(self.bar.overlay, 'OVERLAY', lockSpec)
         self.lock:SetAlpha(0)
     end
     self.bar.frame:Hide()
@@ -49,16 +49,16 @@ local function applyInterruptible(self, notInterruptible)
     if self.lock and self.lock.SetAlphaFromBoolean then
         local ok, err = pcall(self.lock.SetAlphaFromBoolean, self.lock, notInterruptible)
         if not ok then
-            AV.LogOnce('cast:lock', 'SetAlphaFromBoolean failed: %s', tostring(err))
+            EUI.LogOnce('cast:lock', 'SetAlphaFromBoolean failed: %s', tostring(err))
         end
     end
     if not (spec and C_CurveUtil and C_CurveUtil.EvaluateColorFromBoolean) then
         return
     end
     local ok, color = pcall(C_CurveUtil.EvaluateColorFromBoolean, notInterruptible,
-        CreateColor(AV.Style.Color(spec.color)), CreateColor(AV.Style.Color(self.spec.bar.fill.color)))
+        CreateColor(EUI.Style.Color(spec.color)), CreateColor(EUI.Style.Color(self.spec.bar.fill.color)))
     if not ok or not color then
-        AV.LogOnce('cast:interruptible', 'EvaluateColorFromBoolean failed: %s', tostring(color))
+        EUI.LogOnce('cast:interruptible', 'EvaluateColorFromBoolean failed: %s', tostring(color))
         return
     end
     local bar = self.bar
@@ -93,11 +93,11 @@ local function tryStart(self, durationFn, infoFn, remaining, interruptIndex, cas
     local unitKind = self.unit:gsub('%d', '')
     local ok, duration = pcall(durationFn, self.unit)
     if not ok then
-        AV.LogOnce('cast:duration:' .. unitKind, 'cast duration failed for %s: %s', unitKind, tostring(duration))
+        EUI.LogOnce('cast:duration:' .. unitKind, 'cast duration failed for %s: %s', unitKind, tostring(duration))
         return false
     end
     if not self.bar:SetTimer(duration, remaining) then
-        AV.LogOnce('cast:timer:' .. unitKind, 'cast bar timer rejected for %s', unitKind)
+        EUI.LogOnce('cast:timer:' .. unitKind, 'cast bar timer rejected for %s', unitKind)
         return false
     end
     pcall(self.name.SetText, self.name, name)

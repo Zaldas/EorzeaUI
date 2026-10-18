@@ -1,4 +1,4 @@
--- Loads AzerothVista against permissive WoW stubs and fires its startup events.
+-- Loads EorzeaUI against permissive WoW stubs and fires its startup events.
 local root = ADDON_ROOT
 
 local methodOverrides = {
@@ -127,7 +127,7 @@ date = os.date
 GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
 debugstack = function() return '' end
 geterrorhandler = function() return function(err) error(err, 0) end end
-AzerothVistaLog = nil
+EorzeaUILog = nil
 RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 }, ROGUE = { r = 1, g = 0.96, b = 0.41 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
 CLASS_ICON_TCOORDS = { PALADIN = { 0, 0.25, 0.5, 0.75 }, ROGUE = { 0.5, 0.75, 0, 0.25 }, DRUID = { 0.75, 1, 0, 0.25 } }
 C_Timer = { NewTicker = function(_, fn) TICK = fn end, After = function(_, fn) fn() end }
@@ -141,7 +141,7 @@ CHAT = {}
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) CHAT[#CHAT + 1] = msg end }
 SlashCmdList = {}
 ReloadUI = function() RELOADED = true end
-AzerothVistaDB = { style = STYLE }
+EorzeaUIDB = { style = STYLE }
 print = function(...) io.write(table.concat({ ... }, ' '), '\n') end
 
 -- Load order comes from the .toc; XML files are skipped (templates only exist in the real client).
@@ -160,13 +160,13 @@ local function loadToc(dir, name, ns)
     end
 end
 
-local AV = {}
-loadToc(root, 'AzerothVista', AV)
+local EUI = {}
+loadToc(root, 'EorzeaUI', EUI)
 
 -- Load-on-demand addons load from the sibling folder on the first LoadAddOn.
 local loadedAddOns = {}
 C_AddOns.LoadAddOn = function(name)
-    if name ~= 'AzerothVista_Gallery' then
+    if name ~= 'EorzeaUI_Gallery' then
         return false, 'MISSING'
     end
     if not loadedAddOns[name] then
@@ -178,8 +178,8 @@ end
 
 local onEvent = eventFrames[#eventFrames]._OnEvent
 assert(onEvent, 'no OnEvent captured')
-onEvent(nil, 'ADDON_LOADED', 'AzerothVista')
-assert(AV.ready, 'initialize did not complete')
+onEvent(nil, 'ADDON_LOADED', 'EorzeaUI')
+assert(EUI.ready, 'initialize did not complete')
 onEvent(nil, 'PLAYER_ENTERING_WORLD')
 onEvent(nil, 'PLAYER_TARGET_CHANGED')
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
@@ -209,13 +209,13 @@ onEvent(nil, 'READY_CHECK')
 onEvent(nil, 'READY_CHECK_CONFIRM', 'player')
 onEvent(nil, 'READY_CHECK_FINISHED')
 onEvent(nil, 'PLAYER_DEAD')
-onEvent(nil, 'ADDON_ACTION_BLOCKED', 'AzerothVista', 'TestFunction()')
+onEvent(nil, 'ADDON_ACTION_BLOCKED', 'EorzeaUI', 'TestFunction()')
 
 -- Party rows and their pets are bound to fixed tokens.
-local owner1 = _G.AzerothVistaPartyButton1
-local owner2 = _G.AzerothVistaPartyButton2
-local petButton1 = _G.AzerothVistaPartyPetButton1
-local petButton2 = _G.AzerothVistaPartyPetButton2
+local owner1 = _G.EorzeaUIPartyButton1
+local owner2 = _G.EorzeaUIPartyButton2
+local petButton1 = _G.EorzeaUIPartyPetButton1
+local petButton2 = _G.EorzeaUIPartyPetButton2
 assert(owner1 and owner2 and petButton1 and petButton2, 'party buttons not created')
 -- 5 rows, 5 pet buttons, and the target, focus and their mini bars' click areas.
 assert(#WATCHED == 14, 'party buttons not unit-watched: ' .. #WATCHED)
@@ -223,7 +223,7 @@ assert(owner1:GetAttribute('unit') == 'player', 'row 1 unit: ' .. tostring(owner
 assert(owner2:GetAttribute('unit') == 'party1', 'row 2 unit: ' .. tostring(owner2:GetAttribute('unit')))
 assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))
 assert(petButton2:GetAttribute('unit') == 'partypet1', 'party pet unit: ' .. tostring(petButton2:GetAttribute('unit')))
-assert(AV.PartyList.PetForUnit('pet') and AV.PartyList.PetForUnit('partypet1'), 'pet lookup missing')
+assert(EUI.PartyList.PetForUnit('pet') and EUI.PartyList.PetForUnit('partypet1'), 'pet lookup missing')
 assert(PORTRAIT_UNIT ~= nil, 'portrait never set')
 onEvent(nil, 'UNIT_PET', 'player')
 onEvent(nil, 'UNIT_HEALTH', 'pet')
@@ -255,7 +255,7 @@ end
 local ownerHandle = handle(owner1)
 local petHandle = handle(petButton1)
 petHandle.refs = { owner = ownerHandle }
-owner1:SetAttribute('av-form', false)
+owner1:SetAttribute('eui-form', false)
 runSnippet(petButton1:GetAttribute('_onshow'), petHandle)
 assert(ownerHandle.height == 46 + 29, 'pet show height: ' .. tostring(ownerHandle.height))
 local driver
@@ -266,8 +266,8 @@ assert(driver, 'druid driver missing')
 local driverHandle = handle(driver)
 local owner2Handle = handle(owner2)
 driverHandle.refs = { row1 = ownerHandle, row2 = owner2Handle }
-owner1:SetAttribute('av-player', true)
-owner2:SetAttribute('av-player', false)
+owner1:SetAttribute('eui-player', true)
+owner2:SetAttribute('eui-player', false)
 driver:SetAttribute('rowCount', 2)
 runSnippet(driver:GetAttribute('_onstate-druidform'), driverHandle, 'druidform', 'shifted')
 assert(ownerHandle.height == 46 + 22 + 29, 'shifted with pet height: ' .. tostring(ownerHandle.height))
@@ -277,23 +277,23 @@ assert(ownerHandle.height == 46 + 22, 'pet hide height: ' .. tostring(ownerHandl
 runSnippet(driver:GetAttribute('_onstate-druidform'), driverHandle, 'druidform', 'caster')
 assert(ownerHandle.height == 46, 'caster height: ' .. tostring(ownerHandle.height))
 TICK()
-AV.EditMode.SetUnlocked(true)
-AV.EditMode.SetUnlocked(false)
-SlashCmdList.AZEROTHVISTA('demo')
-assert(AV.Demo.active, 'demo not active')
-assert(AV.PartyList.demoHeight == 5 * 46 + 22 + 2 * 29 + 4 * 13, 'demo height: ' .. tostring(AV.PartyList.demoHeight))
-SlashCmdList.AZEROTHVISTA('demo')
-assert(not AV.Demo.active, 'demo still active')
+EUI.EditMode.SetUnlocked(true)
+EUI.EditMode.SetUnlocked(false)
+SlashCmdList.EORZEAUI('demo')
+assert(EUI.Demo.active, 'demo not active')
+assert(EUI.PartyList.demoHeight == 5 * 46 + 22 + 2 * 29 + 4 * 13, 'demo height: ' .. tostring(EUI.PartyList.demoHeight))
+SlashCmdList.EORZEAUI('demo')
+assert(not EUI.Demo.active, 'demo still active')
 
 -- Gallery: loads on the first toggle, builds each window once, and every state key has a sample.
-SlashCmdList.AZEROTHVISTA('gallery')
-local Gallery = AzerothVistaGallery
+SlashCmdList.EORZEAUI('gallery')
+local Gallery = EorzeaUIGallery
 assert(Gallery and Gallery.Window('party'), 'gallery not built')
 local window = Gallery.Window('party')
-SlashCmdList.AZEROTHVISTA('gallery')
-SlashCmdList.AZEROTHVISTA('gallery')
+SlashCmdList.EORZEAUI('gallery')
+SlashCmdList.EORZEAUI('gallery')
 assert(Gallery.Window('party') == window, 'gallery rebuilt')
-SlashCmdList.AZEROTHVISTA('gallery target')
+SlashCmdList.EORZEAUI('gallery target')
 assert(Gallery.Window('target'), 'target gallery not built')
 for _, kind in ipairs({ 'party', 'target' }) do
     local _, missing = Gallery.Coverage(kind)
@@ -301,10 +301,10 @@ for _, kind in ipairs({ 'party', 'target' }) do
 end
 
 -- Target bars: the live bars route events by unit; demo bars stay out of routing.
-assert(AV.TargetBar.ForUnit('target') == AV.TargetBar.target, 'live target bar not routed')
-assert(AV.TargetBar.ForUnit('focus') == AV.TargetBar.focus, 'live focus bar not routed')
+assert(EUI.TargetBar.ForUnit('target') == EUI.TargetBar.target, 'live target bar not routed')
+assert(EUI.TargetBar.ForUnit('focus') == EUI.TargetBar.focus, 'live focus bar not routed')
 local liveBars = 0
-AV.TargetBar.ForEach(function() liveBars = liveBars + 1 end)
+EUI.TargetBar.ForEach(function() liveBars = liveBars + 1 end)
 assert(liveBars == 2, 'demo target bars registered as live: ' .. liveBars)
 for _, unit in ipairs({ 'target', 'focus' }) do
     onEvent(nil, 'UNIT_HEALTH', unit)
@@ -325,28 +325,28 @@ local stackMembers = {
     { name = 'c', hp = 1, hpMax = 1, power = 1, powerMax = 1, pet = Gallery.party.Members()[3].pet },
 }
 for i in ipairs(stackMembers) do
-    stackRows[i] = AzerothVista.CreateDemoRow(UIParent, i)
+    stackRows[i] = EorzeaUI.CreateDemoRow(UIParent, i)
 end
 assert(stackRows[2]:DemoHeight(stackMembers[2]) == 46 + 22, 'form row height')
 assert(stackRows[3]:DemoHeight(stackMembers[3]) == 46 + 29, 'pet row height')
-local columns, stackWidth, stackHeight = AzerothVista.StackDemoRows(stackRows, stackMembers, UIParent)
+local columns, stackWidth, stackHeight = EorzeaUI.StackDemoRows(stackRows, stackMembers, UIParent)
 assert(#columns == 1 and stackHeight == 46 + 68 + 75 + 2 * 13, 'one column height: ' .. stackHeight)
-columns, stackWidth, stackHeight = AzerothVista.StackDemoRows(stackRows, stackMembers, UIParent, 130)
+columns, stackWidth, stackHeight = EorzeaUI.StackDemoRows(stackRows, stackMembers, UIParent, 130)
 assert(#columns == 2 and columns[2].x == 487 and stackWidth == 487 + 410, 'wrap columns: ' .. #columns)
 assert(columns[1].height == 46 + 68 + 13 and columns[2].height == 75, 'wrap heights')
-assert(AV.db.style == STYLE, 'style not applied: ' .. tostring(AV.db.style))
-SlashCmdList.AZEROTHVISTA('style ffxiexpanded')
-assert(RELOADED and AV.db.style == 'ffxiExpanded', 'style switch failed')
-SlashCmdList.AZEROTHVISTA('scale 1.2')
-SlashCmdList.AZEROTHVISTA('reset')
-SlashCmdList.AZEROTHVISTA('log')
-assert(AzerothVistaLog and #AzerothVistaLog.entries > 0, 'log empty')
+assert(EUI.db.style == STYLE, 'style not applied: ' .. tostring(EUI.db.style))
+SlashCmdList.EORZEAUI('style ffxiexpanded')
+assert(RELOADED and EUI.db.style == 'ffxiExpanded', 'style switch failed')
+SlashCmdList.EORZEAUI('scale 1.2')
+SlashCmdList.EORZEAUI('reset')
+SlashCmdList.EORZEAUI('log')
+assert(EorzeaUILog and #EorzeaUILog.entries > 0, 'log empty')
 local blocked = false
-for _, entry in ipairs(AzerothVistaLog.entries) do
+for _, entry in ipairs(EorzeaUILog.entries) do
     if entry.msg:find('ADDON_ACTION_BLOCKED', 1, true) then blocked = true end
 end
 assert(blocked, 'blocked action not logged')
-SlashCmdList.AZEROTHVISTA('log clear')
+SlashCmdList.EORZEAUI('log clear')
 
 -- Raid: the player first, then the rest of subgroup 2 in raid order; the remaining rows are cleared.
 IsInRaid = function() return true end
@@ -358,8 +358,8 @@ UnitGUID = function(u) return u == 'raid3' and 'GUID-player' or 'GUID-' .. tostr
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
 local raidUnits = {}
 for i = 1, 5 do
-    raidUnits[i] = tostring(_G['AzerothVistaPartyButton' .. i]:GetAttribute('unit'))
+    raidUnits[i] = tostring(_G['EorzeaUIPartyButton' .. i]:GetAttribute('unit'))
 end
 assert(table.concat(raidUnits, ',') == 'player,raid2,raid5,raid6,nil', 'raid rows: ' .. table.concat(raidUnits, ','))
-assert(_G.AzerothVistaPartyPetButton2:GetAttribute('unit') == 'raidpet2', 'raid pet unit')
+assert(_G.EorzeaUIPartyPetButton2:GetAttribute('unit') == 'raidpet2', 'raid pet unit')
 print('SMOKE OK')

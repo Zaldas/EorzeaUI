@@ -1,15 +1,15 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Ported from VanaVista layouts/styles/ffxiPartyExpanded.lua, ffxiTargetbar.lua and ffxiCastbar.lua.
 
-local Kit = AV.StyleKit
+local Kit = EUI.StyleKit
 
 local valueText = {
     pos = { 120, 34 }, size = 13, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true,
 }
 local castText = { color = '#F0FFFFFF', size = 14, font = 'number', baseline = 34 }
 
-AV.styles.ffxiExpanded = {
+EUI.styles.ffxiExpanded = {
     fonts = Kit.FONTS,
 
     party = {

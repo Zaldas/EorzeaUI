@@ -1,9 +1,9 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- A row of plain icon textures with timer text. Stands in for an AuraContainer in demo mode,
 -- which cannot be fed fake auras.
 
-AV.StaticIcons = {}
+EUI.StaticIcons = {}
 local StaticIcons = {}
 StaticIcons.__index = StaticIcons
 
@@ -14,20 +14,20 @@ local function slotCount(spec)
     end
     local count = 0
     for filter in pairs(spec.groups) do
-        count = count + AV.AuraRow.GroupSpec(spec, filter).max
+        count = count + EUI.AuraRow.GroupSpec(spec, filter).max
     end
     return count
 end
 
 -- spec = { pos, size, spacing, max, timers, border, dispelBorder, dispelColors, perLine,
 -- lineSpacing, groups } as in AuraRow.
-function AV.StaticIcons.Create(parent, spec, fonts)
+function EUI.StaticIcons.Create(parent, spec, fonts)
     local self = setmetatable({ slots = {} }, StaticIcons)
     local count = slotCount(spec)
     local perLine = spec.perLine or count
     local frame = CreateFrame('Frame', nil, parent)
-    frame:SetSize(AV.AuraRow.LineWidth(spec) or (spec.size + spec.spacing) * count, spec.size)
-    AV.Style.Place(frame, parent, spec.pos)
+    frame:SetSize(EUI.AuraRow.LineWidth(spec) or (spec.size + spec.spacing) * count, spec.size)
+    EUI.Style.Place(frame, parent, spec.pos)
     self.frame = frame
     self.spec = spec
 
@@ -38,7 +38,7 @@ function AV.StaticIcons.Create(parent, spec, fonts)
         slot:SetPoint('TOPLEFT', frame, 'TOPLEFT', column * (spec.size + spec.spacing), -line * (spec.size + (spec.lineSpacing or 0)))
         local border = slot:CreateTexture(nil, 'BACKGROUND')
         border:SetAllPoints()
-        border:SetColorTexture(AV.Style.Color(spec.border or '#000000D9'))
+        border:SetColorTexture(EUI.Style.Color(spec.border or '#000000D9'))
         slot.dispelEdge = slot:CreateTexture(nil, 'BACKGROUND', nil, 1)
         slot.dispelEdge:SetPoint('TOPLEFT', -1, 1)
         slot.dispelEdge:SetPoint('BOTTOMRIGHT', 1, -1)
@@ -49,7 +49,7 @@ function AV.StaticIcons.Create(parent, spec, fonts)
         slot.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         slot.timer = slot:CreateFontString(nil, 'OVERLAY')
         slot.timer:SetPoint('TOP', slot, 'BOTTOM', 0, 0)
-        AV.AuraRow.StyleTimer(slot.timer, spec.size, fonts)
+        EUI.AuraRow.StyleTimer(slot.timer, spec.size, fonts)
         slot.timer:SetShown(spec.timers == true)
         slot:Hide()
         self.slots[i] = slot
@@ -60,7 +60,7 @@ end
 -- The edge colour a live AuraRow with the same spec would give entry, or nil.
 local function dispelColor(spec, entry)
     if entry.group then
-        spec = AV.AuraRow.GroupSpec(spec, entry.group)
+        spec = EUI.AuraRow.GroupSpec(spec, entry.group)
     end
     local colors = spec.dispelColors
     if not colors then
@@ -82,7 +82,7 @@ function StaticIcons:Set(icons)
             slot.timer:SetText(entry[2] or '')
             local color = dispelColor(self.spec, entry)
             if color then
-                slot.dispelEdge:SetColorTexture(AV.Style.Color(color))
+                slot.dispelEdge:SetColorTexture(EUI.Style.Color(color))
             end
             slot.dispelEdge:SetShown(color ~= nil)
             slot:Show()

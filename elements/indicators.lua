@@ -1,14 +1,14 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Status markers on a party row: rest/combat on the player row, one status icon centred on
 -- the class icon, leader crown on its top edge, role and PvP on its left edge, and a raid
 -- marker before the name.
 
-AV.Indicators = {}
+EUI.Indicators = {}
 local Indicators = {}
 Indicators.__index = Indicators
 
-local Style = AV.Style
+local Style = EUI.Style
 
 local STATE_ICON = 'Interface\\CharacterFrame\\UI-StateIcon'
 local REST_FALLBACK = { path = STATE_ICON, coords = { 0, 0.5, 0, 0.421875 } }
@@ -53,7 +53,7 @@ local FLAG_ICONS = {
 local THREAT_COLORS = { { 1, 1, 0.47 }, { 1, 0.6, 0 }, { 1, 0, 0 } }
 
 -- r, g, b for a plain threat status 1-3 (higher is clamped to 3).
-function AV.Indicators.ThreatColor(status)
+function EUI.Indicators.ThreatColor(status)
     status = math.min(status, 3)
     if GetThreatStatusColor then
         local ok, r, g, b = pcall(GetThreatStatusColor, status)
@@ -64,7 +64,7 @@ function AV.Indicators.ThreatColor(status)
     return unpack(THREAT_COLORS[status])
 end
 
-function AV.Indicators.SetLeaderArt(texture)
+function EUI.Indicators.SetLeaderArt(texture)
     Style.SetAtlas(texture, 'UI-HUD-UnitFrame-Player-Group-LeaderIcon', LEADER_FALLBACK)
 end
 
@@ -103,17 +103,17 @@ local function createRest(parent, spec)
         return texture, group
     end
     -- Unanimated, the flipbook atlas shows the whole 42-frame sheet.
-    AV.LogOnce('rest:flipbook', 'rest flipbook animation failed: %s', tostring(group))
+    EUI.LogOnce('rest:flipbook', 'rest flipbook animation failed: %s', tostring(group))
     useFallback(texture, REST_FALLBACK)
     return texture, nil
 end
 
 -- parent: frame drawn above the class icon. top: the row's text layer.
-function AV.Indicators.Create(parent, top, style)
+function EUI.Indicators.Create(parent, top, style)
     local spec = style.indicators
     local self = setmetatable({ spec = spec, nameSpec = style.txtName, top = top, parent = parent }, Indicators)
     self.leader = sizedTexture(parent, spec.leader)
-    AV.Indicators.SetLeaderArt(self.leader)
+    EUI.Indicators.SetLeaderArt(self.leader)
     self.assistant = sizedTexture(parent, spec.assistant)
     self.assistant:SetTexture('Interface\\GroupFrame\\UI-Group-AssistantIcon')
     self.masterLooter = sizedTexture(parent, spec.masterLooter)
@@ -199,29 +199,29 @@ function Indicators:SetStatus(kind)
     self.status:Show()
 end
 
--- index: from AV.Indicators.ReadRaidMarker (possibly secret), a plain 1-8, or nil.
+-- index: from EUI.Indicators.ReadRaidMarker (possibly secret), a plain 1-8, or nil.
 function Indicators:SetRaidMarker(index)
-    AV.Indicators.SetRaidMarkerIcon(self.raidMarker, index)
+    EUI.Indicators.SetRaidMarkerIcon(self.raidMarker, index)
 end
 
 -- GetRaidTargetIndex is secret on Forever, and nil for yourself and friendly NPCs while solo.
 -- SetSpriteSheetCell takes the secret index and rejects a missing one, so nothing else touches it.
-function AV.Indicators.ReadRaidMarker(unit)
+function EUI.Indicators.ReadRaidMarker(unit)
     local ok, index = pcall(GetRaidTargetIndex, unit)
     if not ok then
-        AV.LogOnce('raidMarker:error', 'GetRaidTargetIndex: %s', tostring(index))
+        EUI.LogOnce('raidMarker:error', 'GetRaidTargetIndex: %s', tostring(index))
         return nil
     end
     return index
 end
 
 -- Shows marker index on texture, or hides it when there is none. Returns whether it shows.
-function AV.Indicators.SetRaidMarkerIcon(texture, index)
+function EUI.Indicators.SetRaidMarkerIcon(texture, index)
     texture:SetTexture(RAID_MARKERS)
     local ok, err = pcall(texture.SetSpriteSheetCell, texture, index, 4, 4)
     if not ok then
         if type(index) ~= 'nil' then
-            AV.LogOnce('raidMarker:cell', 'SetSpriteSheetCell: %s', tostring(err))
+            EUI.LogOnce('raidMarker:cell', 'SetSpriteSheetCell: %s', tostring(err))
         end
         texture:Hide()
         return false
@@ -251,11 +251,11 @@ function Indicators:SetPvP(kind)
         return
     end
     self.pvpKind = kind
-    self.pvp:SetShown(kind ~= nil and AV.Indicators.SetPvPIcon(self.pvp, kind))
+    self.pvp:SetShown(kind ~= nil and EUI.Indicators.SetPvPIcon(self.pvp, kind))
 end
 
 -- Applies the badge for kind ('FFA' | 'Alliance' | 'Horde') to texture; false for an unknown kind.
-function AV.Indicators.SetPvPIcon(texture, kind)
+function EUI.Indicators.SetPvPIcon(texture, kind)
     local icon = PVP_ICONS[kind]
     if not icon then
         return false
@@ -266,11 +266,11 @@ end
 
 -- kind: 'AFK' | 'DND' | nil. Call LayoutNameLine afterwards.
 function Indicators:SetFlag(kind)
-    AV.Indicators.SetFlagIcon(self.flag, kind)
+    EUI.Indicators.SetFlagIcon(self.flag, kind)
 end
 
 -- Shows the badge for kind ('AFK' | 'DND') on texture, or hides it for nil. Returns whether it shows.
-function AV.Indicators.SetFlagIcon(texture, kind)
+function EUI.Indicators.SetFlagIcon(texture, kind)
     local path = kind and FLAG_ICONS[kind]
     if path then
         texture:SetTexture(path)

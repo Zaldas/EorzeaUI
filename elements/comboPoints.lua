@@ -1,15 +1,15 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Combo point diamonds in PetsReborn's zigzag, shown as Blizzard's ComboFrame does: nothing at
 -- 0 points, all five outlined sockets from 1, lit points filled. The count may be secret, so
 -- every piece is a StatusBar fed the count: sockets span (0, 1) and appear from 1 point, pip i
 -- spans (i - 1, i) and fills from i points. The engine clamps; Lua never compares.
 
-AV.ComboPoints = {}
+EUI.ComboPoints = {}
 local ComboPoints = {}
 ComboPoints.__index = ComboPoints
 
-local Style = AV.Style
+local Style = EUI.Style
 
 -- At fractional UI scales each texture snaps to the pixel grid on its own, which knocks
 -- neighbouring diamonds a pixel out of line; unsnapped, they keep their exact offsets.
@@ -23,7 +23,7 @@ local function unsnap(texture)
 end
 
 -- spec = { pos, size = {w, h}, offsets = { {x, y}, ... }, fill, outline, color }
-function AV.ComboPoints.Create(parent, spec)
+function EUI.ComboPoints.Create(parent, spec)
     local self = setmetatable({ pips = {} }, ComboPoints)
     local frame = CreateFrame('Frame', nil, parent)
     frame:SetSize(spec.size[1], spec.size[2])

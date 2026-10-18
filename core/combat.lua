@@ -1,4 +1,4 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Secure frames and AuraContainers cannot be created, moved or reconfigured in combat.
 -- Work submitted during combat runs once PLAYER_REGEN_ENABLED fires, in submission order.
@@ -6,7 +6,7 @@ local pending = {}
 local pendingKeys = {}
 
 -- key (optional) collapses repeated submissions of the same job into one run.
-function AV.RunOutOfCombat(fn, key)
+function EUI.RunOutOfCombat(fn, key)
     if not InCombatLockdown() then
         fn()
         return
@@ -20,18 +20,18 @@ function AV.RunOutOfCombat(fn, key)
     pending[#pending + 1] = fn
 end
 
-function AV.FlushOutOfCombat()
+function EUI.FlushOutOfCombat()
     local jobs = pending
     pending = {}
     pendingKeys = {}
     for _, fn in ipairs(jobs) do
         local ok, err = pcall(fn)
         if not ok then
-            AV.Print('deferred job failed: %s', tostring(err))
+            EUI.Print('deferred job failed: %s', tostring(err))
         end
     end
 end
 
-function AV.Print(fmt, ...)
-    print(string.format('|cff7fd4ffAzerothVista|r ' .. fmt, ...))
+function EUI.Print(fmt, ...)
+    print(string.format('|cff7fd4ffEorzeaUI|r ' .. fmt, ...))
 end

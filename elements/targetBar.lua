@@ -1,4 +1,4 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Target bar: HP bar with heal prediction, raid marker and name coloured by unit kind and claim,
 -- HP% and your threat, a class icon or portrait with the level badge, your combo points on the
@@ -10,15 +10,15 @@ local _, AV = ...
 -- Each bar is an instance for one unit ('target' or 'focus'; the unit's target gets the mini
 -- bar). Demo bars have no unit and only show SetPreview data.
 
-AV.TargetBar = {}
-local TargetBar = AV.TargetBar
+EUI.TargetBar = {}
+local TargetBar = EUI.TargetBar
 local Bar = {}
 Bar.__index = Bar
 
 -- Live bars by unit.
 local bars = {}
 
-local Style = AV.Style
+local Style = EUI.Style
 local CLASS_ICONS = 'Interface\\TargetingFrame\\UI-Classes-Circles'
 -- Class icons and portraits are drawn as circles; cropping to the inscribed square fills the
 -- job frame.
@@ -71,7 +71,7 @@ local function createIcon(self, parent, spec, fonts, frameLevel)
     portrait:SetPoint('BOTTOMRIGHT', -iconSpec.inset, iconSpec.inset)
     self.portrait = portrait
     Style.Image(frame, 'OVERLAY', { path = iconSpec.frame, pos = full, size = { size, size } })
-    self.levelBadge = AV.LevelBadge.Create(frame, frame, spec.levelBadge, fonts)
+    self.levelBadge = EUI.LevelBadge.Create(frame, frame, spec.levelBadge, fonts)
     self.levelBadge.frame:SetFrameLevel(frameLevel + 2)
     self.icon = frame
 
@@ -91,10 +91,10 @@ local function createIcon(self, parent, spec, fonts, frameLevel)
     self.leader = markers:CreateTexture(nil, 'OVERLAY')
     self.leader:SetSize(spec.leader.size[1], spec.leader.size[2])
     Style.Place(self.leader, markers, spec.leader.pos)
-    AV.Indicators.SetLeaderArt(self.leader)
+    EUI.Indicators.SetLeaderArt(self.leader)
     self.leader:Hide()
     if spec.comboPoints then
-        self.combo = AV.ComboPoints.Create(markers, spec.comboPoints)
+        self.combo = EUI.ComboPoints.Create(markers, spec.comboPoints)
     end
 end
 
@@ -109,7 +109,7 @@ local function createClickArea(self, unit, rect, origin)
     button:SetAttribute('unit', unit)
     button:SetAttribute('type1', 'target')
     button:SetAttribute('type2', 'togglemenu')
-    AV.AttachUnitTooltip(button, function() return unit end)
+    EUI.AttachUnitTooltip(button, function() return unit end)
     if RegisterUnitWatch then
         RegisterUnitWatch(button)
     end
@@ -128,7 +128,7 @@ function TargetBar.New(anchor, spec, fonts, unit)
     content:SetAllPoints(anchor)
     self.content = content
 
-    self.bar = AV.Bar.Create(content, spec.bar, { 0, 0 }, { prediction = spec.healPrediction })
+    self.bar = EUI.Bar.Create(content, spec.bar, { 0, 0 }, { prediction = spec.healPrediction })
     -- Text lives above the bar rather than on it, so the bar can hide for NPCs. The bar sits
     -- at the content's origin, so both share coordinates.
     local top = CreateFrame('Frame', nil, content)
@@ -146,13 +146,13 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.threatText = Style.Text(top, spec.txtThreat, fonts)
     self.separator = createSeparator(top, spec.separator)
     createIcon(self, content, spec, fonts, top:GetFrameLevel() + 1)
-    self.lowHealthCurve = AV.Curves.Step({ spec.lowHealth }, '#FFFFFFFF')
+    self.lowHealthCurve = EUI.Curves.Step({ spec.lowHealth }, '#FFFFFFFF')
 
     if unit then
-        self.auras = AV.AuraRow.Create(content, unit, { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
+        self.auras = EUI.AuraRow.Create(content, unit, { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
     end
 
-    self.cast = AV.CastBar.Create(content, unit, spec.cast, fonts, spec.cast.pos)
+    self.cast = EUI.CastBar.Create(content, unit, spec.cast, fonts, spec.cast.pos)
     if spec.cast.hidesName then
         -- Alpha, not Hide, so marker and flag updates mid-cast stick.
         self.cast.onVisibility = function(casting)
@@ -172,7 +172,7 @@ function TargetBar.New(anchor, spec, fonts, unit)
     tot:SetSize(spec.tot.bar.width, spec.tot.bar.height)
     Style.Place(tot, content, spec.tot.pos)
     self.tot = tot
-    self.totBar = AV.Bar.Create(tot, spec.tot.bar, { 0, 0 })
+    self.totBar = EUI.Bar.Create(tot, spec.tot.bar, { 0, 0 })
     self.totName = Style.Text(self.totBar.overlay, spec.tot.txtName, fonts)
     self.totMarker = self.totBar.overlay:CreateTexture(nil, 'OVERLAY')
     self.totMarker:SetSize(spec.tot.raidMarker.size[1], spec.tot.raidMarker.size[2])
@@ -201,8 +201,8 @@ local function createLive(anchorName, spec, fonts, unit)
 end
 
 function TargetBar.Create(style, fonts)
-    TargetBar.target = createLive('AzerothVistaTargetAnchor', style.target, fonts, 'target')
-    TargetBar.focus = createLive('AzerothVistaFocusAnchor', style.focus, fonts, 'focus')
+    TargetBar.target = createLive('EorzeaUITargetAnchor', style.target, fonts, 'target')
+    TargetBar.focus = createLive('EorzeaUIFocusAnchor', style.focus, fonts, 'focus')
 end
 
 -- A demo bar in parent, on its own anchor sized to spec. Show data with bar:SetPreview.
@@ -231,8 +231,8 @@ end
 -- Shows raid marker index, then the optional AFK/DND flag, before text, shifting the text right
 -- while they show. textSpec.right truncates the text at that x.
 local function setMarkedName(text, textSpec, marker, markerSpec, index, flag, flagSpec, flagKind)
-    local shift = AV.Indicators.SetRaidMarkerIcon(marker, index) and (markerSpec.size[1] + 3) or 0
-    if flag and AV.Indicators.SetFlagIcon(flag, flagKind) then
+    local shift = EUI.Indicators.SetRaidMarkerIcon(marker, index) and (markerSpec.size[1] + 3) or 0
+    if flag and EUI.Indicators.SetFlagIcon(flag, flagKind) then
         Style.Place(flag, marker:GetParent(), { flagSpec.pos[1] + shift, flagSpec.pos[2] })
         shift = shift + flagSpec.size[1] + 3
     end
@@ -249,7 +249,7 @@ function Bar:UpdateRaidMarker()
         return
     end
     local spec = self.spec
-    setMarkedName(self.name, spec.txtName, self.marker, spec.raidMarker, AV.Indicators.ReadRaidMarker(self.unit),
+    setMarkedName(self.name, spec.txtName, self.marker, spec.raidMarker, EUI.Indicators.ReadRaidMarker(self.unit),
         self.flag, spec.flag, self.flagKind)
 end
 
@@ -260,10 +260,10 @@ function Bar:UpdateFlags()
     end
     local unit = self.unit
     local kind
-    if AV.Read('UnitIsPlayer', UnitIsPlayer, unit) then
-        if AV.Read('UnitIsAFK', UnitIsAFK, unit) then
+    if EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) then
+        if EUI.Read('UnitIsAFK', UnitIsAFK, unit) then
             kind = 'AFK'
-        elseif AV.Read('UnitIsDND', UnitIsDND, unit) then
+        elseif EUI.Read('UnitIsDND', UnitIsDND, unit) then
             kind = 'DND'
         end
     end
@@ -272,31 +272,31 @@ function Bar:UpdateFlags()
 end
 
 local function inGroup(unit)
-    return AV.Read('UnitInParty', UnitInParty, unit) == true or AV.Read('UnitInRaid', UnitInRaid, unit) ~= nil
+    return EUI.Read('UnitInParty', UnitInParty, unit) == true or EUI.Read('UnitInRaid', UnitInRaid, unit) ~= nil
 end
 
 -- Returns the spec.nameColors key for unit.
 local function nameColorKey(unit)
-    local canAttack = AV.Read('UnitCanAttack', UnitCanAttack, 'player', unit) == true
-    if AV.Read('UnitIsPlayer', UnitIsPlayer, unit) then
-        if AV.Read('UnitIsUnit', UnitIsUnit, unit, 'player') or inGroup(unit) then
+    local canAttack = EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) == true
+    if EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) then
+        if EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'player') or inGroup(unit) then
             return 'party'
         end
         return canAttack and 'hostilePlayer' or 'player'
     end
-    if AV.Read('UnitPlayerControlled', UnitPlayerControlled, unit) then
+    if EUI.Read('UnitPlayerControlled', UnitPlayerControlled, unit) then
         if canAttack then
             return 'hostilePlayer'
         end
-        return AV.Read('UnitIsUnit', UnitIsUnit, unit, 'pet') and 'party' or 'player'
+        return EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'pet') and 'party' or 'player'
     end
     if not canAttack then
         return 'npc'
     end
-    if AV.Read('UnitIsTapDenied', UnitIsTapDenied, unit) then
+    if EUI.Read('UnitIsTapDenied', UnitIsTapDenied, unit) then
         return 'otherClaim'
     end
-    if AV.Read('UnitAffectingCombat', UnitAffectingCombat, unit) then
+    if EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit) then
         return 'claimed'
     end
     return 'unclaimed'
@@ -328,16 +328,16 @@ local function setPvP(self, kind)
     end
     self.pvpKind = kind
     if kind then
-        AV.Indicators.SetPvPIcon(self.pvp, kind)
+        EUI.Indicators.SetPvPIcon(self.pvp, kind)
     end
     self.pvp:SetShown(kind ~= nil)
 end
 
 local function readPvP(unit)
-    if AV.Read('UnitIsPVPFreeForAll', UnitIsPVPFreeForAll, unit) then
+    if EUI.Read('UnitIsPVPFreeForAll', UnitIsPVPFreeForAll, unit) then
         return 'FFA'
-    elseif AV.Read('UnitIsPVP', UnitIsPVP, unit) then
-        return AV.Read('UnitFactionGroup', UnitFactionGroup, unit)
+    elseif EUI.Read('UnitIsPVP', UnitIsPVP, unit) then
+        return EUI.Read('UnitFactionGroup', UnitFactionGroup, unit)
     end
     return nil
 end
@@ -353,11 +353,11 @@ local function difficultyColor(unit, level)
     end
     local color
     if unit and C_PlayerInfo and C_PlayerInfo.GetContentDifficultyCreatureForPlayer and GetDifficultyColor then
-        local difficulty = AV.Read('GetContentDifficultyCreatureForPlayer', C_PlayerInfo.GetContentDifficultyCreatureForPlayer, unit)
-        color = difficulty and AV.Read('GetDifficultyColor', GetDifficultyColor, difficulty)
+        local difficulty = EUI.Read('GetContentDifficultyCreatureForPlayer', C_PlayerInfo.GetContentDifficultyCreatureForPlayer, unit)
+        color = difficulty and EUI.Read('GetDifficultyColor', GetDifficultyColor, difficulty)
     end
     if not color and GetCreatureDifficultyColor then
-        color = AV.Read('GetCreatureDifficultyColor', GetCreatureDifficultyColor, level)
+        color = EUI.Read('GetCreatureDifficultyColor', GetCreatureDifficultyColor, level)
     end
     if color then
         return color.r, color.g, color.b
@@ -408,16 +408,16 @@ function Bar:UpdateIcon()
         return
     end
     local unit = self.unit
-    local classToken = AV.Read('UnitIsPlayer', UnitIsPlayer, unit) == true
-        and AV.Read('UnitClass', function() return select(2, UnitClass(unit)) end)
+    local classToken = EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) == true
+        and EUI.Read('UnitClass', function() return select(2, UnitClass(unit)) end)
     setIcon(self, classToken, function(texture)
-        AV.Read('SetPortraitTexture', SetPortraitTexture, texture, unit)
+        EUI.Read('SetPortraitTexture', SetPortraitTexture, texture, unit)
     end)
 end
 
 -- Returns a plain number, or nil when the value is missing or secret.
 local function plainNumber(value)
-    if type(value) == 'number' and AV.CanAccess(value) then
+    if type(value) == 'number' and EUI.CanAccess(value) then
         return value
     end
     return nil
@@ -431,19 +431,19 @@ function Bar:UpdateThreat()
     end
     local unit = self.unit
     local status, display, detailed
-    if UnitExists(unit) and not AV.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) then
-        status = plainNumber(AV.Read('UnitThreatSituation', UnitThreatSituation, 'player', unit))
+    if UnitExists(unit) and not EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) then
+        status = plainNumber(EUI.Read('UnitThreatSituation', UnitThreatSituation, 'player', unit))
         local ok, isTanking, detailedStatus, _, rawPercent = pcall(UnitDetailedThreatSituation, 'player', unit)
         if ok then
             detailed = plainNumber(detailedStatus)
             display = plainNumber(rawPercent)
-            if AV.CanAccess(isTanking) and isTanking == true then
-                display = plainNumber(AV.Read('UnitThreatPercentageOfLead', UnitThreatPercentageOfLead, 'player', unit))
+            if EUI.CanAccess(isTanking) and isTanking == true then
+                display = plainNumber(EUI.Read('UnitThreatPercentageOfLead', UnitThreatPercentageOfLead, 'player', unit))
             end
         end
     end
     if status and status > 0 then
-        self.threat:SetVertexColor(AV.Indicators.ThreatColor(status))
+        self.threat:SetVertexColor(EUI.Indicators.ThreatColor(status))
         self.threat:Show()
     else
         self.threat:Hide()
@@ -451,7 +451,7 @@ function Bar:UpdateThreat()
     if display and display > 0 then
         self.threatText:SetFormattedText('%.0f%%', display)
         if detailed and detailed > 0 then
-            self.threatText:SetTextColor(AV.Indicators.ThreatColor(detailed))
+            self.threatText:SetTextColor(EUI.Indicators.ThreatColor(detailed))
         else
             self.threatText:SetTextColor(Style.Color(self.spec.txtThreat.color))
         end
@@ -465,9 +465,9 @@ local ENERGY = 3
 
 -- Rogues, and druids while on energy (cat form).
 local function usesComboPoints()
-    local class = AV.SafeValue(function() return select(2, UnitClass('player')) end)
+    local class = EUI.SafeValue(function() return select(2, UnitClass('player')) end)
     if class == 'DRUID' then
-        return AV.Read('UnitPowerType', UnitPowerType, 'player') == ENERGY
+        return EUI.Read('UnitPowerType', UnitPowerType, 'player') == ENERGY
     end
     return class == 'ROGUE'
 end
@@ -485,10 +485,10 @@ function Bar:UpdateCombo()
     end
     local ok, count = pcall(GetComboPoints, 'player', self.unit)
     if not ok then
-        AV.LogOnce('combo:error', 'combo points: %s', tostring(count))
+        EUI.LogOnce('combo:error', 'combo points: %s', tostring(count))
         count = 0
-    elseif not AV.CanAccess(count) then
-        AV.LogOnce('combo:secret', 'combo points are secret; drawn through StatusBar ranges')
+    elseif not EUI.CanAccess(count) then
+        EUI.LogOnce('combo:secret', 'combo points are secret; drawn through StatusBar ranges')
     end
     self.combo:SetCount(count)
 end
@@ -506,14 +506,14 @@ function Bar:UpdateIdentity()
         applyNameColor(self, key)
     end
     -- An NPC in combat (escorts, guards) shows its HP.
-    setNpcMode(self, key == 'npc' and not AV.Read('UnitAffectingCombat', UnitAffectingCombat, unit))
+    setNpcMode(self, key == 'npc' and not EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit))
     setPvP(self, readPvP(unit))
     -- UnitLeadsAnyGroup also covers players outside your group.
     local leads
     if UnitLeadsAnyGroup then
-        leads = AV.Read('UnitLeadsAnyGroup', UnitLeadsAnyGroup, unit)
+        leads = EUI.Read('UnitLeadsAnyGroup', UnitLeadsAnyGroup, unit)
     else
-        leads = AV.Read('UnitIsGroupLeader', UnitIsGroupLeader, unit)
+        leads = EUI.Read('UnitIsGroupLeader', UnitIsGroupLeader, unit)
     end
     self.leader:SetShown(leads == true)
 end
@@ -522,14 +522,14 @@ function Bar:UpdateName()
     if not isLive(self) then
         return
     end
-    pcall(self.name.SetText, self.name, AV.UnitDisplayName(self.unit))
+    pcall(self.name.SetText, self.name, EUI.UnitDisplayName(self.unit))
 end
 
 function Bar:UpdateTier()
     if not isLive(self) then
         return
     end
-    setTier(self, AV.Read('UnitClassification', UnitClassification, self.unit))
+    setTier(self, EUI.Read('UnitClassification', UnitClassification, self.unit))
 end
 
 -- Difficulty-coloured for units you can attack, so it also changes with faction and PvP state.
@@ -538,8 +538,8 @@ function Bar:UpdateLevel()
         return
     end
     local unit = self.unit
-    local level = AV.SafeValue(UnitLevel, unit)
-    if level and AV.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
+    local level = EUI.SafeValue(UnitLevel, unit)
+    if level and EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
         setLevel(self, level, difficultyColor(unit, level))
     else
         setLevel(self, level)
@@ -582,13 +582,13 @@ function Bar:UpdateHealth(smooth)
     self.bar:SetRange(maxHealth)
     self.bar:SetValue(UnitHealth(unit), smooth)
     self.bar:ShowIncomingHeals(unit, maxHealth)
-    AV.Curves.SetHealthPercentText(self.hpp, unit)
-    local dead = AV.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) == true
+    EUI.Curves.SetHealthPercentText(self.hpp, unit)
+    local dead = EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) == true
     self.portrait:SetDesaturated(dead)
     if dead then
         self.portrait:SetVertexColor(1, 1, 1, 1)
     else
-        AV.Curves.ApplyHealthTint(self.portrait, unit, self.lowHealthCurve)
+        EUI.Curves.ApplyHealthTint(self.portrait, unit, self.lowHealthCurve)
     end
 end
 
@@ -613,10 +613,10 @@ function Bar:UpdateTargetOfTarget()
     end
     self.totBar:SetRange(UnitHealthMax(totUnit))
     self.totBar:SetValue(UnitHealth(totUnit), true)
-    pcall(self.totName.SetText, self.totName, AV.UnitDisplayName(totUnit))
+    pcall(self.totName.SetText, self.totName, EUI.UnitDisplayName(totUnit))
     self.totName:SetTextColor(Style.Color(self.spec.nameColors[nameColorKey(totUnit)]))
     setMarkedName(self.totName, self.spec.tot.txtName, self.totMarker, self.spec.tot.raidMarker,
-        AV.Indicators.ReadRaidMarker(totUnit))
+        EUI.Indicators.ReadRaidMarker(totUnit))
 end
 
 local function setLiveAurasShown(self, shown)
@@ -630,7 +630,7 @@ end
 local function demoAuras(spec, debuffs, buffs)
     local out = {}
     for _, group in ipairs({ { 'HARMFUL', debuffs }, { 'HELPFUL', buffs } }) do
-        local max = AV.AuraRow.GroupSpec(spec, group[1]).max
+        local max = EUI.AuraRow.GroupSpec(spec, group[1]).max
         for i, entry in ipairs(group[2] or {}) do
             if i > max then
                 break
@@ -661,7 +661,7 @@ function Bar:SetPreview(data)
     end
     local spec = self.spec
     if not self.demoAuras then
-        self.demoAuras = AV.StaticIcons.Create(self.content, spec.auras, self.fonts)
+        self.demoAuras = EUI.StaticIcons.Create(self.content, spec.auras, self.fonts)
     end
     setLiveAurasShown(self, false)
     self.content:Show()
@@ -681,15 +681,15 @@ function Bar:SetPreview(data)
     self.threat:SetShown(data.threat ~= nil)
     self.threatText:SetShown(data.threat ~= nil)
     if data.threat then
-        self.threat:SetVertexColor(AV.Indicators.ThreatColor(data.threat))
+        self.threat:SetVertexColor(EUI.Indicators.ThreatColor(data.threat))
         self.threatText:SetFormattedText('%.0f%%', data.threatPercent)
-        self.threatText:SetTextColor(AV.Indicators.ThreatColor(data.threat))
+        self.threatText:SetTextColor(EUI.Indicators.ThreatColor(data.threat))
     end
     setIcon(self, data.class, function(texture)
         if data.portrait then
             texture:SetTexture(data.portrait)
         else
-            AV.Read('SetPortraitTexture', SetPortraitTexture, texture, data.portraitUnit)
+            EUI.Read('SetPortraitTexture', SetPortraitTexture, texture, data.portraitUnit)
         end
     end)
     self.portrait:SetDesaturated(data.dead == true)

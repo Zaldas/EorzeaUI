@@ -1,10 +1,10 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Building blocks shared by the style files. Values are VanaVista's, in 1440p pixels.
 
-AV.styles = AV.styles or {}
+EUI.styles = EUI.styles or {}
 local Kit = {}
-AV.StyleKit = Kit
+EUI.StyleKit = Kit
 
 Kit.STROKE_BLUE = '#062D54C8'
 Kit.STROKE_RED = '#3B0B0BC8'

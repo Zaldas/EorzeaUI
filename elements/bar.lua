@@ -1,13 +1,13 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Layered bar: background frame art, a StatusBar fill and foreground frame art. Values may be
 -- secret, so the StatusBar sizes the fill without Lua arithmetic.
 
-AV.Bar = {}
+EUI.Bar = {}
 local Bar = {}
 Bar.__index = Bar
 
-local Style = AV.Style
+local Style = EUI.Style
 
 local function frameLayer(owner, layer, spec, barSpec, subLevel)
     if barSpec.slice then
@@ -33,12 +33,12 @@ end
 -- fill area. The calculator clamps absorbs to missing health minus incoming heals.
 local function createPrediction(self, frame, spec, predictionSpec)
     if not (CreateUnitHealPredictionCalculator and UnitGetDetailedHealPrediction) then
-        AV.LogOnce('prediction:missing', 'heal prediction: API missing')
+        EUI.LogOnce('prediction:missing', 'heal prediction: API missing')
         return
     end
     local ok, calculator = pcall(CreateUnitHealPredictionCalculator)
     if not ok or not calculator then
-        AV.LogOnce('prediction:create', 'heal prediction: calculator failed: %s', tostring(calculator))
+        EUI.LogOnce('prediction:create', 'heal prediction: calculator failed: %s', tostring(calculator))
         return
     end
     local clip = CreateFrame('Frame', nil, frame)
@@ -52,7 +52,7 @@ local function createPrediction(self, frame, spec, predictionSpec)
     local absorbs = predictionSegment(clip, spec, heals:GetStatusBarTexture(), predictionSpec.absorbColor)
     local missingHealth = Enum.UnitDamageAbsorbClampMode and Enum.UnitDamageAbsorbClampMode.MissingHealth or 0
     if not pcall(calculator.SetDamageAbsorbClampMode, calculator, missingHealth) then
-        AV.LogOnce('prediction:clamp', 'absorbs: SetDamageAbsorbClampMode failed')
+        EUI.LogOnce('prediction:clamp', 'absorbs: SetDamageAbsorbClampMode failed')
     end
     self.prediction = { bar = heals, absorbs = absorbs, calculator = calculator }
 end
@@ -93,7 +93,7 @@ end
 
 -- spec: see styles/shared.lua (rowBar / wideBar).
 -- opts = { prediction = { color }, cost = { color, fade } }
-function AV.Bar.Create(parent, spec, pos, opts)
+function EUI.Bar.Create(parent, spec, pos, opts)
     local self = setmetatable({ spec = spec }, Bar)
 
     local frame = CreateFrame('Frame', nil, parent)
@@ -192,19 +192,19 @@ function Bar:ShowIncomingHeals(unit, maxValue)
     end
     local ok, err = pcall(UnitGetDetailedHealPrediction, unit, 'player', prediction.calculator)
     if not ok then
-        AV.LogOnce('prediction:populate', 'heal prediction: populate failed: %s', tostring(err))
+        EUI.LogOnce('prediction:populate', 'heal prediction: populate failed: %s', tostring(err))
         self:SetIncoming(0)
         return
     end
     local okIncoming, incoming = pcall(prediction.calculator.GetIncomingHeals, prediction.calculator)
     if not okIncoming then
-        AV.LogOnce('prediction:read', 'heal prediction: GetIncomingHeals failed: %s', tostring(incoming))
+        EUI.LogOnce('prediction:read', 'heal prediction: GetIncomingHeals failed: %s', tostring(incoming))
         self:SetIncoming(0)
         return
     end
     local okAbsorbs, absorbs = pcall(prediction.calculator.GetDamageAbsorbs, prediction.calculator)
     if not okAbsorbs then
-        AV.LogOnce('prediction:absorbs', 'absorbs: GetDamageAbsorbs failed: %s', tostring(absorbs))
+        EUI.LogOnce('prediction:absorbs', 'absorbs: GetDamageAbsorbs failed: %s', tostring(absorbs))
         absorbs = 0
     end
     self:SetIncoming(incoming, maxValue, absorbs)

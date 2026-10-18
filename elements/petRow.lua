@@ -1,14 +1,14 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Visuals for a party row's pet sub-row: portrait, HP and power. The player's own pet adds
 -- hunter happiness, a cast bar over the power bar and an aura row. The party list builds the
 -- secure button that carries the pet unit; this only draws on it and follows unit changes.
 
-AV.PetRow = {}
+EUI.PetRow = {}
 local Pet = {}
 Pet.__index = Pet
 
-local Style = AV.Style
+local Style = EUI.Style
 
 -- Portraits are drawn as circles; cropping to the inscribed square fills the job frame.
 local CIRCLE_INSET = 0.146
@@ -33,11 +33,11 @@ local function buildArt(self, host, spec, fonts)
     self.hover = Style.Image(art, 'BACKGROUND', spec.hover, 1)
     self.hover:Hide()
 
-    self.hp = AV.Bar.Create(art, spec.hp.bar, spec.hp.pos)
+    self.hp = EUI.Bar.Create(art, spec.hp.bar, spec.hp.pos)
     self.hpText = Style.Text(self.hp.overlay, spec.hp.txtValue, fonts)
-    self.hpCurve = AV.Curves.Step(spec.hp.thresholds, spec.hp.textColor)
+    self.hpCurve = EUI.Curves.Step(spec.hp.thresholds, spec.hp.textColor)
 
-    self.power = AV.Bar.Create(art, spec.power.bar, spec.power.pos)
+    self.power = EUI.Bar.Create(art, spec.power.bar, spec.power.pos)
     self.powerText = Style.Text(self.power.overlay, spec.power.txtValue, fonts)
 
     -- Name line, above both bars; the cast bar takes it while the pet casts.
@@ -47,7 +47,7 @@ local function buildArt(self, host, spec, fonts)
     self.name = Style.Text(top, spec.txtName, fonts)
     self.name:SetWidth(spec.txtName.width)
     self.name:SetWordWrap(false)
-    self.cast = AV.CastBar.Create(top, nil, spec.cast, fonts, spec.cast.pos)
+    self.cast = EUI.CastBar.Create(top, nil, spec.cast, fonts, spec.cast.pos)
     -- Alpha, not Hide, so name updates mid-cast stick.
     self.cast.onVisibility = function(casting)
         self.name:SetAlpha(casting and 0 or 1)
@@ -80,13 +80,13 @@ local function buildArt(self, host, spec, fonts)
 end
 
 -- button: the secure pet button. owner: the party row it belongs to.
-function AV.PetRow.Attach(button, owner, partyStyle, fonts)
+function EUI.PetRow.Attach(button, owner, partyStyle, fonts)
     local spec = partyStyle.pet
     local self = setmetatable({ button = button, owner = owner, spec = spec, partyStyle = partyStyle }, Pet)
     buildArt(self, button, spec, fonts)
 
     -- Created at login (out of combat) with the button's initial unit.
-    self.auras = AV.AuraRow.Create(self.auraLayer, button:GetAttribute('unit') or 'pet', { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
+    self.auras = EUI.AuraRow.Create(self.auraLayer, button:GetAttribute('unit') or 'pet', { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
 
     button:HookScript('OnEnter', function()
         self.hover:Show()
@@ -94,7 +94,7 @@ function AV.PetRow.Attach(button, owner, partyStyle, fonts)
     button:HookScript('OnLeave', function()
         self.hover:Hide()
     end)
-    AV.AttachUnitTooltip(button, function() return self.unit end)
+    EUI.AttachUnitTooltip(button, function() return self.unit end)
     button:HookScript('OnAttributeChanged', function(_, name, value)
         if name == 'unit' then
             self:SetUnit(value)
@@ -103,10 +103,10 @@ function AV.PetRow.Attach(button, owner, partyStyle, fonts)
     -- The secure show/hide handlers have resized the owner's row by the time these run.
     button:HookScript('OnShow', function()
         self:Refresh()
-        AV.PartyList.UpdateBackground()
+        EUI.PartyList.UpdateBackground()
     end)
     button:HookScript('OnHide', function()
-        AV.PartyList.UpdateBackground()
+        EUI.PartyList.UpdateBackground()
     end)
 
     self:SetUnit(button:GetAttribute('unit'))
@@ -114,7 +114,7 @@ function AV.PetRow.Attach(button, owner, partyStyle, fonts)
 end
 
 -- A non-secure sub-row showing fixed sample data, placed by its demo owner row.
-function AV.PetRow.CreateDemo(parent, owner, partyStyle, fonts)
+function EUI.PetRow.CreateDemo(parent, owner, partyStyle, fonts)
     local spec = partyStyle.pet
     local self = setmetatable({ owner = owner, spec = spec, partyStyle = partyStyle }, Pet)
     local host = CreateFrame('Frame', nil, parent)
@@ -122,7 +122,7 @@ function AV.PetRow.CreateDemo(parent, owner, partyStyle, fonts)
     self.host = host
     buildArt(self, host, spec, fonts)
     local auraSpec = spec.auras
-    self.auras = AV.StaticIcons.Create(self.auraLayer, {
+    self.auras = EUI.StaticIcons.Create(self.auraLayer, {
         pos = auraSpec.pos, size = auraSpec.size, spacing = auraSpec.spacing, max = auraSpec.max * 2,
     }, fonts)
     return self
@@ -193,7 +193,7 @@ function Pet:SetUnit(unit)
     local previous = self.unit
     self.unit = unit
     self.isOwn = unit == 'pet'
-    AV.PartyList.OnPetUnitChanged(self, previous, unit)
+    EUI.PartyList.OnPetUnitChanged(self, previous, unit)
     self.cast:SetUnit(self.isOwn and unit or nil)
     self.auraLayer:SetShown(self.isOwn)
     if unit then
@@ -218,11 +218,11 @@ end
 
 -- The name may be secret: SetText accepts it.
 function Pet:UpdateName()
-    pcall(self.name.SetText, self.name, AV.UnitDisplayName(self.unit))
+    pcall(self.name.SetText, self.name, EUI.UnitDisplayName(self.unit))
 end
 
 function Pet:UpdatePortrait()
-    AV.Read('SetPortraitTexture', SetPortraitTexture, self.portrait, self.unit)
+    EUI.Read('SetPortraitTexture', SetPortraitTexture, self.portrait, self.unit)
     self.portrait:SetTexCoord(CIRCLE_INSET, 1 - CIRCLE_INSET, CIRCLE_INSET, 1 - CIRCLE_INSET)
 end
 
@@ -231,18 +231,18 @@ function Pet:UpdateHealth(smooth)
     self.hp:SetRange(UnitHealthMax(unit))
     local health = UnitHealth(unit)
     self.hp:SetValue(health, smooth)
-    AV.SetNumberText(self.hpText, health)
-    AV.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
+    EUI.SetNumberText(self.hpText, health)
+    EUI.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
 end
 
 -- Hunter pets run on focus, warlock pets on mana.
 function Pet:UpdatePower(smooth)
     local unit = self.unit
-    tintPower(self, AV.Read('UnitPowerType', UnitPowerType, unit))
+    tintPower(self, EUI.Read('UnitPowerType', UnitPowerType, unit))
     self.power:SetRange(UnitPowerMax(unit))
     local power = UnitPower(unit)
     self.power:SetValue(power, smooth)
-    AV.SetNumberText(self.powerText, power)
+    EUI.SetNumberText(self.powerText, power)
 end
 
 local function hasHunterPet()
@@ -252,8 +252,8 @@ end
 -- Own hunter pet only, as Blizzard's PetHappinessIndicator.
 function Pet:UpdateHappiness()
     local happiness
-    if self.isOwn and AV.Read('HasPetUI', HasPetUI and hasHunterPet) then
-        happiness = AV.Read('GetPetHappiness', C_PetInfo and C_PetInfo.GetPetHappiness or GetPetHappiness)
+    if self.isOwn and EUI.Read('HasPetUI', HasPetUI and hasHunterPet) then
+        happiness = EUI.Read('GetPetHappiness', C_PetInfo and C_PetInfo.GetPetHappiness or GetPetHappiness)
     end
     setHappiness(self, happiness)
 end

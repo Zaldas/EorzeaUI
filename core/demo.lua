@@ -1,10 +1,10 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Fills every frame with fixed sample data for screenshots and Edit Mode positioning.
--- Active while toggled with /av demo or while Edit Mode is open.
+-- Active while toggled with /eui demo or while Edit Mode is open.
 
-AV.Demo = {}
-local Demo = AV.Demo
+EUI.Demo = {}
+local Demo = EUI.Demo
 
 local ICON = 'Interface\\Icons\\'
 local BUFFS = {
@@ -77,7 +77,7 @@ local IMP = {
 }
 
 local function members()
-    local playerName = AV.UnitDisplayName('player') or 'You'
+    local playerName = EUI.UnitDisplayName('player') or 'You'
     local playerClass = select(2, UnitClass('player')) or 'PALADIN'
     local playerFaction = UnitFactionGroup and UnitFactionGroup('player') or 'Alliance'
     return {
@@ -99,7 +99,7 @@ local function target()
         name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
         debuffs = TARGET_DEBUFFS, buffs = TARGET_BUFFS,
         castName = 'Fireball', castProgress = 0.6, castNotInterruptible = true,
-        totName = AV.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,
+        totName = EUI.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,
     }
 end
 
@@ -116,60 +116,60 @@ end
 
 function Demo.Toggle()
     if InCombatLockdown() then
-        AV.Print('demo mode cannot change in combat')
+        EUI.Print('demo mode cannot change in combat')
         return
     end
     Demo.toggled = not Demo.toggled
     Demo.Refresh()
-    AV.Print('demo mode %s', Demo.toggled and 'on' or 'off')
+    EUI.Print('demo mode %s', Demo.toggled and 'on' or 'off')
 end
 
-local GALLERY = 'AzerothVista_Gallery'
+local GALLERY = 'EorzeaUI_Gallery'
 
--- Loads the AzerothVista_Gallery addon on first use; it builds each window when first shown.
+-- Loads the EorzeaUI_Gallery addon on first use; it builds each window when first shown.
 -- kind: 'party' or 'target'.
 function Demo.ToggleGallery(kind)
-    if not AV.ready then
+    if not EUI.ready then
         return
     end
     local loaded, reason = C_AddOns.LoadAddOn(GALLERY)
     if not loaded then
-        AV.Print('%s not loaded: %s', GALLERY, tostring(reason))
+        EUI.Print('%s not loaded: %s', GALLERY, tostring(reason))
         return
     end
-    AzerothVistaGallery.Toggle(kind)
+    EorzeaUIGallery.Toggle(kind)
 end
 
 -- The gallery's only way into this addon. Valid once the party list exists.
-AzerothVista = {
+EorzeaUI = {
     -- Returns a non-secure demo row: row:ShowDemo(member), row:DemoHeight(member).
     CreateDemoRow = function(parent, index)
-        return AV.PartyRow.CreateDemo(parent, AV.PartyList.style, AV.PartyList.fonts, index)
+        return EUI.PartyRow.CreateDemo(parent, EUI.PartyList.style, EUI.PartyList.fonts, index)
     end,
     StackDemoRows = function(...)
-        return AV.PartyList.StackDemoRows(...)
+        return EUI.PartyList.StackDemoRows(...)
     end,
     -- Returns a demo target bar: bar:SetPreview(data); bar.anchor is its frame, bar.spec its style.
     CreateDemoTarget = function(parent)
-        local live = AV.TargetBar.target
-        return AV.TargetBar.CreateDemo(parent, live.spec, live.fonts)
+        local live = EUI.TargetBar.target
+        return EUI.TargetBar.CreateDemo(parent, live.spec, live.fonts)
     end,
     CreateBackground = function(anchor)
-        return AV.PartyList.CreateBackground(anchor)
+        return EUI.PartyList.CreateBackground(anchor)
     end,
     RootScale = function()
-        return AV.Style.RootScale()
+        return EUI.Style.RootScale()
     end,
 }
 
 function Demo.Refresh()
-    local active = Demo.toggled or AV.EditMode.unlocked
+    local active = Demo.toggled or EUI.EditMode.unlocked
     if active == Demo.active then
         return
     end
     Demo.active = active
-    AV.PartyList.SetDemo(active and members() or nil)
-    AV.TargetBar.target:SetPreview(active and target() or nil)
-    AV.TargetBar.focus:SetPreview(active and focus() or nil)
-    AV.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)
+    EUI.PartyList.SetDemo(active and members() or nil)
+    EUI.TargetBar.target:SetPreview(active and target() or nil)
+    EUI.TargetBar.focus:SetPreview(active and focus() or nil)
+    EUI.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)
 end

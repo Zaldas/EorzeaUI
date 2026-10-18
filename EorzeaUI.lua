@@ -1,4 +1,4 @@
-local addonName, AV = ...
+local addonName, EUI = ...
 
 local DEFAULTS = {
     style = 'ffxiExpanded',
@@ -9,36 +9,36 @@ local DEFAULTS = {
 local RANGE_TICK = 0.25
 
 local function loadSettings()
-    AzerothVistaDB = AzerothVistaDB or {}
+    EorzeaUIDB = EorzeaUIDB or {}
     for key, value in pairs(DEFAULTS) do
-        if AzerothVistaDB[key] == nil then
-            AzerothVistaDB[key] = type(value) == 'table' and {} or value
+        if EorzeaUIDB[key] == nil then
+            EorzeaUIDB[key] = type(value) == 'table' and {} or value
         end
     end
-    AV.db = AzerothVistaDB
+    EUI.db = EorzeaUIDB
 end
 
 local function applyScale()
-    AV.RunOutOfCombat(function()
-        local scale = AV.Style.RootScale()
-        AV.PartyList.anchor:SetScale(scale)
-        AV.TargetBar.target.anchor:SetScale(scale)
-        AV.TargetBar.focus.anchor:SetScale(scale)
-        AV.castAnchor:SetScale(scale)
+    EUI.RunOutOfCombat(function()
+        local scale = EUI.Style.RootScale()
+        EUI.PartyList.anchor:SetScale(scale)
+        EUI.TargetBar.target.anchor:SetScale(scale)
+        EUI.TargetBar.focus.anchor:SetScale(scale)
+        EUI.castAnchor:SetScale(scale)
     end, 'scale')
-    if AzerothVistaGallery and AzerothVistaGallery.ApplyScale then
-        AzerothVistaGallery.ApplyScale()
+    if EorzeaUIGallery and EorzeaUIGallery.ApplyScale then
+        EorzeaUIGallery.ApplyScale()
     end
 end
 
 local function createPlayerCastBar(style, fonts)
     local spec = style.castBar
-    local anchor = CreateFrame('Frame', 'AzerothVistaCastAnchor', UIParent)
+    local anchor = CreateFrame('Frame', 'EorzeaUICastAnchor', UIParent)
     anchor:SetSize(spec.width, spec.height)
     anchor:SetMovable(true)
     anchor:SetClampedToScreen(true)
-    AV.castAnchor = anchor
-    AV.playerCast = AV.CastBar.Create(anchor, 'player', spec, fonts, { 0, 0 })
+    EUI.castAnchor = anchor
+    EUI.playerCast = EUI.CastBar.Create(anchor, 'player', spec, fonts, { 0, 0 })
 end
 
 -- APIs behind optional features; missing ones are logged once per session.
@@ -59,61 +59,61 @@ local function logCapabilities()
             missing[#missing + 1] = name
         end
     end
-    AV.Log('capabilities: %s', #missing == 0 and 'all feature APIs present' or 'missing ' .. table.concat(missing, ', '))
+    EUI.Log('capabilities: %s', #missing == 0 and 'all feature APIs present' or 'missing ' .. table.concat(missing, ', '))
 end
 
 local function initialize()
-    if not AV.styles[AV.db.style] then
-        AV.db.style = DEFAULTS.style
+    if not EUI.styles[EUI.db.style] then
+        EUI.db.style = DEFAULTS.style
     end
-    local style = AV.styles[AV.db.style]
+    local style = EUI.styles[EUI.db.style]
     local fonts = style.fonts
-    AV.LogSession()
+    EUI.LogSession()
     logCapabilities()
-    AV.inCombat = AV.SafeBool(UnitAffectingCombat, 'player')
+    EUI.inCombat = EUI.SafeBool(UnitAffectingCombat, 'player')
 
     local suf = C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded('SleekUnitFrames')
     if suf then
-        AV.Print('Sleek Unit Frames is also loaded; both hide the same Blizzard frames. Disable one.')
+        EUI.Print('Sleek Unit Frames is also loaded; both hide the same Blizzard frames. Disable one.')
     end
 
-    AV.PartyList.Create(style, fonts)
-    AV.TargetBar.Create(style, fonts)
+    EUI.PartyList.Create(style, fonts)
+    EUI.TargetBar.Create(style, fonts)
     createPlayerCastBar(style, fonts)
 
-    local partyBg = AV.PartyList.background
-    AV.EditMode.Register('party', AV.PartyList.anchor, 'Party', { partyBg.top, partyBg.bottom })
-    AV.EditMode.Register('target', AV.TargetBar.target.anchor, 'Target')
-    AV.EditMode.Register('focus', AV.TargetBar.focus.anchor, 'Focus')
-    AV.EditMode.Register('cast', AV.castAnchor, 'Cast bar')
-    AV.EditMode.Initialize()
+    local partyBg = EUI.PartyList.background
+    EUI.EditMode.Register('party', EUI.PartyList.anchor, 'Party', { partyBg.top, partyBg.bottom })
+    EUI.EditMode.Register('target', EUI.TargetBar.target.anchor, 'Target')
+    EUI.EditMode.Register('focus', EUI.TargetBar.focus.anchor, 'Focus')
+    EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar')
+    EUI.EditMode.Initialize()
 
-    AV.Blizzard.HideReplaced()
+    EUI.Blizzard.HideReplaced()
     applyScale()
 
-    C_Timer.NewTicker(RANGE_TICK, AV.Guard('range ticker', function()
-        AV.PartyList.ForEachVisibleRow(function(row)
+    C_Timer.NewTicker(RANGE_TICK, EUI.Guard('range ticker', function()
+        EUI.PartyList.ForEachVisibleRow(function(row)
             row:UpdateRange()
         end)
-        AV.TargetBar.ForEach(function(bar)
+        EUI.TargetBar.ForEach(function(bar)
             bar:UpdateIdentity()
             bar:UpdateThreat()
             bar:UpdateTargetOfTarget()
         end)
     end))
 
-    AV.ready = true
-    AV.PartyList.RefreshAll()
-    AV.TargetBar.ForEach(function(bar)
+    EUI.ready = true
+    EUI.PartyList.RefreshAll()
+    EUI.TargetBar.ForEach(function(bar)
         bar:Refresh()
     end)
 end
 
 -- Unit events route to the party row, pet sub-row and target-style bar showing that unit.
 local function onUnitEvent(event, unit, arg3, arg4, arg5)
-    local row = AV.PartyList.RowForUnit(unit)
-    local pet = AV.PartyList.PetForUnit(unit)
-    local bar = AV.TargetBar.ForUnit(unit)
+    local row = EUI.PartyList.RowForUnit(unit)
+    local pet = EUI.PartyList.PetForUnit(unit)
+    local bar = EUI.TargetBar.ForUnit(unit)
     if event == 'UNIT_HEALTH' or event == 'UNIT_MAXHEALTH' then
         if row then row:UpdateHealth(event == 'UNIT_HEALTH') end
         if pet then pet:UpdateHealth(event == 'UNIT_HEALTH') end
@@ -122,11 +122,11 @@ local function onUnitEvent(event, unit, arg3, arg4, arg5)
         if row then
             row:UpdatePower(event == 'UNIT_POWER_UPDATE')
         end
-        if unit == 'player' then AV.TargetBar.target:UpdateCombo() end
+        if unit == 'player' then EUI.TargetBar.target:UpdateCombo() end
         if pet then pet:UpdatePower(event == 'UNIT_POWER_UPDATE') end
     elseif event == 'UNIT_PET' then
         -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
-        AV.PartyList.ForEachVisiblePet(function(visiblePet)
+        EUI.PartyList.ForEachVisiblePet(function(visiblePet)
             visiblePet:Refresh()
         end)
     elseif event == 'UNIT_PORTRAIT_UPDATE' then
@@ -163,7 +163,7 @@ local function onUnitEvent(event, unit, arg3, arg4, arg5)
         end
         -- PLAYER_FLAGS_CHANGED may name the unit by another token (party1, raid3).
         if event == 'PLAYER_FLAGS_CHANGED' then
-            AV.TargetBar.ForEach(function(each)
+            EUI.TargetBar.ForEach(function(each)
                 each:UpdateFlags()
             end)
         elseif bar then
@@ -177,7 +177,7 @@ local function onUnitEvent(event, unit, arg3, arg4, arg5)
         end
         -- Whether you can attack a unit also follows your own faction and PvP state.
         if unit == 'player' then
-            AV.TargetBar.ForEach(function(each)
+            EUI.TargetBar.ForEach(function(each)
                 each:UpdateLevel()
             end)
         end
@@ -188,7 +188,7 @@ local function onUnitEvent(event, unit, arg3, arg4, arg5)
     elseif event == 'INCOMING_SUMMON_CHANGED' or event == 'INCOMING_RESURRECT_CHANGED' or event == 'UNIT_PHASE' then
         if row then row:UpdateStatusIcon() end
     elseif event:find('^UNIT_SPELLCAST_') then
-        if unit == 'player' then AV.playerCast:Update() end
+        if unit == 'player' then EUI.playerCast:Update() end
         if row then
             row:UpdateCast()
             row:UpdateCostPreview(event, arg3)
@@ -230,7 +230,7 @@ local GLOBAL_EVENTS = {
 }
 
 local function forEachRow(method)
-    AV.PartyList.ForEachVisibleRow(function(row)
+    EUI.PartyList.ForEachVisibleRow(function(row)
         row[method](row)
     end)
 end
@@ -241,69 +241,69 @@ for _, list in ipairs({ GLOBAL_EVENTS, UNIT_EVENTS }) do
     for _, name in ipairs(list) do
         local ok, err = pcall(events.RegisterEvent, events, name)
         if not ok then
-            AV.LogOnce('event:' .. name, 'event %s not registered: %s', name, tostring(err))
+            EUI.LogOnce('event:' .. name, 'event %s not registered: %s', name, tostring(err))
         end
     end
 end
 
-events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, arg3, arg4, arg5)
+events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, arg3, arg4, arg5)
     if event == 'ADDON_LOADED' then
         if arg1 == addonName then
-            AV.BindLog()
+            EUI.BindLog()
             loadSettings()
             -- Secure frames cannot be created in combat (e.g. a /reload mid-fight).
-            AV.RunOutOfCombat(initialize)
+            EUI.RunOutOfCombat(initialize)
             events:UnregisterEvent('ADDON_LOADED')
         end
         return
     end
     if event == 'ADDON_ACTION_BLOCKED' or event == 'ADDON_ACTION_FORBIDDEN' then
         if arg1 == addonName then
-            AV.Log('%s: %s', event, tostring(arg2))
+            EUI.Log('%s: %s', event, tostring(arg2))
         end
         return
     end
     if event == 'PLAYER_REGEN_ENABLED' or event == 'PLAYER_REGEN_DISABLED' then
         -- InCombatLockdown() still reports the old state inside these handlers.
-        AV.inCombat = event == 'PLAYER_REGEN_DISABLED'
-        if not AV.inCombat then
-            AV.FlushOutOfCombat()
+        EUI.inCombat = event == 'PLAYER_REGEN_DISABLED'
+        if not EUI.inCombat then
+            EUI.FlushOutOfCombat()
         end
-        if AV.ready then
+        if EUI.ready then
             forEachRow('UpdatePlayerState')
             forEachRow('UpdateThreat')
         end
         return
     end
-    if not AV.ready then
+    if not EUI.ready then
         return
     end
 
     if event == 'PLAYER_ENTERING_WORLD' then
         applyScale()
-        AV.Blizzard.HideReplaced()
-        AV.PartyList.OnRosterChanged()
-        AV.PartyList.RefreshAll()
-        AV.PartyList.UpdateFormRows()
-        AV.TargetBar.ForEach(function(bar)
+        EUI.Blizzard.HideReplaced()
+        EUI.PartyList.OnRosterChanged()
+        EUI.PartyList.RefreshAll()
+        EUI.PartyList.UpdateFormRows()
+        EUI.TargetBar.ForEach(function(bar)
             bar:Refresh()
         end)
-        AV.playerCast:Update()
+        EUI.playerCast:Update()
     elseif event == 'PLAYER_TARGET_CHANGED' then
-        AV.TargetBar.target:Refresh()
-        AV.PartyList.ForEachVisibleRow(function(row)
+        EUI.TargetBar.target:Refresh()
+        EUI.PartyList.ForEachVisibleRow(function(row)
             row:UpdateCursor()
         end)
     elseif event == 'COMBO_TARGET_CHANGED' then
-        AV.TargetBar.target:UpdateCombo()
+        EUI.TargetBar.target:UpdateCombo()
     elseif event == 'PLAYER_FOCUS_CHANGED' then
-        AV.TargetBar.focus:Refresh()
+        EUI.TargetBar.focus:Refresh()
     elseif event == 'GROUP_ROSTER_UPDATE' then
-        AV.PartyList.OnRosterChanged()
-        AV.PartyList.RefreshAll()
-        AV.PartyList.UpdateFormRows()
+        EUI.PartyList.OnRosterChanged()
+        EUI.PartyList.RefreshAll()
+        EUI.PartyList.UpdateFormRows()
     elseif event == 'PARTY_LEADER_CHANGED' then
-        AV.PartyList.ForEachVisibleRow(function(row)
+        EUI.PartyList.ForEachVisibleRow(function(row)
             row:UpdateLeader()
             row:UpdateGroupRoles()
         end)
@@ -311,8 +311,8 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         forEachRow('UpdateGroupRoles')
     elseif event == 'UPDATE_SHAPESHIFT_FORM' then
         forEachRow('UpdatePower')
-        AV.TargetBar.target:UpdateCombo()
-        AV.PartyList.UpdateBackground()
+        EUI.TargetBar.target:UpdateCombo()
+        EUI.PartyList.UpdateBackground()
     elseif event == 'UI_SCALE_CHANGED' or event == 'DISPLAY_SIZE_CHANGED' then
         applyScale()
     elseif event == 'PLAYER_UPDATE_RESTING' then
@@ -320,16 +320,16 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
     elseif event == 'PLAYER_DEAD' or event == 'PLAYER_ALIVE' or event == 'PLAYER_UNGHOST' then
         forEachRow('UpdateState')
     elseif event:find('^READY_CHECK') then
-        AV.PartyList.OnReadyCheck(event)
+        EUI.PartyList.OnReadyCheck(event)
     elseif event == 'RAID_TARGET_UPDATE' then
         forEachRow('UpdateRaidMarker')
-        AV.TargetBar.ForEach(function(bar)
+        EUI.TargetBar.ForEach(function(bar)
             bar:UpdateRaidMarker()
         end)
     elseif event == 'PLAYER_ROLES_ASSIGNED' or event == 'ROLE_CHANGED_INFORM' then
         forEachRow('UpdateRole')
     elseif event == 'PET_UI_UPDATE' then
-        AV.PartyList.ForEachVisiblePet(function(pet)
+        EUI.PartyList.ForEachVisiblePet(function(pet)
             pet:UpdateHappiness()
         end)
     else
@@ -337,56 +337,56 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
     end
 end))
 
-SLASH_AZEROTHVISTA1 = '/av'
-SlashCmdList.AZEROTHVISTA = function(msg)
+SLASH_EORZEAUI1 = '/eui'
+SlashCmdList.EORZEAUI = function(msg)
     msg = (msg or ''):lower()
     if msg == 'unlock' then
-        AV.EditMode.SetUnlocked(true)
+        EUI.EditMode.SetUnlocked(true)
     elseif msg == 'lock' then
-        AV.EditMode.SetUnlocked(false)
+        EUI.EditMode.SetUnlocked(false)
     elseif msg:match('^scale') then
         local value = tonumber(msg:match('^scale%s+([%d%.]+)'))
         if value and value > 0.2 and value < 4 then
-            AV.db.scale = value
+            EUI.db.scale = value
             applyScale()
         end
-        AV.Print('scale %.2f', AV.db.scale)
+        EUI.Print('scale %.2f', EUI.db.scale)
     elseif msg == 'demo' then
-        AV.Demo.Toggle()
+        EUI.Demo.Toggle()
     elseif msg == 'gallery' or msg == 'gallery target' then
-        AV.Demo.ToggleGallery(msg == 'gallery target' and 'target' or 'party')
+        EUI.Demo.ToggleGallery(msg == 'gallery target' and 'target' or 'party')
     elseif msg == 'log' then
-        AV.PrintLog(15)
+        EUI.PrintLog(15)
     elseif msg == 'log clear' then
-        AV.ClearLog()
+        EUI.ClearLog()
     elseif msg:match('^style') then
         local requested = msg:match('^style%s+(%S+)')
         local match
-        for name in pairs(AV.styles) do
+        for name in pairs(EUI.styles) do
             if requested and name:lower() == requested then
                 match = name
             end
         end
         if match then
-            AV.db.style = match
+            EUI.db.style = match
             ReloadUI()
         else
             local names = {}
-            for name in pairs(AV.styles) do
+            for name in pairs(EUI.styles) do
                 names[#names + 1] = name
             end
             table.sort(names)
-            AV.Print('style is %s; available: %s', AV.db.style, table.concat(names, ', '))
+            EUI.Print('style is %s; available: %s', EUI.db.style, table.concat(names, ', '))
         end
     elseif msg == 'reset' then
-        AV.RunOutOfCombat(function()
-            AV.db.positions = {}
-            AV.EditMode.RestorePosition('party', AV.PartyList.anchor)
-            AV.EditMode.RestorePosition('target', AV.TargetBar.target.anchor)
-            AV.EditMode.RestorePosition('focus', AV.TargetBar.focus.anchor)
-            AV.EditMode.RestorePosition('cast', AV.castAnchor)
+        EUI.RunOutOfCombat(function()
+            EUI.db.positions = {}
+            EUI.EditMode.RestorePosition('party', EUI.PartyList.anchor)
+            EUI.EditMode.RestorePosition('target', EUI.TargetBar.target.anchor)
+            EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)
+            EUI.EditMode.RestorePosition('cast', EUI.castAnchor)
         end)
     else
-        AV.Print('/av demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
+        EUI.Print('/eui demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
     end
 end

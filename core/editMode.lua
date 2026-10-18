@@ -1,10 +1,10 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Blizzard has no public API for registering addon frames as Edit Mode systems. Opening Edit
 -- Mode instead unlocks our own drag handles and preview data; closing it saves positions.
 
-AV.EditMode = {}
-local EditMode = AV.EditMode
+EUI.EditMode = {}
+local EditMode = EUI.EditMode
 
 local movers = {}
 
@@ -16,7 +16,7 @@ local DEFAULT_POSITIONS = {
 }
 
 function EditMode.RestorePosition(key, frame)
-    local saved = AV.db.positions[key] or DEFAULT_POSITIONS[key]
+    local saved = EUI.db.positions[key] or DEFAULT_POSITIONS[key]
     frame:ClearAllPoints()
     frame:SetPoint(saved[1], UIParent, saved[2], saved[3], saved[4])
 end
@@ -24,7 +24,7 @@ end
 local function savePosition(key, frame)
     local point, _, relativePoint, x, y = frame:GetPoint(1)
     if point then
-        AV.db.positions[key] = { point, relativePoint, x, y }
+        EUI.db.positions[key] = { point, relativePoint, x, y }
     end
 end
 
@@ -47,13 +47,13 @@ local SELECTION_LAYOUT = {
 
 -- Applies the selection art to frame. Returns false when the client lacks it.
 local function applySelectionArt(frame, blendMode)
-    if not (NineSliceUtil and AV.Style.HasAtlas(SELECTION_KIT .. '-NineSlice-Center')) then
+    if not (NineSliceUtil and EUI.Style.HasAtlas(SELECTION_KIT .. '-NineSlice-Center')) then
         return false
     end
     if not pcall(NineSliceUtil.ApplyLayout, frame, SELECTION_LAYOUT, SELECTION_KIT) then
         return false
     end
-    local r, g, b, a = AV.Style.Color(SELECTION_TINT)
+    local r, g, b, a = EUI.Style.Color(SELECTION_TINT)
     for pieceName in pairs(SELECTION_LAYOUT) do
         local piece = frame[pieceName]
         if piece then
@@ -118,14 +118,14 @@ end
 -- header, ends when combat does.
 function EditMode.SetUnlocked(unlocked)
     if unlocked and InCombatLockdown() then
-        AV.Print('cannot unlock frames in combat')
+        EUI.Print('cannot unlock frames in combat')
         return
     end
     EditMode.unlocked = unlocked
     for _, mover in pairs(movers) do
         mover:SetShown(unlocked)
     end
-    AV.RunOutOfCombat(AV.Demo.Refresh, 'demoRefresh')
+    EUI.RunOutOfCombat(EUI.Demo.Refresh, 'demoRefresh')
 end
 
 function EditMode.Initialize()

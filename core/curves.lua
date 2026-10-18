@@ -1,10 +1,10 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- UnitHealthPercent(unit, usePredicted, curve) evaluates a curve engine-side on the secret
 -- health fraction (0..1) and returns a colour Lua may forward to SetTextColor/SetVertexColor.
 
-AV.Curves = {}
-local Curves = AV.Curves
+EUI.Curves = {}
+local Curves = EUI.Curves
 
 local STEP_EPSILON = 0.0001
 
@@ -20,7 +20,7 @@ function Curves.Step(thresholds, defaultColor)
     end
 
     local function add(x, hex)
-        curve:AddPoint(x, CreateColor(AV.Style.Color(hex)))
+        curve:AddPoint(x, CreateColor(EUI.Style.Color(hex)))
     end
 
     local built = pcall(function()

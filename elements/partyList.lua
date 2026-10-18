@@ -1,4 +1,4 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Party list: five secure unit buttons stacked under one another, each with a pet button, as
 -- Blizzard's PartyFrame. In a party their units never change: player, party1-4 and pet,
@@ -6,8 +6,8 @@ local _, AV = ...
 -- rows whose unit is gone, so roster changes need no secure work in combat. In a raid the rows
 -- show the player's subgroup, assigned out of combat as Blizzard's raid groups are.
 
-AV.PartyList = {}
-local PartyList = AV.PartyList
+EUI.PartyList = {}
+local PartyList = EUI.PartyList
 
 local MAX_ROWS = 5
 local rows = {}
@@ -30,23 +30,23 @@ local function setGroupNumber(subgroup)
     header:SetShown(subgroup ~= nil)
 end
 
--- A row is its base height plus a sub-row per flag: 'av-form' (player only, druid in bear/cat
--- form) and 'av-pet' (its pet exists). Secure snippets set the flags and resize the row in
+-- A row is its base height plus a sub-row per flag: 'eui-form' (player only, druid in bear/cat
+-- form) and 'eui-pet' (its pet exists). Secure snippets set the flags and resize the row in
 -- combat, where Lua may not resize the protected buttons; rows below follow because each button
 -- is anchored under the previous one. Restricted code; `row` is a frame handle.
 local SET_ROW_HEIGHT = [[
-    row:SetHeight(row:GetAttribute('av-base')
-        + (row:GetAttribute('av-form') and row:GetAttribute('av-formHeight') or 0)
-        + (row:GetAttribute('av-pet') and row:GetAttribute('av-petHeight') or 0))
+    row:SetHeight(row:GetAttribute('eui-base')
+        + (row:GetAttribute('eui-form') and row:GetAttribute('eui-formHeight') or 0)
+        + (row:GetAttribute('eui-pet') and row:GetAttribute('eui-petHeight') or 0))
 ]]
 
--- The first row, always the player, carries 'av-player'.
+-- The first row, always the player, carries 'eui-player'.
 local FORM_SNIPPET = [[
     local shifted = newstate == 'shifted'
     for i = 1, self:GetAttribute('rowCount') do
         local row = self:GetFrameRef('row' .. i)
-        if row and row:GetAttribute('av-player') then
-            row:SetAttribute('av-form', shifted)
+        if row and row:GetAttribute('eui-player') then
+            row:SetAttribute('eui-form', shifted)
 ]] .. SET_ROW_HEIGHT .. [[
         end
     end
@@ -55,27 +55,27 @@ local FORM_SNIPPET = [[
 -- Run by the pet button as the unit watch shows or hides it.
 local PET_SHOW_SNIPPET = [[
     local row = self:GetFrameRef('owner')
-    row:SetAttribute('av-pet', true)
+    row:SetAttribute('eui-pet', true)
 ]] .. SET_ROW_HEIGHT
 local PET_HIDE_SNIPPET = [[
     local row = self:GetFrameRef('owner')
-    row:SetAttribute('av-pet', false)
+    row:SetAttribute('eui-pet', false)
 ]] .. SET_ROW_HEIGHT
 
 local function rowHeight(button)
     local style = PartyList.style
     local height = style.rowHeight
-    if button:GetAttribute('av-form') then
+    if button:GetAttribute('eui-form') then
         height = height + style.formRowHeight
     end
-    if button:GetAttribute('av-pet') then
+    if button:GetAttribute('eui-pet') then
         height = height + style.pet.rowHeight
     end
     return height
 end
 
 local function createFormDriver()
-    if not (RegisterStateDriver and AV.Druid.IsDruid()) then
+    if not (RegisterStateDriver and EUI.Druid.IsDruid()) then
         return
     end
     local driver = CreateFrame('Frame', nil, UIParent, 'SecureHandlerStateTemplate')
@@ -84,14 +84,14 @@ local function createFormDriver()
     end
     driver:SetAttribute('rowCount', #rows)
     driver:SetAttribute('_onstate-druidform', FORM_SNIPPET)
-    RegisterStateDriver(driver, 'druidform', AV.Druid.CONDITION)
+    RegisterStateDriver(driver, 'druidform', EUI.Druid.CONDITION)
     PartyList.formDriver = driver
 end
 
 -- The pet sub-row: a secure unit button at the bottom of the owner's button. It starts hidden
 -- so the unit watch's first Show runs the snippet that grows the row.
 local function createPetButton(owner, index, style)
-    local button = CreateFrame('Button', 'AzerothVistaPartyPetButton' .. index, owner,
+    local button = CreateFrame('Button', 'EorzeaUIPartyPetButton' .. index, owner,
         'SecureUnitButtonTemplate, SecureHandlerShowHideTemplate')
     button:Hide()
     button:SetSize(style.width, style.pet.rowHeight)
@@ -102,9 +102,9 @@ local function createPetButton(owner, index, style)
     button:SetFrameRef('owner', owner)
     button:SetAttribute('_onshow', PET_SHOW_SNIPPET)
     button:SetAttribute('_onhide', PET_HIDE_SNIPPET)
-    owner:SetAttribute('av-base', style.rowHeight)
-    owner:SetAttribute('av-formHeight', style.formRowHeight)
-    owner:SetAttribute('av-petHeight', style.pet.rowHeight)
+    owner:SetAttribute('eui-base', style.rowHeight)
+    owner:SetAttribute('eui-formHeight', style.formRowHeight)
+    owner:SetAttribute('eui-petHeight', style.pet.rowHeight)
     if RegisterUnitWatch then
         RegisterUnitWatch(button)
     end
@@ -123,11 +123,11 @@ local function rowUnits(subgroup)
         return PARTY_UNITS, PARTY_PETS
     end
     local units, pets = { 'player' }, { 'pet' }
-    local playerGuid = AV.SafeValue(UnitGUID, 'player')
+    local playerGuid = EUI.SafeValue(UnitGUID, 'player')
     for i = 1, GetNumGroupMembers() do
         local unit = 'raid' .. i
         if #units < MAX_ROWS and select(3, GetRaidRosterInfo(i)) == subgroup
-            and AV.SafeValue(UnitGUID, unit) ~= playerGuid then
+            and EUI.SafeValue(UnitGUID, unit) ~= playerGuid then
             units[#units + 1] = unit
             pets[#pets + 1] = 'raidpet' .. i
         end
@@ -138,7 +138,7 @@ end
 -- Out of combat: point each row and its pet button at its unit. In a party this sets the same
 -- tokens every time, which the rows ignore.
 local function assignUnits()
-    AV.RunOutOfCombat(function()
+    EUI.RunOutOfCombat(function()
         local subgroup = playerSubgroup()
         PartyList.subgroup = subgroup
         if not PartyList.demoCount then
@@ -155,10 +155,10 @@ end
 
 -- Out of combat: match each row's form flag and height to the druid's current form.
 function PartyList.UpdateFormRows()
-    AV.RunOutOfCombat(function()
-        local shifted = AV.Druid.IsShifted()
+    EUI.RunOutOfCombat(function()
+        local shifted = EUI.Druid.IsShifted()
         for _, row in ipairs(rows) do
-            row.button:SetAttribute('av-form', shifted and row.button:GetAttribute('av-player') == true)
+            row.button:SetAttribute('eui-form', shifted and row.button:GetAttribute('eui-player') == true)
             row.button:SetHeight(rowHeight(row.button))
         end
         PartyList.UpdateBackground()
@@ -172,10 +172,10 @@ function PartyList.CreateBackground(anchor)
     local bg = CreateFrame('Frame', nil, anchor)
     bg:SetAllPoints(anchor)
     bg:SetFrameLevel(anchor:GetFrameLevel())
-    local r, g, b, a = AV.Style.Color(bgSpec.color)
+    local r, g, b, a = EUI.Style.Color(bgSpec.color)
     local function bgPiece(path, height)
         local texture = bg:CreateTexture(nil, 'BACKGROUND')
-        texture:SetTexture(AV.Style.AssetPath(path))
+        texture:SetTexture(EUI.Style.AssetPath(path))
         texture:SetVertexColor(r, g, b, a)
         texture:SetWidth(bgSpec.width)
         if height then
@@ -186,7 +186,7 @@ function PartyList.CreateBackground(anchor)
     local top = bgPiece(bgSpec.top.path, bgSpec.top.height)
     local mid = bgPiece(bgSpec.mid.path)
     local bottom = bgPiece(bgSpec.bottom.path, bgSpec.bottom.height)
-    AV.Style.Place(top, anchor, bgSpec.pos)
+    EUI.Style.Place(top, anchor, bgSpec.pos)
     mid:SetPoint('TOPLEFT', top, 'BOTTOMLEFT', 0, 0)
     bottom:SetPoint('TOPLEFT', mid, 'BOTTOMLEFT', 0, 0)
     bg.top, bg.mid, bg.bottom = top, mid, bottom
@@ -198,7 +198,7 @@ function PartyList.Create(style, fonts)
     PartyList.style = partyStyle
     PartyList.fonts = fonts
 
-    local anchor = CreateFrame('Frame', 'AzerothVistaPartyAnchor', UIParent)
+    local anchor = CreateFrame('Frame', 'EorzeaUIPartyAnchor', UIParent)
     anchor:SetSize(partyStyle.width, partyStyle.rowHeight * MAX_ROWS + partyStyle.rowSpacing * (MAX_ROWS - 1))
     anchor:SetMovable(true)
     anchor:SetClampedToScreen(true)
@@ -207,7 +207,7 @@ function PartyList.Create(style, fonts)
     local bg = PartyList.CreateBackground(anchor)
     PartyList.background = bg
     PartyList.bgMid = bg.mid
-    PartyList.groupHeader = AV.Style.Header(bg, partyStyle.groupNumber, fonts)
+    PartyList.groupHeader = EUI.Style.Header(bg, partyStyle.groupNumber, fonts)
 
     -- Plain parent of the secure buttons, so the demo can hide them all out of combat.
     local rowsFrame = CreateFrame('Frame', nil, anchor)
@@ -217,7 +217,7 @@ function PartyList.Create(style, fonts)
 
     local previous
     for i = 1, MAX_ROWS do
-        local button = CreateFrame('Button', 'AzerothVistaPartyButton' .. i, rowsFrame, 'AzerothVistaPartyButtonTemplate')
+        local button = CreateFrame('Button', 'EorzeaUIPartyButton' .. i, rowsFrame, 'EorzeaUIPartyButtonTemplate')
         if previous then
             button:SetPoint('TOPLEFT', previous, 'BOTTOMLEFT', 0, -partyStyle.rowSpacing)
         else
@@ -225,12 +225,12 @@ function PartyList.Create(style, fonts)
         end
         previous = button
         button:RegisterForClicks('AnyUp')
-        button:SetAttribute('av-player', i == 1)
+        button:SetAttribute('eui-player', i == 1)
         button:SetAttribute('unit', PARTY_UNITS[i])
-        local row = AV.PartyRow.Attach(button, partyStyle, fonts)
+        local row = EUI.PartyRow.Attach(button, partyStyle, fonts)
         local petButton = createPetButton(button, i, partyStyle)
         petButton:SetAttribute('unit', PARTY_PETS[i])
-        row.pet = AV.PetRow.Attach(petButton, row, partyStyle, fonts)
+        row.pet = EUI.PetRow.Attach(petButton, row, partyStyle, fonts)
         rows[i] = row
         button:HookScript('OnShow', PartyList.UpdateBackground)
         button:HookScript('OnHide', PartyList.UpdateBackground)
@@ -257,7 +257,7 @@ function PartyList.SetDemo(members)
         PartyList.demoFrame = frame
         PartyList.demoRows = {}
         for i = 1, MAX_ROWS do
-            PartyList.demoRows[i] = AV.PartyRow.CreateDemo(frame, PartyList.style, PartyList.fonts, i)
+            PartyList.demoRows[i] = EUI.PartyRow.CreateDemo(frame, PartyList.style, PartyList.fonts, i)
         end
     end
     PartyList.demoCount = members and #members or nil
@@ -361,7 +361,7 @@ function PartyList.UpdateBackground()
         return
     end
     local shown = 0
-    local extra = AV.Druid.IsShifted() and style.formRowHeight or 0
+    local extra = EUI.Druid.IsShifted() and style.formRowHeight or 0
     for _, row in ipairs(rows) do
         if row.button:IsShown() then
             shown = shown + 1

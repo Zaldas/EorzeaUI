@@ -1,9 +1,9 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Forever returns secret values for health, power, cast info and more. Tainted code may pass
 -- them to widget sinks (StatusBar:SetValue, FontString:SetText) but errors on compare/arithmetic.
 
-function AV.CanAccess(value)
+function EUI.CanAccess(value)
     if canaccessvalue then
         local ok, accessible = pcall(canaccessvalue, value)
         if ok then
@@ -20,27 +20,27 @@ function AV.CanAccess(value)
 end
 
 -- Returns the value when it is readable, nil when the call fails or the result is secret.
-function AV.SafeValue(fn, ...)
+function EUI.SafeValue(fn, ...)
     if type(fn) ~= 'function' then
         return nil
     end
     local ok, value = pcall(fn, ...)
     if not ok then
-        AV.LogOnce('safe:' .. tostring(value), 'call failed: %s', tostring(value))
+        EUI.LogOnce('safe:' .. tostring(value), 'call failed: %s', tostring(value))
         return nil
     end
-    if not AV.CanAccess(value) then
+    if not EUI.CanAccess(value) then
         return nil
     end
     return value
 end
 
-function AV.SafeBool(fn, ...)
-    return AV.SafeValue(fn, ...) == true
+function EUI.SafeBool(fn, ...)
+    return EUI.SafeValue(fn, ...) == true
 end
 
 -- Sends a possibly-secret number to a FontString with thousands separators.
-function AV.SetNumberText(fontString, value)
+function EUI.SetNumberText(fontString, value)
     if value == nil then
         fontString:SetText('')
         return

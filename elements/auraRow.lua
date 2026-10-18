@@ -1,9 +1,9 @@
-local _, AV = ...
+local _, EUI = ...
 
 -- Lua cannot read auras in combat on Forever. Blizzard's AuraContainer reads them engine-side;
 -- we only supply button art. Creation, unit changes and layout must happen out of combat.
 
-AV.AuraRow = {}
+EUI.AuraRow = {}
 local AuraRow = {}
 AuraRow.__index = AuraRow
 
@@ -22,7 +22,7 @@ end
 -- Durations are secret, so formatting happens engine-side: "12", "6m", "2h". At most 3
 -- characters, so a timer fits under its icon.
 local timerFormatter
-function AV.AuraRow.TimerFormatter()
+function EUI.AuraRow.TimerFormatter()
     if timerFormatter ~= nil then
         return timerFormatter or nil
     end
@@ -48,9 +48,9 @@ function AV.AuraRow.TimerFormatter()
     return timerFormatter or nil
 end
 
-function AV.AuraRow.StyleTimer(fontString, iconSize, fonts)
-    AV.Style.SetFont(fontString, fonts.timer, math.max(9, math.floor(iconSize * 0.5)), 'OUTLINE')
-    fontString:SetTextColor(AV.Style.Color('#C8C8C8FF'))
+function EUI.AuraRow.StyleTimer(fontString, iconSize, fonts)
+    EUI.Style.SetFont(fontString, fonts.timer, math.max(9, math.floor(iconSize * 0.5)), 'OUTLINE')
+    fontString:SetTextColor(EUI.Style.Color('#C8C8C8FF'))
 end
 
 -- PreserveAsset keeps our white edge texture; the engine tints it from colorMap by the aura's
@@ -58,7 +58,7 @@ end
 local function dispelOptions(kind, colors)
     local colorMap = {}
     for dispelType, hex in pairs(colors) do
-        colorMap[dispelType] = CreateColor(AV.Style.Color(hex))
+        colorMap[dispelType] = CreateColor(EUI.Style.Color(hex))
     end
     local options = {
         style = Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset,
@@ -81,7 +81,7 @@ local function makeInitializer(spec, fonts)
 
         local border = button:CreateTexture(nil, 'BACKGROUND')
         border:SetAllPoints()
-        border:SetColorTexture(AV.Style.Color(spec.border or '#000000D9'))
+        border:SetColorTexture(EUI.Style.Color(spec.border or '#000000D9'))
 
         local icon = button:CreateTexture(nil, 'ARTWORK')
         icon:SetPoint('TOPLEFT', 1, -1)
@@ -99,21 +99,21 @@ local function makeInitializer(spec, fonts)
             dispelBorder:SetColorTexture(1, 1, 1, 1)
             local ok, err = pcall(button.AddDispelTypeTexture, button, dispelBorder, dispelOptions(spec.dispelBorder, spec.dispelColors))
             if not ok then
-                AV.LogOnce('aura:dispel:' .. spec.dispelBorder, 'AddDispelTypeTexture (%s) failed: %s', spec.dispelBorder, tostring(err))
+                EUI.LogOnce('aura:dispel:' .. spec.dispelBorder, 'AddDispelTypeTexture (%s) failed: %s', spec.dispelBorder, tostring(err))
             end
         end
 
         if spec.timers and button.SetDurationText then
             local timer = button:CreateFontString(nil, 'OVERLAY')
             timer:SetPoint('TOP', button, 'BOTTOM', 0, 0)
-            local formatter = AV.AuraRow.TimerFormatter()
+            local formatter = EUI.AuraRow.TimerFormatter()
             pcall(button.SetDurationText, button, timer, formatter and { textFormatter = formatter } or nil)
             -- The binding may restyle the FontString, so the font is applied after it.
-            AV.AuraRow.StyleTimer(timer, size, fonts)
+            EUI.AuraRow.StyleTimer(timer, size, fonts)
         end
         if button.SetApplicationCount then
             local count = button:CreateFontString(nil, 'OVERLAY')
-            AV.Style.SetFont(count, fonts.number, math.max(9, math.floor(size * 0.5)), 'OUTLINE')
+            EUI.Style.SetFont(count, fonts.number, math.max(9, math.floor(size * 0.5)), 'OUTLINE')
             count:SetPoint('TOPRIGHT', button, 'TOPRIGHT', 1, 1)
             pcall(button.SetApplicationCount, button, count, {})
         end
@@ -121,7 +121,7 @@ local function makeInitializer(spec, fonts)
 end
 
 -- The spec for one filter's group: spec.groups[filter] fields override spec's.
-function AV.AuraRow.GroupSpec(spec, filter)
+function EUI.AuraRow.GroupSpec(spec, filter)
     local overrides = spec.groups and spec.groups[filter]
     if not overrides then
         return spec
@@ -137,7 +137,7 @@ function AV.AuraRow.GroupSpec(spec, filter)
 end
 
 -- Width of a line holding spec.perLine icons, or nil when the row does not wrap.
-function AV.AuraRow.LineWidth(spec)
+function EUI.AuraRow.LineWidth(spec)
     if not spec.perLine then
         return nil
     end
@@ -150,19 +150,19 @@ end
 -- groups = { [filter] = per-group overrides of max, dispelBorder, dispelColors, ... } }
 -- filter: an aura filter, or a list of filters laid out one after another in the row, each
 -- showing up to its group's max auras.
-function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
+function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
     ensureLoaded()
     local self = setmetatable({ unit = unit }, AuraRow)
     local filters = type(filter) == 'table' and filter or { filter }
 
     local ok, container = pcall(CreateFrame, 'AuraContainer', nil, parent, 'CustomAuraContainerTemplate')
     if not ok or not container then
-        AV.Print('AuraContainer unavailable (%s)', tostring(container))
+        EUI.Print('AuraContainer unavailable (%s)', tostring(container))
         return self
     end
-    local lineWidth = AV.AuraRow.LineWidth(spec)
+    local lineWidth = EUI.AuraRow.LineWidth(spec)
     container:SetSize(lineWidth or (spec.size + spec.spacing) * spec.max * #filters, spec.size)
-    AV.Style.Place(container, parent, spec.pos)
+    EUI.Style.Place(container, parent, spec.pos)
 
     local sortMethod = AuraContainerSortMethod and (AuraContainerSortMethod.Expiration or AuraContainerSortMethod.ExpirationOnly) or 4
     local sortDirection = AuraContainerSortDirection and AuraContainerSortDirection.Normal or 0
@@ -180,7 +180,7 @@ function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
         end
         -- Groups flow in registration order; trailing element spacing separates them.
         for index, groupFilter in ipairs(filters) do
-            local groupSpec = AV.AuraRow.GroupSpec(spec, groupFilter)
+            local groupSpec = EUI.AuraRow.GroupSpec(spec, groupFilter)
             container:AddAuraGroup('row' .. index, groupFilter, {
                 maxFrameCount = groupSpec.max,
                 sortMethod = sortMethod,
@@ -198,7 +198,7 @@ function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
         container:Show()
     end)
     if not setupOk then
-        AV.Print('AuraContainer %s %s setup failed: %s', unit, table.concat(filters, '+'), tostring(err))
+        EUI.Print('AuraContainer %s %s setup failed: %s', unit, table.concat(filters, '+'), tostring(err))
         container:Hide()
         return self
     end
@@ -212,7 +212,7 @@ function AuraRow:SetUnit(unit)
         return
     end
     self.unit = unit
-    AV.RunOutOfCombat(function()
+    EUI.RunOutOfCombat(function()
         pcall(self.container.SetUnit, self.container, self.unit)
         self:Refresh()
     end)

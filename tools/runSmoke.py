@@ -11,7 +11,7 @@ root = root.replace('\\', '/').rstrip('/') + '/'
 lua = lua51.LuaRuntime()
 lua.globals().ADDON_ROOT = root
 lua.globals().STYLE = style
-src = open(os.path.join(toolsDir, 'avSmoke.lua'), encoding='utf-8').read()
+src = open(os.path.join(toolsDir, 'euiSmoke.lua'), encoding='utf-8').read()
 try:
     lua.execute(src)
 except Exception as e:
