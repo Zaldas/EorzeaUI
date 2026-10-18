@@ -65,6 +65,10 @@ function EUI.Read(label, fn, ...)
         EUI.LogOnce(label .. ':error', '%s: %s', label, tostring(value))
         return nil
     end
+    -- type() works on secrets; a plain nil is a normal 'none' result, not a secret.
+    if type(value) == 'nil' then
+        return nil
+    end
     if not EUI.CanAccess(value) then
         local combat = InCombatLockdown()
         EUI.LogOnce(label .. ':secret:' .. tostring(combat), '%s returned a secret value (%s combat)', label, combat and 'in' or 'out of')
@@ -73,19 +77,20 @@ function EUI.Read(label, fn, ...)
     return value
 end
 
--- Wraps fn so a Lua error is logged with its stack, then handed to the normal error handler.
+-- Wraps fn so a Lua error is logged with its stack and handed to the normal error handler,
+-- both from inside the handler while the failing stack is live.
 function EUI.Guard(label, fn)
     local function report(err)
         local stack = debugstack and debugstack(2, 6, 0) or ''
         EUI.Log('error in %s: %s\n%s', label, tostring(err), stack)
+        if geterrorhandler then
+            geterrorhandler()(err)
+        end
         return err
     end
     return function(...)
         local args, count = { ... }, select('#', ...)
-        local ok, err = xpcall(function() return fn(unpack(args, 1, count)) end, report)
-        if not ok and geterrorhandler then
-            geterrorhandler()(err)
-        end
+        xpcall(function() return fn(unpack(args, 1, count)) end, report)
     end
 end
 
@@ -138,5 +143,6 @@ function EUI.ClearLog()
         list[i] = nil
     end
     indexByMessage = {}
+    onceKeys = {}
     EUI.Print('log cleared')
 end

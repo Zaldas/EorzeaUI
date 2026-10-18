@@ -126,7 +126,9 @@ C_IncomingSummon = { HasIncomingSummon = function() return true end, IncomingSum
 date = os.date
 GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
 debugstack = function() return '' end
-geterrorhandler = function() return function(err) error(err, 0) end end
+-- Guarded errors are collected; the run fails at the end if any were reported.
+ERRORS = {}
+geterrorhandler = function() return function(err) ERRORS[#ERRORS + 1] = tostring(err) end end
 EorzeaUILog = nil
 RAID_CLASS_COLORS = { PALADIN = { r = 0.96, g = 0.55, b = 0.73 }, ROGUE = { r = 1, g = 0.96, b = 0.41 }, DRUID = { r = 1, g = 0.49, b = 0.04 } }
 CLASS_ICON_TCOORDS = { PALADIN = { 0, 0.25, 0.5, 0.75 }, ROGUE = { 0.5, 0.75, 0, 0.25 }, DRUID = { 0.75, 1, 0, 0.25 } }
@@ -483,6 +485,136 @@ onEvent(nil, 'PLAYER_FOCUS_CHANGED')
 assert(#SOUNDS == 2, 'lost focus sound: ' .. #SOUNDS)
 UnitExists = unitExists
 
+-- Cast bar: a cast starting during a failure hold keeps its own colours; a preview cancels the
+-- hold; channels read castBarID from return 11.
+do
+    local cast = EUI.TargetBar.target.cast
+    local status = cast.bar.status
+    local lastColor
+    rawset(status, 'SetStatusBarColor', function(_, r, g, b) lastColor = string.format('%.2f,%.2f,%.2f', r, g, b) end)
+    local function hexColor(hex)
+        local r, g, b = EUI.Style.Color(hex)
+        return string.format('%.2f,%.2f,%.2f', r, g, b)
+    end
+    local timers = {}
+    local after = C_Timer.After
+    C_Timer.After = function(_, fn) timers[#timers + 1] = fn end
+    C_CurveUtil.EvaluateColorFromBoolean = function(flag, yes, no)
+        local color = flag and yes or no
+        return { GetRGBA = function() return color.r, color.g, color.b, color.a end }
+    end
+    UnitCastingDuration = function() return {} end
+    UnitChannelDuration = function() return {} end
+    local casting = true
+    UnitCastingInfo = function(unit)
+        if unit == 'target' and casting then
+            return 'Fireball', 'Fireball', 1, 0, 1, false, 'guid', true, 133, 7
+        end
+    end
+    local spec = cast.spec
+    onEvent(nil, 'UNIT_SPELLCAST_START', 'target', 'guid', 133)
+    assert(lastColor == hexColor(spec.uninterruptible.color), 'uninterruptible tint: ' .. tostring(lastColor))
+    onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', 'target', 'guid', 133, 'kicker', 7)
+    assert(cast.failing and lastColor == hexColor(spec.failure.color), 'failure hold not shown')
+    onEvent(nil, 'UNIT_SPELLCAST_START', 'target', 'guid', 133)
+    assert(not cast.failing and lastColor == hexColor(spec.uninterruptible.color), 'new cast lost its tint: ' .. tostring(lastColor))
+    for _, fn in ipairs(timers) do fn() end
+    assert(lastColor == hexColor(spec.uninterruptible.color), 'stale hold timer reset the new cast')
+    onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', 'target', 'guid', 133, 'kicker', 99)
+    assert(not cast.failing, 'another cast bar\'s interrupt was accepted')
+    onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', 'target', 'guid', 133, 'kicker', 7)
+    assert(cast.failing, 'matching interrupt ignored')
+    timers = {}
+    cast:SetPreview('Preview', 0.5)
+    assert(cast.preview and not cast.failing, 'preview did not cancel the hold')
+    for _, fn in ipairs(timers) do fn() end
+    cast:SetPreview(nil)
+    casting = false
+    UnitChannelInfo = function(unit)
+        if unit == 'target' then
+            return 'Drain', 'Drain', 1, 0, 1, false, false, 689, false, 0, 9
+        end
+    end
+    onEvent(nil, 'UNIT_SPELLCAST_CHANNEL_START', 'target', 'guid', 689)
+    assert(cast.castBarID == 9, 'channel castBarID: ' .. tostring(cast.castBarID))
+    UnitCastingInfo = function() return nil end
+    UnitChannelInfo = function() return nil end
+    UnitCastingDuration, UnitChannelDuration, C_CurveUtil.EvaluateColorFromBoolean = nil, nil, nil
+    C_Timer.After = after
+    rawset(status, 'SetStatusBarColor', nil)
+    onEvent(nil, 'UNIT_SPELLCAST_STOP', 'target', 'guid', 689)
+end
+
+-- Reaction keys: players follow UnitSelectionColor's branches, NPCs tapping then UnitReaction;
+-- a dead NPC keeps its HP bar.
+do
+    local bar = EUI.TargetBar.target
+    local saved = {
+        UnitPlayerControlled = UnitPlayerControlled, UnitCanAttack = UnitCanAttack, UnitIsPVP = UnitIsPVP,
+        UnitIsUnit = UnitIsUnit, UnitIsPlayer = UnitIsPlayer, UnitInParty = UnitInParty,
+        UnitIsTapDenied = UnitIsTapDenied, UnitReaction = UnitReaction, UnitIsDead = UnitIsDead,
+    }
+    local REACTION_CASES = {
+        { 'hostilePlayer', { controlled = true, attacksMe = true, iAttack = true } },
+        { 'player', { controlled = true, attacksMe = true } },
+        { 'neutral', { controlled = true, iAttack = true } },
+        { 'friendly', { controlled = true, pvp = true } },
+        { 'partyPvP', { controlled = true, pvp = true, isPlayer = true, grouped = true } },
+        { 'party', { controlled = true, isPlayer = true, grouped = true } },
+        { 'player', { controlled = true } },
+        { 'tapped', { tapped = true, iAttack = true } },
+        { 'hostile', { reaction = 2, iAttack = true } },
+        { 'unfriendly', { reaction = 3, iAttack = true } },
+        { 'neutral', { reaction = 4, iAttack = true } },
+        { 'friendly', { reaction = 5 }, npc = true },
+        { 'friendly', { reaction = 5, dead = true }, npc = false },
+    }
+    for _, case in ipairs(REACTION_CASES) do
+        local c = case[2]
+        UnitPlayerControlled = function() return c.controlled == true end
+        UnitCanAttack = function(a) if a == 'player' then return c.iAttack == true end return c.attacksMe == true end
+        UnitIsPVP = function() return c.pvp == true end
+        UnitIsUnit = function() return false end
+        UnitIsPlayer = function() return c.isPlayer == true end
+        UnitInParty = function() return c.grouped == true end
+        UnitIsTapDenied = function() return c.tapped == true end
+        UnitReaction = function() return c.reaction end
+        UnitIsDead = function() return c.dead == true end
+        bar:Refresh()
+        assert(bar.colorKey == case[1], string.format('reaction case %s got %s', case[1], tostring(bar.colorKey)))
+        if case.npc ~= nil then
+            assert(bar.npcMode == case.npc, 'npc mode for ' .. case[1])
+        end
+    end
+    for name, fn in pairs(saved) do
+        _G[name] = fn
+    end
+    bar:Refresh()
+end
+
+-- Log: a clear forgets LogOnce keys; plain nil reads are not secrets; Guard logs errors and
+-- reports them to the error handler.
+do
+    EUI.LogOnce('smoke:once', 'smoke once')
+    EUI.ClearLog()
+    EUI.LogOnce('smoke:once', 'smoke once')
+    assert(#EorzeaUILog.entries == 1, 'LogOnce suppressed after clear')
+    EUI.Read('smokeNil', function() return nil end)
+    for _, entry in ipairs(EorzeaUILog.entries) do
+        assert(not entry.msg:find('smokeNil', 1, true), 'nil read logged as secret')
+    end
+    local errorCount = #ERRORS
+    EUI.Guard('smoke guard', function() error('boom') end)()
+    assert(#ERRORS == errorCount + 1, 'guarded error not reported')
+    local logged = false
+    for _, entry in ipairs(EorzeaUILog.entries) do
+        if entry.msg:find('error in smoke guard', 1, true) then logged = true end
+    end
+    assert(logged, 'guarded error not logged')
+    table.remove(ERRORS)
+    EUI.ClearLog()
+end
+
 -- Palettes: every colour the layout reads is set in each style.
 local REQUIRED = {
     'party.hp.bar.fill.color', 'party.hp.offlineColor', 'party.power.bar.fill.color', 'party.power.colors',
@@ -492,7 +624,7 @@ local REQUIRED = {
     'target.cast.uninterruptible.color', 'target.comboPoints.color', 'target.healPrediction.color',
     'target.auras.groups.HARMFUL.dispelColors', 'focus.header.txtLabel.color', 'castBar.bar.fill.color',
 }
-local REACTIONS = { 'party', 'player', 'hostilePlayer', 'friendly', 'neutral', 'unfriendly', 'hostile', 'tapped' }
+local REACTIONS = { 'party', 'partyPvP', 'player', 'hostilePlayer', 'friendly', 'neutral', 'unfriendly', 'hostile', 'tapped' }
 for _, name in ipairs({ 'vanadiel', 'azeroth' }) do
     local style = assert(EUI.styles[name], 'style missing: ' .. name)
     for _, path in ipairs(REQUIRED) do
@@ -521,4 +653,5 @@ for i = 1, 5 do
 end
 assert(table.concat(raidUnits, ',') == 'player,raid2,raid5,raid6,nil', 'raid rows: ' .. table.concat(raidUnits, ','))
 assert(_G.EorzeaUIPartyPetButton2:GetAttribute('unit') == 'raidpet2', 'raid pet unit')
+assert(#ERRORS == 0, 'errors reported:\n' .. table.concat(ERRORS, '\n'))
 print('SMOKE OK')

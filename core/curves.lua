@@ -41,7 +41,9 @@ function Curves.ApplyHealthColor(fontString, unit, curve)
         return
     end
     local ok, color = pcall(UnitHealthPercent, unit, true, curve)
-    if ok and color and color.GetRGBA then
+    if not ok then
+        EUI.LogOnce('curve:text', 'UnitHealthPercent colour failed: %s', tostring(color))
+    elseif color and color.GetRGBA then
         pcall(function() fontString:SetTextColor(color:GetRGBA()) end)
     end
 end
@@ -51,7 +53,9 @@ function Curves.ApplyHealthTint(texture, unit, curve)
         return
     end
     local ok, color = pcall(UnitHealthPercent, unit, true, curve)
-    if ok and color and color.GetRGBA then
+    if not ok then
+        EUI.LogOnce('curve:tint', 'UnitHealthPercent tint failed: %s', tostring(color))
+    elseif color and color.GetRGBA then
         pcall(function() texture:SetVertexColor(color:GetRGBA()) end)
     end
 end

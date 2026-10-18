@@ -118,7 +118,7 @@ end
 
 local fontRetry = CreateFrame('Frame')
 fontRetry:RegisterEvent('PLAYER_ENTERING_WORLD')
-fontRetry:SetScript('OnEvent', function()
+fontRetry:SetScript('OnEvent', EUI.Guard('font retry', function()
     local failed = {}
     for _, pending in ipairs(pendingFonts) do
         if pending.fontString:SetFont(Style.FontPath(pending.file), pending.size, pending.flags) then
@@ -129,7 +129,7 @@ fontRetry:SetScript('OnEvent', function()
         end
     end
     pendingFonts = failed
-end)
+end))
 
 -- spec = { pos, size, color, stroke, font = 'name'|'number', alignRight | alignCenter, outline }
 -- outline: font flags, default 'OUTLINE'; '' gives a plain face (shadow only, as GameFontNormal).

@@ -100,22 +100,22 @@ function EditMode.Register(key, frame, label, bounds)
     text:SetPoint('CENTER')
     text:SetText(label)
 
-    mover:SetScript('OnDragStart', function()
+    mover:SetScript('OnDragStart', EUI.Guard('drag start', function()
         if not InCombatLockdown() then
             frame:StartMoving()
         end
-    end)
-    mover:SetScript('OnDragStop', function()
+    end))
+    mover:SetScript('OnDragStop', EUI.Guard('drag stop', function()
         frame:StopMovingOrSizing()
         savePosition(key, frame)
-    end)
+    end))
 
     movers[key] = mover
     EditMode.RestorePosition(key, frame)
 end
 
 -- Locking in combat hides the movers at once; the demo, which hides the secure party
--- header, ends when combat does.
+-- rows, ends when combat does.
 function EditMode.SetUnlocked(unlocked)
     if unlocked and InCombatLockdown() then
         EUI.Print('cannot unlock frames in combat')

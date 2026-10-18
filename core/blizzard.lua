@@ -30,7 +30,10 @@ local function hide(frame, hider)
         end, 'hideBlizzard:' .. tostring(frame:GetName()))
         return
     end
-    pcall(frame.SetParent, frame, hider)
+    local ok, err = pcall(frame.SetParent, frame, hider)
+    if not ok then
+        EUI.LogOnce('hide:' .. tostring(frame:GetName()), 'hiding %s failed: %s', tostring(frame:GetName()), tostring(err))
+    end
 end
 
 function EUI.Blizzard.HideReplaced()
@@ -46,11 +49,11 @@ function EUI.Blizzard.HideReplaced()
             hide(frame, hider)
             if not hooked[frame] then
                 hooked[frame] = true
-                hooksecurefunc(frame, 'SetParent', function(self, parent)
+                hooksecurefunc(frame, 'SetParent', EUI.Guard('rehide ' .. name, function(self, parent)
                     if parent ~= hider then
                         hide(self, hider)
                     end
-                end)
+                end))
             end
         end
     end

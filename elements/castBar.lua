@@ -123,16 +123,17 @@ function CastBar:Update()
     if self.preview then
         return
     end
-    local live = self.unit ~= nil and UnitExists(self.unit)
-        and (tryStart(self, UnitCastingDuration, UnitCastingInfo, false, 8, 10)
-            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true, 7, 12))
     -- A failure hold outlasts the STOP events that follow it; only a new cast ends it early.
+    -- Dropping the hold first keeps the new cast's colours, which tryStart sets.
     if self.failing then
-        if not live then
+        if not (self.unit and isCasting(self.unit)) then
             return
         end
-        self:EndFailure()
+        self.failing = nil
     end
+    local live = self.unit ~= nil and UnitExists(self.unit)
+        and (tryStart(self, UnitCastingDuration, UnitCastingInfo, false, 8, 10)
+            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true, 7, 11))
     setVisible(self, live)
 end
 
@@ -180,6 +181,7 @@ end
 -- Demo: a static bar at progress (0..1) showing spellName, tinted as uninterruptible when
 -- notInterruptible and as a channel when channel; nil spellName restores live updates.
 function CastBar:SetPreview(spellName, progress, notInterruptible, channel)
+    self:EndFailure()
     self.preview = spellName ~= nil
     self.channeling = self.preview and channel == true
     resetColors(self)

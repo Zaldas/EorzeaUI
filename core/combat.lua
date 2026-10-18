@@ -25,10 +25,7 @@ function EUI.FlushOutOfCombat()
     pending = {}
     pendingKeys = {}
     for _, fn in ipairs(jobs) do
-        local ok, err = pcall(fn)
-        if not ok then
-            EUI.Print('deferred job failed: %s', tostring(err))
-        end
+        EUI.Guard('deferred job', fn)()
     end
 end
 

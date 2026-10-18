@@ -35,7 +35,8 @@ local FEATURE_APIS = {
     'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
     'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
     'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell', 'C_ActionBar', 'RegisterStateDriver',
-    'RegisterUnitWatch', 'SetPortraitTexture', 'HasPetUI', 'C_PetInfo',
+    'RegisterUnitWatch', 'SetPortraitTexture', 'HasPetUI', 'C_PetInfo', 'UnitHealthPercent', 'C_CurveUtil',
+    'CurveConstants', 'UnitDetailedThreatSituation', 'UnitReaction',
 }
 
 local function logCapabilities()
@@ -46,6 +47,23 @@ local function logCapabilities()
         end
     end
     EUI.Log('capabilities: %s', #missing == 0 and 'all feature APIs present' or 'missing ' .. table.concat(missing, ', '))
+end
+
+-- Blizzard plays this from the target and focus frames' OnHide, which never fires while they sit
+-- in the hidden parent. Soft target changes stay silent, as there.
+local hadUnit = {}
+local function checkUnitLost(unit)
+    local exists = UnitExists(unit) == true
+    if hadUnit[unit] and not exists and not (IsTargetLoose and IsTargetLoose())
+        and PlaySound and SOUNDKIT and SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT then
+        PlaySound(SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT, nil, true)
+    end
+    hadUnit[unit] = exists
+end
+
+local function seedLostUnits()
+    hadUnit.target = UnitExists('target') == true
+    hadUnit.focus = UnitExists('focus') == true
 end
 
 local function initialize()
@@ -75,7 +93,6 @@ local function initialize()
     EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar')
     EUI.EditMode.Initialize()
 
-    EUI.Blizzard.HideReplaced()
     applyScale()
     Settings.OnChange('scale', applyScale)
 
@@ -91,10 +108,13 @@ local function initialize()
     end))
 
     EUI.ready = true
+    -- Last, so a failed setup leaves Blizzard's frames in place.
+    EUI.Blizzard.HideReplaced()
     EUI.PartyList.RefreshAll()
     EUI.TargetBar.ForEach(function(bar)
         bar:Refresh()
     end)
+    seedLostUnits()
 end
 
 local function forEachRow(method)
@@ -117,14 +137,24 @@ local UNIT_ROUTES = {
     UNIT_HEALTH = { row = 'UpdateHealth', pet = 'UpdateHealth', bar = 'UpdateHealth', smooth = true },
     UNIT_MAXHEALTH = { row = 'UpdateHealth', pet = 'UpdateHealth', bar = 'UpdateHealth', smooth = false },
     UNIT_NAME_UPDATE = { row = 'UpdateName', pet = 'UpdateName', bar = { 'UpdateName', 'UpdateLevel' } },
-    UNIT_LEVEL = { row = 'UpdateName', pet = 'UpdateName', bar = { 'UpdateName', 'UpdateLevel' } },
+    -- The difficulty colour of every bar's level follows the player's level.
+    UNIT_LEVEL = {
+        row = 'UpdateName',
+        pet = 'UpdateName',
+        bar = { 'UpdateName', 'UpdateLevel' },
+        also = function(unit)
+            if unit == 'player' then
+                forEachBar('UpdateLevel')
+            end
+        end,
+    },
     UNIT_TARGET = { bar = 'UpdateTargetOfTarget' },
     UNIT_HEAL_PREDICTION = { row = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
     UNIT_ABSORB_AMOUNT_CHANGED = { row = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
     UNIT_CONNECTION = { row = { 'UpdateState', 'UpdateStatusIcon' } },
     UNIT_FLAGS = {
         row = { 'UpdateFlags', 'UpdateState', 'UpdatePvP', 'UpdateStatusIcon' },
-        bar = { 'UpdateIdentity', 'UpdateFlags' },
+        bar = { 'UpdateIdentity', 'UpdateFlags', 'UpdateLevel' },
     },
     -- May name the unit by another token (party1, raid3), so every bar rechecks its flags.
     PLAYER_FLAGS_CHANGED = {
@@ -170,18 +200,19 @@ UNIT_ROUTES.UNIT_POWER_UPDATE = { row = 'UpdatePower', pet = 'UpdatePower', smoo
 UNIT_ROUTES.UNIT_MAXPOWER = { row = 'UpdatePower', pet = 'UpdatePower', smooth = false, also = playerPowerChanged }
 UNIT_ROUTES.UNIT_DISPLAYPOWER = UNIT_ROUTES.UNIT_MAXPOWER
 
--- arg3..arg5 of UNIT_SPELLCAST_*: castGUID, spellID, and castBarID where the event has one.
+-- Payload after unit and castGUID: spellID, then FAILED's castBarID, or INTERRUPTED's
+-- interruptedBy and castBarID.
 local CAST_ROUTE = {
-    row = function(row, event, castGUID)
+    row = function(row, event, spellID)
         row:UpdateCast()
-        row:UpdateCostPreview(event, castGUID)
+        row:UpdateCostPreview(event, spellID)
     end,
     pet = 'UpdateCast',
-    bar = function(bar, event, _, spellID, castBarID)
+    bar = function(bar, event, _, failedCastBarID, interruptedCastBarID)
         if event == 'UNIT_SPELLCAST_INTERRUPTED' then
-            bar.cast:ShowFailure(INTERRUPTED or 'Interrupted', castBarID)
+            bar.cast:ShowFailure(INTERRUPTED or 'Interrupted', interruptedCastBarID)
         elseif event == 'UNIT_SPELLCAST_FAILED' then
-            bar.cast:ShowFailure(FAILED or 'Failed', spellID, true)
+            bar.cast:ShowFailure(FAILED or 'Failed', failedCastBarID, true)
         else
             bar.cast:Update()
         end
@@ -227,18 +258,6 @@ local function onUnitEvent(route, event, unit, arg3, arg4, arg5)
     end
 end
 
--- Blizzard plays this from the target and focus frames' OnHide, which never fires while they sit
--- in the hidden parent. Soft target changes stay silent, as there.
-local hadUnit = {}
-local function checkUnitLost(unit)
-    local exists = UnitExists(unit) == true
-    if hadUnit[unit] and not exists and not (IsTargetLoose and IsTargetLoose())
-        and PlaySound and SOUNDKIT and SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT then
-        PlaySound(SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT, nil, true)
-    end
-    hadUnit[unit] = exists
-end
-
 local function refreshRoster()
     EUI.PartyList.OnRosterChanged()
     EUI.PartyList.RefreshAll()
@@ -265,8 +284,7 @@ local GLOBAL_ROUTES = {
         refreshRoster()
         forEachBar('Refresh')
         EUI.playerCast:Update()
-        hadUnit.target = UnitExists('target') == true
-        hadUnit.focus = UnitExists('focus') == true
+        seedLostUnits()
     end,
     PLAYER_TARGET_CHANGED = function()
         checkUnitLost('target')
@@ -385,7 +403,7 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
 end))
 
 SLASH_EORZEAUI1 = '/eui'
-SlashCmdList.EORZEAUI = function(msg)
+SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
     msg = (msg or ''):lower()
     if msg == 'unlock' then
         EUI.EditMode.SetUnlocked(true)
@@ -435,4 +453,4 @@ SlashCmdList.EORZEAUI = function(msg)
     else
         EUI.Print('/eui demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
     end
-end
+end)

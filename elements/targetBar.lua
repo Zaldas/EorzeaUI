@@ -273,25 +273,30 @@ local function inGroup(unit)
     return EUI.Read('UnitInParty', UnitInParty, unit) == true or EUI.Read('UnitInRaid', UnitInRaid, unit) ~= nil
 end
 
--- Returns the spec.reactionColors key for unit, and whether it is an NPC you cannot attack.
--- Follows Blizzard's target frame (CheckFaction): tap-denied NPCs first, then UnitReaction;
--- players and their pets split by group and attackability.
+-- Returns the spec.reactionColors key for unit, and whether it is a living NPC you cannot
+-- attack. Players and their pets follow UnitSelectionColor's player branches: attacks you
+-- (hostile, or blue when you cannot attack back), attackable (neutral), PvP-flagged (friendly),
+-- else blue; your own and group members' get 'party' / 'partyPvP' so a palette can set them
+-- apart. NPCs: tap-denied, then UnitReaction.
 local function reactionKey(unit)
     local canAttack = EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) == true
     if EUI.Read('UnitPlayerControlled', UnitPlayerControlled, unit) then
-        if canAttack then
-            return 'hostilePlayer', false
+        if EUI.Read('UnitCanAttack', UnitCanAttack, unit, 'player') == true then
+            return canAttack and 'hostilePlayer' or 'player', false
+        elseif canAttack then
+            return 'neutral', false
         end
+        local flagged = EUI.Read('UnitIsPVP', UnitIsPVP, unit) == true
         local own = EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'player') or EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'pet')
         if own or (EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) and inGroup(unit)) then
-            return 'party', false
+            return flagged and 'partyPvP' or 'party', false
         end
-        return 'player', false
+        return flagged and 'friendly' or 'player', false
     end
     if EUI.Read('UnitIsTapDenied', UnitIsTapDenied, unit) then
         return 'tapped', false
     end
-    local npc = not canAttack
+    local npc = not canAttack and not EUI.Read('UnitIsDead', UnitIsDead, unit)
     local reaction = EUI.Read('UnitReaction', UnitReaction, unit, 'player')
     if type(reaction) ~= 'number' then
         return 'neutral', npc
@@ -445,7 +450,9 @@ function Bar:UpdateThreat()
     if UnitExists(unit) and not EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) then
         status = plainNumber(EUI.Read('UnitThreatSituation', UnitThreatSituation, 'player', unit))
         local ok, isTanking, detailedStatus, _, rawPercent = pcall(UnitDetailedThreatSituation, 'player', unit)
-        if ok then
+        if not ok then
+            EUI.LogOnce('threat:detailed', 'UnitDetailedThreatSituation failed: %s', tostring(isTanking))
+        else
             detailed = plainNumber(detailedStatus)
             display = plainNumber(rawPercent)
             if EUI.CanAccess(isTanking) and isTanking == true then
