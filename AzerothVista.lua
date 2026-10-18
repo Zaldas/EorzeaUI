@@ -48,7 +48,7 @@ local FEATURE_APIS = {
     'UnitPhaseReason', 'UnitInRange', 'CreateUnitHealPredictionCalculator', 'UnitGetDetailedHealPrediction',
     'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
     'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
-    'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell', 'GetShapeshiftForm', 'RegisterStateDriver',
+    'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell', 'C_ActionBar', 'RegisterStateDriver',
     'RegisterUnitWatch', 'SetPortraitTexture', 'HasPetUI', 'C_PetInfo',
 }
 

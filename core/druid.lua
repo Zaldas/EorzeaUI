@@ -1,15 +1,18 @@
 local _, AV = ...
 
 -- Druid bear/cat state, shared by the party row (form power bar) and the party list (the secure
--- driver that grows the player's row). Form numbers follow the stance bar: with the usual
--- Classic set, bear is 1 and cat is 3; aquatic, travel and moonkin keep mana.
+-- driver that grows the player's row). Read from the bonus action bar offset, which Blizzard
+-- pages the main bar by: cat 1, prowl 2, bear 3, whichever forms the druid knows. [form:N]
+-- cannot be used: form numbers follow the order the forms were learned.
 
 AV.Druid = {}
 local Druid = AV.Druid
 
-Druid.CONDITION = '[form:1/3] shifted; caster'
-local SHIFTED_FORMS = { [1] = true, [3] = true }
+Druid.CONDITION = '[bonusbar:1/2/3] shifted; caster'
+local SHIFTED_BARS = { [1] = true, [2] = true, [3] = true }
 local MANA = 0
+
+local getBonusBarOffset = C_ActionBar and C_ActionBar.GetBonusBarOffset or GetBonusBarOffset
 
 function Druid.IsDruid()
     if Druid.isDruid == nil then
@@ -27,12 +30,12 @@ function Druid.IsShifted()
     if not Druid.IsDruid() then
         return false
     end
-    local form = AV.Read('GetShapeshiftForm', GetShapeshiftForm)
-    local shifted = SHIFTED_FORMS[form] == true
+    local offset = AV.Read('GetBonusBarOffset', getBonusBarOffset)
+    local shifted = SHIFTED_BARS[offset] == true
     local powerType = AV.Read('UnitPowerType', UnitPowerType, 'player')
     if powerType ~= nil and shifted == (powerType == MANA) then
-        AV.LogOnce('druid:mismatch', 'druid: form %s with power type %s; [form:1/3] may not mean bear/cat here',
-            tostring(form), tostring(powerType))
+        AV.LogOnce('druid:mismatch', 'druid: bonus bar %s with power type %s; [bonusbar:1/2/3] may not mean bear/cat here',
+            tostring(offset), tostring(powerType))
     end
     return shifted
 end

@@ -70,7 +70,7 @@ LOCALIZED_CLASS_NAMES_MALE = { PALADIN = 'Paladin' }
 UnitLevel = function() return 11 end
 UnitReaction = function() return 2 end
 UnitClass = function() return 'Druid', 'DRUID' end
-GetShapeshiftForm = function() return 3 end
+GetBonusBarOffset = function() return 1 end
 RegisterStateDriver = function(frame, state, condition) STATE_DRIVER = condition end
 UnitHealth = function() return 100 end
 UnitHealthMax = function() return 200 end
@@ -201,7 +201,7 @@ onEvent(nil, 'UNIT_THREAT_SITUATION_UPDATE', 'player')
 onEvent(nil, 'PLAYER_ROLES_ASSIGNED')
 onEvent(nil, 'PARTY_LOOT_METHOD_CHANGED')
 onEvent(nil, 'UPDATE_SHAPESHIFT_FORM')
-assert(STATE_DRIVER == '[form:1/3] shifted; caster', 'druid state driver not registered')
+assert(STATE_DRIVER == '[bonusbar:1/2/3] shifted; caster', 'druid state driver not registered')
 onEvent(nil, 'UNIT_SPELLCAST_START', 'player', 'cast-guid', 1234)
 onEvent(nil, 'UNIT_SPELLCAST_SUCCEEDED', 'player', 'cast-guid', 1234)
 onEvent(nil, 'UNIT_SPELLCAST_STOP', 'player', 'cast-guid', 1234)
