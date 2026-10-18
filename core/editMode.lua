@@ -104,9 +104,13 @@ function EditMode.Register(key, frame, label, box)
         bg:SetAllPoints()
         bg:SetColorTexture(0.2, 0.6, 1, 0.25)
     end
-    -- Above the selection art, which reaches 8px past the handle, so it never covers content.
+    -- Centred on the selection art's top line, half above it.
     local text = mover:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightLarge')
-    text:SetPoint('BOTTOM', mover, 'TOP', 0, 10)
+    if mover.TopEdge then
+        text:SetPoint('CENTER', mover.TopEdge, 'CENTER')
+    else
+        text:SetPoint('CENTER', mover, 'TOP')
+    end
     text:SetText(label)
 
     mover:SetScript('OnDragStart', EUI.Guard('drag start', function()

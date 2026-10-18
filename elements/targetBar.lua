@@ -486,7 +486,13 @@ function TargetBarClass:UpdateTier()
     if not isLive(self) then
         return
     end
-    setTier(self, EUI.Read('UnitClassification', UnitClassification, self.unit))
+    local unit = self.unit
+    local classification = EUI.Read('UnitClassification', UnitClassification, unit)
+    -- Dungeon bosses are classified elite; Blizzard frames them as bosses by UnitIsBossMob.
+    if UnitIsBossMob and EUI.Read('UnitIsBossMob', UnitIsBossMob, unit) then
+        classification = 'worldboss'
+    end
+    setTier(self, classification)
 end
 
 -- Difficulty-coloured for units you can attack, so it also changes with faction and PvP state.
@@ -495,7 +501,7 @@ function TargetBarClass:UpdateLevel()
         return
     end
     local unit = self.unit
-    local level = EUI.SafeValue(UnitLevel, unit)
+    local level = EUI.SafeValue(UnitEffectiveLevel or UnitLevel, unit)
     if EUI.Read('UnitIsCorpse', UnitIsCorpse, unit) then
         setLevel(self, level, nil, nil, nil, true)
     elseif level and EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
@@ -534,6 +540,16 @@ function TargetBarClass:Refresh()
     self:UpdateTargetOfTarget()
 end
 
+local function setOffline(self, offline)
+    if offline == self.offline then
+        return
+    end
+    self.offline = offline
+    local spec = self.spec
+    self.bar:SetFillColor(offline and spec.offlineColor or spec.bar.fill.color)
+    self.bar:SetFrameColor(offline and spec.offlineColor or spec.bar.bg.color)
+end
+
 function TargetBarClass:UpdateHealth(smooth)
     if not isLive(self) then
         return
@@ -541,9 +557,18 @@ function TargetBarClass:UpdateHealth(smooth)
     local unit = self.unit
     local maxHealth = UnitHealthMax(unit)
     self.bar:SetRange(maxHealth)
-    self.bar:SetValue(UnitHealth(unit), smooth)
-    self.bar:ShowIncomingHeals(unit, maxHealth)
+    local offline = EUI.Read('UnitIsConnected', UnitIsConnected, unit) == false
+    setOffline(self, offline)
     local state = UnitInfo.DeadState(unit)
+    if offline then
+        -- A full bar in the offline grey, as on the party rows.
+        self.bar:SetValue(maxHealth)
+        self.bar:SetIncoming(0)
+        state = 'offline'
+    else
+        self.bar:SetValue(UnitHealth(unit), smooth)
+        self.bar:ShowIncomingHeals(unit, maxHealth)
+    end
     if state then
         self.hpp:SetText(UnitInfo.STATE_LABELS[state])
         self.hpp:SetTextColor(Style.Color(self.spec.stateColor))
@@ -561,7 +586,7 @@ function TargetBarClass:UpdateHealth(smooth)
 end
 
 function TargetBarClass:UpdateHealPrediction()
-    if not isLive(self) then
+    if not isLive(self) or self.offline then
         return
     end
     self.bar:ShowIncomingHeals(self.unit, UnitHealthMax(self.unit))
@@ -573,7 +598,9 @@ function TargetBarClass:UpdateTargetOfTarget()
         return
     end
     local totUnit = self.totUnit
+    -- A dead unit targets nothing, as Blizzard's target-of-target frame shows it.
     local exists = UnitExists(self.unit) and UnitExists(totUnit)
+        and EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, self.unit) ~= true
     self.tot:SetShown(exists)
     self.attention:SetShown(exists)
     if not exists then
@@ -646,6 +673,7 @@ function TargetBarClass:SetPreview(data)
         self.totDemoAuras = EUI.StaticIcons.Create(self.tot, spec.tot.auras, self.fonts)
     end
     setLiveAurasShown(self, false)
+    setOffline(self, false)
     self.content:Show()
     self.name:SetText(data.name)
     self.nameShift = setMarkedName(self.name, spec.txtName, self.marker, spec.raidMarker, data.raidMarker,

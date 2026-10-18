@@ -129,6 +129,8 @@ local function initialize()
     EUI.ready = true
     -- Last, so a failed setup leaves Blizzard's frames in place.
     EUI.Blizzard.HideReplaced()
+    EUI.Blizzard.KeepTotems(EUI.castAnchor)
+    EUI.Blizzard.TrimRaidManager()
     EUI.PartyList.RefreshAll()
     EUI.RaidList.RefreshAll()
     EUI.RaidPets.RefreshAll()
@@ -179,7 +181,7 @@ local UNIT_ROUTES = {
     UNIT_TARGET = { bar = 'UpdateTargetOfTarget' },
     UNIT_HEAL_PREDICTION = { row = 'UpdateHealPrediction', raidPet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
     UNIT_ABSORB_AMOUNT_CHANGED = { row = 'UpdateHealPrediction', raidPet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
-    UNIT_CONNECTION = { row = { 'UpdateState', 'UpdateStatusIcon' } },
+    UNIT_CONNECTION = { row = { 'UpdateState', 'UpdateStatusIcon' }, bar = 'UpdateHealth', smooth = false },
     UNIT_FLAGS = {
         row = { 'UpdateFlags', 'UpdateState', 'UpdatePvP', 'UpdateStatusIcon' },
         bar = { 'UpdateIdentity', 'UpdateFlags', 'UpdateLevel' },
@@ -325,6 +327,12 @@ local function updateRoles()
     forEachRow('UpdateRole')
 end
 
+-- Blizzard's party frames refresh their phased icon on these whichever unit they name.
+local function updatePresence()
+    forEachRow('UpdateStatusIcon')
+    forEachRow('UpdateRange')
+end
+
 local function readyCheck(event)
     EUI.PartyList.OnReadyCheck(event, forEachUnitRow)
 end
@@ -395,6 +403,9 @@ local GLOBAL_ROUTES = {
         forEachRow('UpdateRaidMarker')
         forEachBar('UpdateRaidMarker')
     end,
+    PARTY_MEMBER_ENABLE = updatePresence,
+    PARTY_MEMBER_DISABLE = updatePresence,
+    UNIT_CTR_OPTIONS = updatePresence,
     PLAYER_ROLES_ASSIGNED = updateRoles,
     ROLE_CHANGED_INFORM = updateRoles,
     PET_UI_UPDATE = function()

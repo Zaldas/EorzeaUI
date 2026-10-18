@@ -285,8 +285,10 @@ function Kit.target(p, castText, size)
         threat = { path = 'pips/diamondFill-16', pos = { 1.5, iconY + iconSize - 8.5 }, size = { 15, 15 } },
         txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         lowHealth = Kit.LOW_HEALTH,
-        -- Replaces HP% while the unit is dead or unconscious.
+        -- Replaces HP% while the unit is dead, unconscious or offline.
         stateColor = '#A0A0A0FF',
+        -- The HP bar while the unit is offline.
+        offlineColor = p.offline,
         -- right: the name truncates there, clear of the HP% text.
         txtName = { pos = { nameX, nameY }, size = size.name, color = p.targetText, stroke = p.stroke, right = nameRight },
         -- Before the name, which shifts right while it shows; as on the party rows.
@@ -297,8 +299,10 @@ function Kit.target(p, castText, size)
         txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
+        -- Blizzard's target order: your auras first, then in the order they landed.
         auras = size.debuffs and {
             pos = { 25, aurasY }, size = auraSize, spacing = 3, perLine = size.perLine, lineSpacing = auraLineSpacing, timers = true, border = Kit.AURA_BORDER,
+            sort = 'Default',
             groups = {
                 HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = p.dispel },
                 HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
@@ -341,7 +345,7 @@ function Kit.target(p, castText, size)
             -- Debuffs under the bar; Blizzard's target-of-target frame shows 4.
             auras = totDebuffs > 0 and {
                 pos = { 20, aurasY }, size = 16, spacing = 2, max = totDebuffs, border = Kit.AURA_BORDER,
-                dispelBorder = 'dispel', dispelColors = p.dispel,
+                dispelBorder = 'dispel', dispelColors = p.dispel, sort = 'Default',
             } or nil,
         },
     }

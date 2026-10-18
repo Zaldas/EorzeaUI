@@ -18,6 +18,7 @@ local REPLACED = {
     'CompactPartyFrame',
     'CompactRaidFrameContainer',
     'PlayerCastingBarFrame',
+    'PetCastingBarFrame',
 }
 
 local hooked = {}
@@ -65,5 +66,54 @@ function EUI.Blizzard.HideReplaced()
         if not ok then
             EUI.LogOnce('hide:castbar', 'PlayerCastingBarFrame:SetUnit failed: %s', tostring(err))
         end
+    end
+end
+
+-- Blizzard's totem timers are a child of PlayerFrame, so hiding it hides them. They move under
+-- anchor instead; ignoreFramePositionManager keeps the player frame's managed layout from
+-- reparenting them back when they show.
+function EUI.Blizzard.KeepTotems(anchor)
+    local totems = TotemFrame
+    if not totems then
+        return
+    end
+    totems.ignoreFramePositionManager = true
+    totems:SetParent(UIParent)
+    totems:ClearAllPoints()
+    totems:SetPoint('TOP', anchor, 'BOTTOM', 0, 0)
+end
+
+-- The raid manager's group/role filters, Edit and Hide buttons act on Blizzard's raid frames,
+-- which are hidden; they come out of its options flow each time it lays them out. None of its
+-- buttons are secure, so this is safe in combat.
+local MANAGER_HIDDEN = { 'filterOptions', 'editMode', 'hiddenModeToggle' }
+
+local function trimRaidManager(manager)
+    local display = manager.displayFrame
+    local container = display and display.optionsFlowContainer
+    if not container then
+        return
+    end
+    FlowContainer_PauseUpdates(container)
+    for _, key in ipairs(MANAGER_HIDDEN) do
+        local object = display[key]
+        if object then
+            FlowContainer_RemoveObject(container, object)
+            object:Hide()
+        end
+    end
+    FlowContainer_ResumeUpdates(container)
+    local _, usedY = FlowContainer_GetUsedBounds(container)
+    manager:SetHeight(usedY + 40)
+end
+
+function EUI.Blizzard.TrimRaidManager()
+    if not (CompactRaidFrameManager_UpdateOptionsFlowContainer and FlowContainer_RemoveObject) then
+        EUI.LogOnce('raidManager:api', 'raid manager options flow missing; its filter buttons stay')
+        return
+    end
+    hooksecurefunc('CompactRaidFrameManager_UpdateOptionsFlowContainer', EUI.Guard('trim raid manager', trimRaidManager))
+    if CompactRaidFrameManager then
+        EUI.Guard('trim raid manager', trimRaidManager)(CompactRaidFrameManager)
     end
 end

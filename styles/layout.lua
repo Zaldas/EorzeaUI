@@ -251,7 +251,9 @@ function Kit.BuildLayout(p)
                 gradient = 'jobIcons/gradient',
                 frame = 'jobIcons/frame',
             },
-            range = { farAlpha = 0.5, notPresentAlpha = 0.6 },
+            -- phaseDistance: the phased icon and dimming only within this many yards, as Blizzard's
+            -- raid frames.
+            range = { farAlpha = 0.5, notPresentAlpha = 0.6, phaseDistance = 250 },
             -- On the icon's bottom-right corner, as on the target.
             threat = { path = 'pips/diamondFill-16', pos = { 19, 29 }, size = { 12, 12 } },
             hover = { path = 'ffxi/Hover', pos = { 18, -6 }, size = { 156, 57 }, color = '#9C94E8AA' },

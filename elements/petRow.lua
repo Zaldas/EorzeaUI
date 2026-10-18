@@ -218,8 +218,7 @@ function Pet:UpdateHealth(smooth)
     self.hp:SetRange(UnitHealthMax(unit))
     local health = UnitHealth(unit)
     self.hp:SetValue(health, smooth)
-    EUI.SetNumberText(self.hpText, health)
-    EUI.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
+    UnitVisual.SetHealthText(self.hpText, unit, health, self.hpCurve, self.partyStyle.indicators.stateColor)
 end
 
 -- Hunter pets run on focus, warlock pets on mana.

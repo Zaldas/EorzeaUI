@@ -379,7 +379,7 @@ function Row:UpdateName()
     setClassIcon(self, EUI.SafeValue(function() return select(2, UnitClass(unit)) end))
     setName(self, EUI.UnitDisplayName(unit))
     if self.levelBadge then
-        self.levelBadge:Set(EUI.SafeValue(UnitLevel, unit))
+        self.levelBadge:Set(EUI.SafeValue(UnitEffectiveLevel or UnitLevel, unit))
     end
     if self.pet then
         self.pet:UpdateGradient()
@@ -414,9 +414,10 @@ function Row:UpdateState()
     self:UpdateRange()
 end
 
--- As Blizzard's group frames: no threat colours while solo.
+-- As Blizzard's group frames: no threat colours on members while solo. Your own row shows it, as
+-- the player frame does.
 function Row:UpdateThreat()
-    if not IsInGroup() then
+    if not IsInGroup() and not self:IsPlayer() then
         setThreat(self, nil)
         return
     end
@@ -483,7 +484,10 @@ end
 -- who gave it, not the token, which renumbers when someone leaves.
 function Row:UpdateReadyCheck(phase)
     local guid = EUI.SafeValue(UnitGUID, self.unit)
-    if phase == 'active' then
+    -- Offline members get no icon, as on Blizzard's party frames.
+    if phase == 'active' and EUI.Read('UnitIsConnected', UnitIsConnected, self.unit) == false then
+        self.readyStatus = nil
+    elseif phase == 'active' then
         self.readyStatus = EUI.Read('GetReadyCheckStatus', GetReadyCheckStatus, self.unit)
         self.readyGuid = guid
     elseif phase == 'finished' then
@@ -501,6 +505,21 @@ end
 -- Enum.SummonStatus: 1 pending, 2 accepted, 3 declined.
 local SUMMON_ICONS = { 'summonPending', 'summonAccepted', 'summonDeclined' }
 
+-- A connected unit with a phase reason. With style.range.phaseDistance (raid cells), only within
+-- that many yards, as Blizzard's raid frames: an unchecked distance counts as too far.
+local function isPhased(self, unit)
+    if EUI.Read('UnitIsConnected', UnitIsConnected, unit) ~= true
+        or EUI.Read('UnitPhaseReason', UnitPhaseReason, unit) == nil then
+        return false
+    end
+    local limit = self.style.range.phaseDistance
+    if not limit then
+        return true
+    end
+    local ok, distance, checked = pcall(UnitDistanceSquared, unit)
+    return ok and checked == true and EUI.CanAccess(distance) and distance < limit * limit
+end
+
 -- One centre icon, by priority: ready check, summon, resurrect, phased, in another group.
 function Row:UpdateStatusIcon()
     local unit = self.unit
@@ -512,8 +531,7 @@ function Row:UpdateStatusIcon()
     if not kind and EUI.Read('UnitHasIncomingResurrection', UnitHasIncomingResurrection, unit) then
         kind = 'resurrect'
     end
-    if not kind and EUI.Read('UnitIsConnected', UnitIsConnected, unit)
-        and EUI.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil then
+    if not kind and isPhased(self, unit) then
         kind = 'phased'
     end
     if not kind and EUI.Read('UnitInOtherParty', UnitInOtherParty, unit) then
@@ -643,23 +661,25 @@ end
 
 -- Phased or in another group (a cross-faction or public group), as Blizzard's
 -- UpdateNotPresentIcon checks.
-local function notPresent(unit)
-    if EUI.Read('UnitInOtherParty', UnitInOtherParty, unit) then
-        return true
-    end
-    return EUI.Read('UnitIsConnected', UnitIsConnected, unit) == true
-        and EUI.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil
+local function notPresent(unit, phased)
+    return phased or EUI.Read('UnitInOtherParty', UnitInOtherParty, unit) == true
 end
 
 function Row:UpdateRange()
     local unit = self.unit
     local range = self.style.range
     self.notPresent = false
+    -- The phased icon follows the distance limit, which changes without an event.
+    local phased = unit ~= nil and isPhased(self, unit)
+    if phased ~= self.phased then
+        self.phased = phased
+        self:UpdateStatusIcon()
+    end
     if self.state == 'offline' then
         self.art:SetAlpha(range.farAlpha)
     elseif not unit or self:IsPlayer() or self.isSelf then
         self.art:SetAlpha(1)
-    elseif notPresent(unit) then
+    elseif notPresent(unit, phased) then
         self.notPresent = true
         self.art:SetAlpha(range.notPresentAlpha)
     else

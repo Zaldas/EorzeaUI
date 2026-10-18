@@ -117,8 +117,7 @@ function PetCell:UpdateHealth(smooth)
     self.hp:SetRange(maxHealth)
     local health = UnitHealth(unit)
     self.hp:SetValue(health, smooth)
-    EUI.SetNumberText(self.hpText, health)
-    EUI.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
+    UnitVisual.SetHealthText(self.hpText, unit, health, self.hpCurve, RaidPets.style.indicators.stateColor)
     self.hp:ShowIncomingHeals(unit, maxHealth)
 end
 

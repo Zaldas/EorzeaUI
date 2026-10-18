@@ -74,6 +74,17 @@ function UnitVisual.ThresholdColor(hpSpec, fraction)
     return hpSpec.textColor
 end
 
+-- Pets' HP number coloured by curve, or "DEAD" in stateColor.
+function UnitVisual.SetHealthText(text, unit, health, curve, stateColor)
+    if EUI.Read('UnitIsDead', UnitIsDead, unit) then
+        text:SetText(EUI.UnitInfo.STATE_LABELS.dead)
+        text:SetTextColor(Style.Color(stateColor))
+        return
+    end
+    EUI.SetNumberText(text, health)
+    EUI.Curves.ApplyHealthColor(text, unit, curve)
+end
+
 -- Demo numbers, with the client's thousands separators.
 function UnitVisual.FormatNumber(value)
     return BreakUpLargeNumbers and BreakUpLargeNumbers(value) or tostring(value)
