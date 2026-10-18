@@ -144,11 +144,6 @@ ReloadUI = function() RELOADED = true end
 AzerothVistaDB = { style = STYLE }
 print = function(...) io.write(table.concat({ ... }, ' '), '\n') end
 
--- Header buttons are created by the secure header in the real client.
-for i = 1, 5 do
-    _G['AzerothVistaPartyHeaderUnitButton' .. i] = newFrame()
-end
-
 -- Load order comes from the .toc; XML files are skipped (templates only exist in the real client).
 local function loadToc(dir, name, ns)
     local order = {}
@@ -216,16 +211,16 @@ onEvent(nil, 'READY_CHECK_FINISHED')
 onEvent(nil, 'PLAYER_DEAD')
 onEvent(nil, 'ADDON_ACTION_BLOCKED', 'AzerothVista', 'TestFunction()')
 
--- The header assigns units in the real client; pet buttons follow their owners.
-local owner1 = _G.AzerothVistaPartyHeaderUnitButton1
-local owner2 = _G.AzerothVistaPartyHeaderUnitButton2
+-- Party rows and their pets are bound to fixed tokens.
+local owner1 = _G.AzerothVistaPartyButton1
+local owner2 = _G.AzerothVistaPartyButton2
 local petButton1 = _G.AzerothVistaPartyPetButton1
 local petButton2 = _G.AzerothVistaPartyPetButton2
-assert(petButton1 and petButton2, 'pet buttons not created')
--- 5 pet buttons plus the target, focus and their mini bars' click areas.
-assert(#WATCHED == 9, 'pet buttons not unit-watched: ' .. #WATCHED)
-owner1:SetAttribute('unit', 'player')
-owner2:SetAttribute('unit', 'party1')
+assert(owner1 and owner2 and petButton1 and petButton2, 'party buttons not created')
+-- 5 rows, 5 pet buttons, and the target, focus and their mini bars' click areas.
+assert(#WATCHED == 14, 'party buttons not unit-watched: ' .. #WATCHED)
+assert(owner1:GetAttribute('unit') == 'player', 'row 1 unit: ' .. tostring(owner1:GetAttribute('unit')))
+assert(owner2:GetAttribute('unit') == 'party1', 'row 2 unit: ' .. tostring(owner2:GetAttribute('unit')))
 assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))
 assert(petButton2:GetAttribute('unit') == 'partypet1', 'party pet unit: ' .. tostring(petButton2:GetAttribute('unit')))
 assert(AV.PartyList.PetForUnit('pet') and AV.PartyList.PetForUnit('partypet1'), 'pet lookup missing')
@@ -352,4 +347,19 @@ for _, entry in ipairs(AzerothVistaLog.entries) do
 end
 assert(blocked, 'blocked action not logged')
 SlashCmdList.AZEROTHVISTA('log clear')
+
+-- Raid: the player first, then the rest of subgroup 2 in raid order; the remaining rows are cleared.
+IsInRaid = function() return true end
+GetNumGroupMembers = function() return 6 end
+local RAID_GROUPS = { 1, 2, 2, 1, 2, 2 }
+GetRaidRosterInfo = function(i) return 'm' .. i, 0, RAID_GROUPS[i] end
+UnitInRaid = function(unit) return unit == 'player' and 3 or nil end
+UnitGUID = function(u) return u == 'raid3' and 'GUID-player' or 'GUID-' .. tostring(u) end
+onEvent(nil, 'GROUP_ROSTER_UPDATE')
+local raidUnits = {}
+for i = 1, 5 do
+    raidUnits[i] = tostring(_G['AzerothVistaPartyButton' .. i]:GetAttribute('unit'))
+end
+assert(table.concat(raidUnits, ',') == 'player,raid2,raid5,raid6,nil', 'raid rows: ' .. table.concat(raidUnits, ','))
+assert(_G.AzerothVistaPartyPetButton2:GetAttribute('unit') == 'raidpet2', 'raid pet unit')
 print('SMOKE OK')

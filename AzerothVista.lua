@@ -282,7 +282,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
     if event == 'PLAYER_ENTERING_WORLD' then
         applyScale()
         AV.Blizzard.HideReplaced()
-        AV.PartyList.UpdateGroupFilter()
+        AV.PartyList.OnRosterChanged()
         AV.PartyList.RefreshAll()
         AV.PartyList.UpdateFormRows()
         AV.TargetBar.ForEach(function(bar)
@@ -299,7 +299,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
     elseif event == 'PLAYER_FOCUS_CHANGED' then
         AV.TargetBar.focus:Refresh()
     elseif event == 'GROUP_ROSTER_UPDATE' then
-        AV.PartyList.UpdateGroupFilter()
+        AV.PartyList.OnRosterChanged()
         AV.PartyList.RefreshAll()
         AV.PartyList.UpdateFormRows()
     elseif event == 'PARTY_LEADER_CHANGED' then

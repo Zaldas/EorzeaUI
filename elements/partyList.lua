@@ -1,7 +1,10 @@
 local _, AV = ...
 
--- Party list: a SecureGroupHeader (player first, then party members; in raids, the player's
--- subgroup). Buttons are pre-created out of combat so mid-combat joins already have visuals.
+-- Party list: five secure unit buttons stacked under one another, each with a pet button, as
+-- Blizzard's PartyFrame. In a party their units never change: player, party1-4 and pet,
+-- partypet1-4. The client renumbers the party tokens as members leave and the unit watch hides
+-- rows whose unit is gone, so roster changes need no secure work in combat. In a raid the rows
+-- show the player's subgroup, assigned out of combat as Blizzard's raid groups are.
 
 AV.PartyList = {}
 local PartyList = AV.PartyList
@@ -29,15 +32,15 @@ end
 
 -- A row is its base height plus a sub-row per flag: 'av-form' (player only, druid in bear/cat
 -- form) and 'av-pet' (its pet exists). Secure snippets set the flags and resize the row in
--- combat, where Lua may not resize the protected buttons; rows below follow because the header
--- chains each button under the previous one. Restricted code; `row` is a frame handle.
+-- combat, where Lua may not resize the protected buttons; rows below follow because each button
+-- is anchored under the previous one. Restricted code; `row` is a frame handle.
 local SET_ROW_HEIGHT = [[
     row:SetHeight(row:GetAttribute('av-base')
         + (row:GetAttribute('av-form') and row:GetAttribute('av-formHeight') or 0)
         + (row:GetAttribute('av-pet') and row:GetAttribute('av-petHeight') or 0))
 ]]
 
--- Lua marks the player's button with 'av-player'.
+-- The first row, always the player, carries 'av-player'.
 local FORM_SNIPPET = [[
     local shifted = newstate == 'shifted'
     for i = 1, self:GetAttribute('rowCount') do
@@ -110,32 +113,52 @@ local function createPetButton(owner, index, style)
     return button
 end
 
--- The owner's pet token. The player's pet is 'pet' even in a raid, where its row is raidN.
-local function petUnitFor(row)
-    local unit = row.unit
-    if not unit then
-        return nil
+local PARTY_UNITS = { 'player', 'party1', 'party2', 'party3', 'party4' }
+local PARTY_PETS = { 'pet', 'partypet1', 'partypet2', 'partypet3', 'partypet4' }
+
+-- The units each row shows: the party tokens, or in a raid the player then the rest of the
+-- player's subgroup in raid order (raidN, raidpetN).
+local function rowUnits(subgroup)
+    if not subgroup then
+        return PARTY_UNITS, PARTY_PETS
     end
-    if unit == 'player' or row:IsPlayer() then
-        return 'pet'
+    local units, pets = { 'player' }, { 'pet' }
+    local playerGuid = AV.SafeValue(UnitGUID, 'player')
+    for i = 1, GetNumGroupMembers() do
+        local unit = 'raid' .. i
+        if #units < MAX_ROWS and select(3, GetRaidRosterInfo(i)) == subgroup
+            and AV.SafeValue(UnitGUID, unit) ~= playerGuid then
+            units[#units + 1] = unit
+            pets[#pets + 1] = 'raidpet' .. i
+        end
     end
-    local kind, index = unit:match('^(%a+)(%d+)$')
-    if kind == 'party' or kind == 'raid' then
-        return kind .. 'pet' .. index
-    end
-    return nil
+    return units, pets
 end
 
--- Out of combat: re-mark the player's button, point each pet button at its owner's pet and
--- match the heights. Runs after roster and unit changes.
+-- Out of combat: point each row and its pet button at its unit. In a party this sets the same
+-- tokens every time, which the rows ignore.
+local function assignUnits()
+    AV.RunOutOfCombat(function()
+        local subgroup = playerSubgroup()
+        PartyList.subgroup = subgroup
+        if not PartyList.demoCount then
+            setGroupNumber(subgroup)
+        end
+        local units, pets = rowUnits(subgroup)
+        for i, row in ipairs(rows) do
+            row.button:SetAttribute('unit', units[i])
+            row.pet.button:SetAttribute('unit', pets[i])
+        end
+        PartyList.UpdateBackground()
+    end, 'assignUnits')
+end
+
+-- Out of combat: match each row's form flag and height to the druid's current form.
 function PartyList.UpdateFormRows()
     AV.RunOutOfCombat(function()
         local shifted = AV.Druid.IsShifted()
         for _, row in ipairs(rows) do
-            local isPlayer = row:IsPlayer()
-            row.button:SetAttribute('av-player', isPlayer)
-            row.button:SetAttribute('av-form', shifted and isPlayer)
-            row.pet.button:SetAttribute('unit', petUnitFor(row))
+            row.button:SetAttribute('av-form', shifted and row.button:GetAttribute('av-player') == true)
             row.button:SetHeight(rowHeight(row.button))
         end
         PartyList.UpdateBackground()
@@ -186,55 +209,51 @@ function PartyList.Create(style, fonts)
     PartyList.bgMid = bg.mid
     PartyList.groupHeader = AV.Style.Header(bg, partyStyle.groupNumber, fonts)
 
-    local header = CreateFrame('Frame', 'AzerothVistaPartyHeader', anchor, 'SecureGroupHeaderTemplate')
-    header:SetPoint('TOPLEFT', anchor, 'TOPLEFT', 0, 0)
-    header:SetFrameLevel(anchor:GetFrameLevel() + 2)
-    header:SetAttribute('template', 'AzerothVistaPartyButtonTemplate')
-    header:SetAttribute('showPlayer', true)
-    header:SetAttribute('showSolo', true)
-    header:SetAttribute('showParty', true)
-    header:SetAttribute('showRaid', true)
-    header:SetAttribute('point', 'TOP')
-    header:SetAttribute('yOffset', -partyStyle.rowSpacing)
-    header:SetAttribute('sortMethod', 'INDEX')
-    header:SetAttribute('unitsPerColumn', MAX_ROWS)
-    header:SetAttribute('maxColumns', 1)
-    PartyList.header = header
-    PartyList.UpdateGroupFilter()
+    -- Plain parent of the secure buttons, so the demo can hide them all out of combat.
+    local rowsFrame = CreateFrame('Frame', nil, anchor)
+    rowsFrame:SetAllPoints(anchor)
+    rowsFrame:SetFrameLevel(anchor:GetFrameLevel() + 2)
+    PartyList.rowsFrame = rowsFrame
 
-    -- Showing with a negative startingIndex forces the header to build every button now.
-    header:SetAttribute('startingIndex', 1 - MAX_ROWS)
-    header:Show()
-    header:SetAttribute('startingIndex', 1)
-
+    local previous
     for i = 1, MAX_ROWS do
-        local button = _G['AzerothVistaPartyHeaderUnitButton' .. i]
-        if button then
-            button:RegisterForClicks('AnyUp')
-            local row = AV.PartyRow.Attach(button, partyStyle, fonts)
-            row.pet = AV.PetRow.Attach(createPetButton(button, i, partyStyle), row, partyStyle, fonts)
-            rows[i] = row
-            -- Click-casting addons (Clique and others) bind every frame in this table.
-            ClickCastFrames = ClickCastFrames or {}
-            ClickCastFrames[button] = true
+        local button = CreateFrame('Button', 'AzerothVistaPartyButton' .. i, rowsFrame, 'AzerothVistaPartyButtonTemplate')
+        if previous then
+            button:SetPoint('TOPLEFT', previous, 'BOTTOMLEFT', 0, -partyStyle.rowSpacing)
+        else
+            button:SetPoint('TOPLEFT', rowsFrame, 'TOPLEFT', 0, 0)
         end
-    end
-    if #rows < MAX_ROWS then
-        AV.Print('party header built %d of %d buttons', #rows, MAX_ROWS)
+        previous = button
+        button:RegisterForClicks('AnyUp')
+        button:SetAttribute('av-player', i == 1)
+        button:SetAttribute('unit', PARTY_UNITS[i])
+        local row = AV.PartyRow.Attach(button, partyStyle, fonts)
+        local petButton = createPetButton(button, i, partyStyle)
+        petButton:SetAttribute('unit', PARTY_PETS[i])
+        row.pet = AV.PetRow.Attach(petButton, row, partyStyle, fonts)
+        rows[i] = row
+        button:HookScript('OnShow', PartyList.UpdateBackground)
+        button:HookScript('OnHide', PartyList.UpdateBackground)
+        if RegisterUnitWatch then
+            RegisterUnitWatch(button)
+        end
+        -- Click-casting addons (Clique and others) bind every frame in this table.
+        ClickCastFrames = ClickCastFrames or {}
+        ClickCastFrames[button] = true
     end
 
     createFormDriver()
+    assignUnits()
     PartyList.UpdateFormRows()
-    PartyList.UpdateBackground()
 end
 
--- members: list of demo rows to show in place of the live header, or nil to restore it.
--- The header is protected, so this runs out of combat only.
+-- members: list of demo rows to show in place of the live rows, or nil to restore them.
+-- The rows are protected, so this runs out of combat only.
 function PartyList.SetDemo(members)
     if not PartyList.demoFrame then
         local frame = CreateFrame('Frame', nil, PartyList.anchor)
         frame:SetAllPoints(PartyList.anchor)
-        frame:SetFrameLevel(PartyList.header:GetFrameLevel() + 5)
+        frame:SetFrameLevel(PartyList.rowsFrame:GetFrameLevel() + 5)
         PartyList.demoFrame = frame
         PartyList.demoRows = {}
         for i = 1, MAX_ROWS do
@@ -246,7 +265,7 @@ function PartyList.SetDemo(members)
     local _, _, height = PartyList.StackDemoRows(PartyList.demoRows, members, PartyList.demoFrame)
     PartyList.demoHeight = height
     PartyList.demoFrame:SetShown(members ~= nil)
-    PartyList.header:SetShown(members == nil)
+    PartyList.rowsFrame:SetShown(members == nil)
     PartyList.UpdateBackground()
 end
 
@@ -293,9 +312,6 @@ function PartyList.OnRowUnitChanged(row, previous, unit)
     if unit then
         rowsByUnit[unit] = row
     end
-    if row.pet then
-        PartyList.UpdateFormRows()
-    end
 end
 
 function PartyList.OnPetUnitChanged(pet, previous, unit)
@@ -333,16 +349,9 @@ function PartyList.ForEachVisiblePet(fn)
     end
 end
 
--- In a raid, show only the player's subgroup, labelled with its number.
-function PartyList.UpdateGroupFilter()
-    PartyList.subgroup = playerSubgroup()
-    if not PartyList.demoCount then
-        setGroupNumber(PartyList.subgroup)
-    end
-    AV.RunOutOfCombat(function()
-        local subgroup = playerSubgroup()
-        PartyList.header:SetAttribute('groupFilter', subgroup and tostring(subgroup) or nil)
-    end, 'groupFilter')
+-- Roster changes: in a raid, the rows follow the player's subgroup.
+function PartyList.OnRosterChanged()
+    assignUnits()
 end
 
 function PartyList.UpdateBackground()

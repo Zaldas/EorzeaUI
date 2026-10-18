@@ -1,7 +1,7 @@
 local _, AV = ...
 
--- Visuals for one secure party button. The SecureGroupHeader owns the button's unit attribute
--- and visibility; this only draws on it and follows unit changes.
+-- Visuals for one secure party button. The party list owns the button's unit attribute and
+-- the unit watch its visibility; this only draws on it and follows unit changes.
 
 AV.PartyRow = {}
 local Row = {}
