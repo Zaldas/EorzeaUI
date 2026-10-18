@@ -106,6 +106,7 @@ local function layoutGroups()
             return
         end
         slotOrder = key
+        EUI.LogOnce('raid:layout', 'raid: groups laid out in order %s', key)
         for slot, g in ipairs(order) do
             local x, y = slotOffset(RaidList.style, slot)
             local header = groups[g].header
@@ -205,6 +206,7 @@ function TargetCell:Refresh()
     if not unit or not UnitExists(unit) then
         return
     end
+    EUI.LogOnce('raid:assistTarget', 'raid: Assists target cell showing %s', unit)
     self:SetIdentity(EUI.UnitDisplayName(unit), (EUI.UnitInfo.ReactionKey(unit)), EUI.Indicators.ReadRaidMarker(unit))
     -- Eases only while the same unit stays behind the token.
     local guid = EUI.SafeValue(UnitGUID, unit)
@@ -391,6 +393,7 @@ function RaidList.Create(style, fonts)
     end
     layoutGroups()
     createAssists()
+    EUI.Log('raid: built %d cells, %d Assists target cells', #cells, #targetCells)
 end
 
 -- Calls fn on each shown cell for unit. Events for you arrive as 'player' and go to your cells;
@@ -449,6 +452,9 @@ end
 
 -- A roster change can put someone else behind a cell's token without changing it.
 function RaidList.OnRosterChanged()
+    if InCombatLockdown() and IsInRaid() then
+        EUI.LogOnce('raid:combatRoster', 'raid: roster changed in combat')
+    end
     RaidList.RefreshAll()
 end
 

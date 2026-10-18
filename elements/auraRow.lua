@@ -232,6 +232,7 @@ function AuraRow:SetUnit(unit)
     if InCombatLockdown() then
         local ok, err = pcall(self.container.SetUnit, self.container, unit)
         if ok then
+            EUI.LogOnce('aura:setUnitCombatOk', 'AuraContainer:SetUnit in combat works (%s)', tostring(unit))
             self:Refresh()
             return
         end

@@ -81,6 +81,7 @@ function PetCell:SetUnit(unit)
         rowsByUnit[previous] = nil
     end
     if unit then
+        EUI.LogOnce('raid:pet', 'raid: pet row showing %s', unit)
         rowsByUnit[unit] = self
         self:Refresh()
     end
@@ -280,6 +281,7 @@ function RaidPets.Create(style, fonts)
         RegisterStateDriver(header, 'visibility', VISIBILITY)
     end
     updateBackground()
+    EUI.Log('raid: built %d pet rows', #rows)
 end
 
 -- The row showing unit (raidpetN), if shown.

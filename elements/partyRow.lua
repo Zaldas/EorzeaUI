@@ -467,7 +467,9 @@ function Row:UpdateRole()
     local role = raidIndex and EUI.Read('GetRaidRosterInfo', function()
         return select(10, GetRaidRosterInfo(raidIndex))
     end)
-    if role ~= 'MAINTANK' and role ~= 'MAINASSIST' then
+    if role == 'MAINTANK' or role == 'MAINASSIST' then
+        EUI.LogOnce('raid:role:' .. role, 'raid: %s icon on %s', role, tostring(unit))
+    else
         role = EUI.Read('UnitGroupRolesAssigned', UnitGroupRolesAssigned, unit)
     end
     self.indicators:SetRole(role)
@@ -535,6 +537,7 @@ function Row:UpdateStatusIcon()
     end
     if not kind and EUI.Read('UnitInOtherParty', UnitInOtherParty, unit) then
         kind = 'otherGroup'
+        EUI.LogOnce('status:otherGroup', 'in-another-group icon on %s', tostring(unit))
     end
     self.indicators:SetStatus(kind)
 end
