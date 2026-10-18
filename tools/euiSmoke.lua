@@ -180,6 +180,8 @@ local onEvent = eventFrames[#eventFrames]._OnEvent
 assert(onEvent, 'no OnEvent captured')
 onEvent(nil, 'ADDON_LOADED', 'EorzeaUI')
 assert(EUI.ready, 'initialize did not complete')
+-- Settings: missing keys take their defaults; saved ones are kept.
+assert(EUI.db.style == STYLE and EUI.db.scale == 1 and type(EUI.db.positions) == 'table', 'settings defaults not applied')
 onEvent(nil, 'PLAYER_ENTERING_WORLD')
 onEvent(nil, 'PLAYER_TARGET_CHANGED')
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
@@ -347,6 +349,118 @@ for _, entry in ipairs(EorzeaUILog.entries) do
 end
 assert(blocked, 'blocked action not logged')
 SlashCmdList.EORZEAUI('log clear')
+
+-- Event routing: each event's outermost method calls on the spied frames, against ROUTES.
+local spied = {
+    row = EUI.PartyList.RowForUnit('player'),
+    party1 = EUI.PartyList.RowForUnit('party1'),
+    pet = EUI.PartyList.PetForUnit('pet'),
+    target = EUI.TargetBar.target,
+    focus = EUI.TargetBar.focus,
+    targetCast = EUI.TargetBar.target.cast,
+    focusCast = EUI.TargetBar.focus.cast,
+    playerCast = EUI.playerCast,
+}
+local calls, depth = {}, 0
+for label, object in pairs(spied) do
+    assert(object, 'routing spy target missing: ' .. label)
+    for name, fn in pairs(getmetatable(object).__index) do
+        if type(fn) == 'function' then
+            object[name] = function(...)
+                if depth == 0 then calls[#calls + 1] = label .. ':' .. name end
+                depth = depth + 1
+                local results = { pcall(fn, ...) }
+                depth = depth - 1
+                assert(results[1], results[2])
+                return unpack(results, 2)
+            end
+        end
+    end
+end
+local function route(event, unit)
+    calls = {}
+    onEvent(nil, event, unit)
+    table.sort(calls)
+    return table.concat(calls, ' ')
+end
+local ROUTE_UNITS = { 'player', 'party1', 'pet', 'target', 'focus' }
+local UNIT_ROUTE_EVENTS = {
+    'UNIT_HEALTH', 'UNIT_MAXHEALTH', 'UNIT_POWER_UPDATE', 'UNIT_MAXPOWER', 'UNIT_DISPLAYPOWER',
+    'UNIT_NAME_UPDATE', 'UNIT_LEVEL', 'UNIT_TARGET', 'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP',
+    'UNIT_SPELLCAST_FAILED', 'UNIT_SPELLCAST_INTERRUPTED', 'UNIT_SPELLCAST_CHANNEL_START',
+    'UNIT_SPELLCAST_SUCCEEDED', 'UNIT_HEAL_PREDICTION', 'UNIT_ABSORB_AMOUNT_CHANGED', 'UNIT_CONNECTION',
+    'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED', 'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED',
+    'UNIT_PHASE', 'UNIT_FACTION', 'UNIT_THREAT_SITUATION_UPDATE', 'UNIT_PET', 'UNIT_PORTRAIT_UPDATE',
+    'UNIT_HAPPINESS', 'UNIT_CLASSIFICATION_CHANGED',
+}
+local GLOBAL_ROUTE_EVENTS = {
+    'PLAYER_ENTERING_WORLD', 'PLAYER_REGEN_DISABLED', 'PLAYER_REGEN_ENABLED', 'PLAYER_TARGET_CHANGED',
+    'GROUP_ROSTER_UPDATE', 'PARTY_LEADER_CHANGED', 'UI_SCALE_CHANGED', 'DISPLAY_SIZE_CHANGED',
+    'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST', 'READY_CHECK',
+    'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
+    'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE', 'PLAYER_FOCUS_CHANGED',
+    'COMBO_TARGET_CHANGED',
+}
+local cases = {}
+for _, event in ipairs(UNIT_ROUTE_EVENTS) do
+    for _, unit in ipairs(ROUTE_UNITS) do
+        cases[#cases + 1] = { event, unit }
+    end
+end
+for _, event in ipairs(GLOBAL_ROUTE_EVENTS) do
+    cases[#cases + 1] = { event }
+end
+local routesFile = root .. 'tools/smokeRoutes.lua'
+if os.getenv('EUI_RECORD_ROUTES') then
+    local out = { '-- Expected event routing for euiSmoke.lua; regenerate with EUI_RECORD_ROUTES=1.', 'return {' }
+    for _, case in ipairs(cases) do
+        local key = case[1] .. ' ' .. (case[2] or '')
+        out[#out + 1] = string.format('    [%q] = %q,', key, route(case[1], case[2]))
+    end
+    out[#out + 1] = '}'
+    local file = assert(io.open(routesFile, 'w'))
+    file:write(table.concat(out, '\n'), '\n')
+    file:close()
+end
+local ROUTES = dofile(routesFile)
+local mismatches = {}
+for _, case in ipairs(cases) do
+    local key = case[1] .. ' ' .. (case[2] or '')
+    local got = route(case[1], case[2])
+    if got ~= ROUTES[key] then
+        mismatches[#mismatches + 1] = string.format('%s\n  want: %s\n  got:  %s', key, tostring(ROUTES[key]), got)
+    end
+end
+assert(#mismatches == 0, 'event routing changed:\n' .. table.concat(mismatches, '\n'))
+for _, object in pairs(spied) do
+    for name in pairs(getmetatable(object).__index) do
+        rawset(object, name, nil)
+    end
+end
+
+-- Palettes: every colour the layout reads is set in each style.
+local REQUIRED = {
+    'party.hp.bar.fill.color', 'party.hp.offlineColor', 'party.power.bar.fill.color', 'party.power.colors',
+    'party.cast.bar.fill.color', 'party.txtName.color', 'party.txtName.stroke', 'party.indicators.healPrediction.color',
+    'party.indicators.healPrediction.absorbColor', 'party.background.color', 'target.bar.fill.color',
+    'target.reactionColors', 'target.txtHpp.color', 'target.txtHpp.stroke', 'target.cast.failure.color',
+    'target.cast.uninterruptible.color', 'target.comboPoints.color', 'target.healPrediction.color',
+    'target.auras.groups.HARMFUL.dispelColors', 'focus.header.txtLabel.color', 'castBar.bar.fill.color',
+}
+local REACTIONS = { 'party', 'player', 'hostilePlayer', 'friendly', 'neutral', 'unfriendly', 'hostile', 'tapped' }
+for _, name in ipairs({ 'vanadiel', 'azeroth' }) do
+    local style = assert(EUI.styles[name], 'style missing: ' .. name)
+    for _, path in ipairs(REQUIRED) do
+        local value = style
+        for key in path:gmatch('[^.]+') do
+            value = type(value) == 'table' and value[key] or nil
+        end
+        assert(value ~= nil, name .. ' missing ' .. path)
+    end
+    for _, key in ipairs(REACTIONS) do
+        assert(style.target.reactionColors[key], name .. ' missing reaction colour ' .. key)
+    end
+end
 
 -- Raid: the player first, then the rest of subgroup 2 in raid order; the remaining rows are cleared.
 IsInRaid = function() return true end
