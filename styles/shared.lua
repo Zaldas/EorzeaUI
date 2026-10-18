@@ -81,7 +81,7 @@ Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, colo
 -- rest/combat: player row only, on the icon's top-right corner. status: ready check, summon,
 -- resurrect or phased, centred on the icon. role/pvp: straddling the icon's left edge.
 -- flag: the AFK/DND badge on the name line, after any raid marker.
-function Kit.partyIndicators(nameX, nameY)
+function Kit.partyIndicators(p, nameX, nameY)
     return {
         leader = { pos = { 0, -10 }, size = { 14, 14 } },
         assistant = { pos = { 18, 2 }, size = { 14, 14 } },
@@ -96,7 +96,7 @@ function Kit.partyIndicators(nameX, nameY)
         pvp = { pos = { -22, 15 }, size = { 20, 20 } },
         flag = { pos = { nameX, nameY + 1 }, size = { 38, 15 } },
         stateColor = '#A0A0A0FF',
-        healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
+        healPrediction = { color = p.heals, absorbColor = p.absorbs },
     }
 end
 
@@ -187,7 +187,7 @@ function Kit.target(p, castText, size)
             offsets = { { 7, 28 }, { 0, 21 }, { 7, 14 }, { 0, 7 }, { 7, 0 } },
             fill = 'pips/diamondFill-16',
             outline = 'pips/diamondLine-16',
-            color = '#FFD966FF',
+            color = p.combo,
         } or nil,
         -- Crown centred on the icon's top edge, as on the party rows.
         leader = { pos = { iconX + iconSize / 2 - 8, iconY - 8 }, size = { 16, 16 } },
@@ -206,7 +206,7 @@ function Kit.target(p, castText, size)
         raidMarker = { pos = { 20, nameY + 1 }, size = { 16, 16 } },
         -- AFK/DND on players, after any raid marker.
         flag = { pos = { 20, nameY + 1 }, size = { 38, 15 } },
-        healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
+        healPrediction = { color = p.heals, absorbColor = p.absorbs },
         txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.

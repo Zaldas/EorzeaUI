@@ -4,6 +4,7 @@ local _, EUI = ...
 -- stroke: text shadow; strokeAlt: shadow on target HP%, threat % and the ToT name.
 -- channel (optional): cast bar colour while channeling; casts otherwise.
 -- offline: party HP bar colour while the member is offline.
+-- heals / absorbs: incoming-heal and absorb segments on HP bars. combo: combo point pips.
 -- reaction: keyed as targetBar.lua reactionKey returns. targetName (optional): one colour for
 -- target names in place of the reaction colour. nameBg (optional): { alpha, leftAlpha, color }.
 -- partyBg: the party list's fade, { color, alpha, leftAlpha }.
@@ -21,6 +22,8 @@ local vanadiel = {
     hp = '#FF9597FF',
     hpThresholds = Kit.HP_THRESHOLDS,
     offline = '#808080FF',
+    heals = '#7CFC8C80',
+    absorbs = '#DDEEFFB3',
     power = '#FFFF9CFF',
     powerColors = { [0] = '#8FB8FFFF', [1] = '#FF7A5CFF', [2] = '#FFB870FF', [3] = '#FFFF9CFF' },
     cast = '#6AB4F8FF',
@@ -39,11 +42,13 @@ local vanadiel = {
         tapped = '#FF66FFFF',
     },
     nameBg = { color = '#000000FF', alpha = 0.3, leftAlpha = 0.45 },
+    combo = '#FFD966FF',
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
 }
 
 -- Blizzard's default colours, as the Forever client reports them: PowerBarColor,
--- UnitSelectionColor, DEBUFF_TYPE_*_COLOR and NORMAL_FONT_COLOR names. Cast bar colours are
+-- UnitSelectionColor, DEBUFF_TYPE_*_COLOR and NORMAL_FONT_COLOR names; heals is
+-- MyHealPrediction, combo COMBO_POINTS. Cast bar colours are
 -- the average shade of Forever's ui-castingbar-* atlases.
 local azeroth = {
     stroke = '#000000C8',
@@ -54,6 +59,8 @@ local azeroth = {
     hp = '#00FF00FF',
     hpThresholds = {},
     offline = '#808080FF',
+    heals = '#0B8869FF',
+    absorbs = '#DDEEFFB3',
     power = '#FFFF00FF',
     powerColors = { [0] = '#0000FFFF', [1] = '#FF0000FF', [2] = '#FF8040FF', [3] = '#FFFF00FF' },
     cast = '#EFD53FFF',
@@ -74,6 +81,7 @@ local azeroth = {
     },
     targetName = '#FFD200FF',
     nameBg = { alpha = 0.4, leftAlpha = 0.5 },
+    combo = '#FFF569FF',
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
 }
 

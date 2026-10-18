@@ -90,7 +90,7 @@ function Kit.BuildLayout(p)
                 txtName = Kit.castName(castText, 219, -1),
             },
             levelBadge = Kit.levelBadge,
-            indicators = Kit.partyIndicators(38, 3),
+            indicators = Kit.partyIndicators(p, 38, 3),
             buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER },
             debuffs = { pos = { 284, 16 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER },
             -- Pet sub-row at the bottom of the owner's row, which grows by rowHeight while the pet
