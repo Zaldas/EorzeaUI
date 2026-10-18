@@ -90,16 +90,11 @@ function AV.PetRow.Attach(button, owner, partyStyle, fonts)
 
     button:HookScript('OnEnter', function()
         self.hover:Show()
-        if self.unit and UnitExists(self.unit) then
-            GameTooltip_SetDefaultAnchor(GameTooltip, UIParent)
-            GameTooltip:SetUnit(self.unit)
-            GameTooltip:Show()
-        end
     end)
     button:HookScript('OnLeave', function()
         self.hover:Hide()
-        GameTooltip:Hide()
     end)
+    AV.AttachUnitTooltip(button, function() return self.unit end)
     button:HookScript('OnAttributeChanged', function(_, name, value)
         if name == 'unit' then
             self:SetUnit(value)

@@ -195,7 +195,8 @@ function Kit.target(cast, size)
         threat = { path = 'pips/diamondFill-16', pos = { 1.5, iconY + iconSize - 8.5 }, size = { 15, 15 } },
         txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
         lowHealth = { below = 0.2, color = '#FF0000FF' },
-        txtName = { pos = { 20, nameY }, size = size.name, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE },
+        -- right: the name truncates there, clear of the HP% text.
+        txtName = { pos = { 20, nameY }, size = size.name, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE, right = barWidth - 64 },
         -- Before the name, which shifts right while it shows; as on the party rows.
         raidMarker = { pos = { 20, nameY + 1 }, size = { 16, 16 } },
         -- AFK/DND on players, after any raid marker.
@@ -240,7 +241,7 @@ function Kit.target(cast, size)
         tot = {
             pos = { totX, 0 },
             bar = Kit.wideBar(size.tot, '#FF9597FF', '#FF9597FF'),
-            txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = '#C8C8C8FF', stroke = Kit.STROKE_RED },
+            txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, right = size.tot - 14 },
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
             click = { pos = { 0, 10 }, size = { size.tot, 34 } },
         },

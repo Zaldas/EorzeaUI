@@ -142,14 +142,16 @@ function CastBar:ShowFailure(label, castBarID, failed)
     if failed and isCasting(self.unit) then
         return
     end
-    self.failing = true
+    -- Each hold gets its own token, so an earlier hold's timer cannot end a later one.
+    local token = {}
+    self.failing = token
     resetColors(self)
     self.bar:SetRange(1)
     self.bar:SetValue(1)
     self.bar:SetFillColor(failure.color)
     self.name:SetText(label)
     C_Timer.After(failure.hold, function()
-        if self.failing then
+        if self.failing == token then
             self:EndFailure()
             self:Update()
         end

@@ -128,7 +128,11 @@ local function tintPower(self, bar, powerType)
     bar:SetFillColor(color)
 end
 
-local STATE_LABELS = { dead = 'DEAD', ghost = 'GHOST', offline = 'OFFLINE' }
+local STATE_LABELS = {
+    dead = DEAD and DEAD:upper() or 'DEAD',
+    ghost = GHOST and GHOST:upper() or 'GHOST',
+    offline = PLAYER_OFFLINE and PLAYER_OFFLINE:upper() or 'OFFLINE',
+}
 
 -- state: 'dead' | 'ghost' | 'offline' | nil. Returns true when a label replaced the HP value.
 local function applyState(self, state)
@@ -159,16 +163,11 @@ function AV.PartyRow.Attach(button, style, fonts)
 
     button:HookScript('OnEnter', function()
         self.hover:Show()
-        if self.unit and UnitExists(self.unit) then
-            GameTooltip_SetDefaultAnchor(GameTooltip, UIParent)
-            GameTooltip:SetUnit(self.unit)
-            GameTooltip:Show()
-        end
     end)
     button:HookScript('OnLeave', function()
         self.hover:Hide()
-        GameTooltip:Hide()
     end)
+    AV.AttachUnitTooltip(button, function() return self.unit end)
     button:HookScript('OnAttributeChanged', function(_, name, value)
         if name == 'unit' then
             self:SetUnit(value)
@@ -393,7 +392,12 @@ function Row:UpdateState()
     self:UpdateRange()
 end
 
+-- As Blizzard's group frames: no threat colours while solo.
 function Row:UpdateThreat()
+    if not IsInGroup() then
+        setThreat(self, nil)
+        return
+    end
     setThreat(self, AV.Read('UnitThreatSituation', UnitThreatSituation, self.unit))
 end
 
@@ -477,7 +481,8 @@ function Row:UpdateStatusIcon()
     if not kind and AV.Read('UnitHasIncomingResurrection', UnitHasIncomingResurrection, unit) then
         kind = 'resurrect'
     end
-    if not kind and AV.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil then
+    if not kind and AV.Read('UnitIsConnected', UnitIsConnected, unit)
+        and AV.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil then
         kind = 'phased'
     end
     self.indicators:SetStatus(kind)
@@ -620,6 +625,8 @@ function Row:UpdateRange()
                 showNear(self, inRange == true)
                 return
             end
+        elseif AV.CanAccess(checked) and not checked then
+            -- Unchecked: the secret result says nothing; fall through to CheckInteractDistance.
         elseif self.art.SetAlphaFromBoolean and showNearSecret(self, inRange) then
             AV.LogOnce('range:secret', 'range: UnitInRange is secret; dimming via SetAlphaFromBoolean')
             return

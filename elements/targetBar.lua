@@ -109,16 +109,7 @@ local function createClickArea(self, unit, rect, origin)
     button:SetAttribute('unit', unit)
     button:SetAttribute('type1', 'target')
     button:SetAttribute('type2', 'togglemenu')
-    button:HookScript('OnEnter', function()
-        if UnitExists(unit) then
-            GameTooltip_SetDefaultAnchor(GameTooltip, UIParent)
-            GameTooltip:SetUnit(unit)
-            GameTooltip:Show()
-        end
-    end)
-    button:HookScript('OnLeave', function()
-        GameTooltip:Hide()
-    end)
+    AV.AttachUnitTooltip(button, function() return unit end)
     if RegisterUnitWatch then
         RegisterUnitWatch(button)
     end
@@ -238,7 +229,7 @@ local function isLive(self)
 end
 
 -- Shows raid marker index, then the optional AFK/DND flag, before text, shifting the text right
--- while they show.
+-- while they show. textSpec.right truncates the text at that x.
 local function setMarkedName(text, textSpec, marker, markerSpec, index, flag, flagSpec, flagKind)
     local shift = AV.Indicators.SetRaidMarkerIcon(marker, index) and (markerSpec.size[1] + 3) or 0
     if flag and AV.Indicators.SetFlagIcon(flag, flagKind) then
@@ -247,6 +238,10 @@ local function setMarkedName(text, textSpec, marker, markerSpec, index, flag, fl
     end
     text:ClearAllPoints()
     text:SetPoint('TOPLEFT', marker:GetParent(), 'TOPLEFT', textSpec.pos[1] + shift, -textSpec.pos[2])
+    if textSpec.right then
+        text:SetWidth(textSpec.right - textSpec.pos[1] - shift)
+        text:SetWordWrap(false)
+    end
 end
 
 function Bar:UpdateRaidMarker()
@@ -442,7 +437,7 @@ function Bar:UpdateThreat()
         if ok then
             detailed = plainNumber(detailedStatus)
             display = plainNumber(rawPercent)
-            if isTanking == true then
+            if AV.CanAccess(isTanking) and isTanking == true then
                 display = plainNumber(AV.Read('UnitThreatPercentageOfLead', UnitThreatPercentageOfLead, 'player', unit))
             end
         end
@@ -523,6 +518,13 @@ function Bar:UpdateIdentity()
     self.leader:SetShown(leads == true)
 end
 
+function Bar:UpdateName()
+    if not isLive(self) then
+        return
+    end
+    pcall(self.name.SetText, self.name, AV.UnitDisplayName(self.unit))
+end
+
 function Bar:UpdateTier()
     if not isLive(self) then
         return
@@ -555,7 +557,7 @@ function Bar:Refresh()
     end
     self.content:Show()
 
-    pcall(self.name.SetText, self.name, AV.UnitDisplayName(unit))
+    self:UpdateName()
     self.colorKey = nil
     self:UpdateIdentity()
     self:UpdateIcon()

@@ -137,19 +137,26 @@ local function onUnitEvent(event, unit, arg3, arg4, arg5)
     elseif event == 'UNIT_NAME_UPDATE' or event == 'UNIT_LEVEL' then
         if row then row:UpdateName() end
         if pet then pet:UpdateName() end
-        if bar then bar:Refresh() end
+        if bar then
+            bar:UpdateName()
+            bar:UpdateLevel()
+        end
     elseif event == 'UNIT_TARGET' then
         if bar then bar:UpdateTargetOfTarget() end
     elseif event == 'UNIT_HEAL_PREDICTION' or event == 'UNIT_ABSORB_AMOUNT_CHANGED' then
         if row then row:UpdateHealPrediction() end
         if bar then bar:UpdateHealPrediction() end
     elseif event == 'UNIT_CONNECTION' then
-        if row then row:UpdateState() end
+        if row then
+            row:UpdateState()
+            row:UpdateStatusIcon()
+        end
     elseif event == 'UNIT_FLAGS' or event == 'PLAYER_FLAGS_CHANGED' then
         if row then
             row:UpdateFlags()
             row:UpdateState()
             row:UpdatePvP()
+            row:UpdateStatusIcon()
         end
         if bar then
             bar:UpdateIdentity()
@@ -242,6 +249,7 @@ end
 events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, arg3, arg4, arg5)
     if event == 'ADDON_LOADED' then
         if arg1 == addonName then
+            AV.BindLog()
             loadSettings()
             -- Secure frames cannot be created in combat (e.g. a /reload mid-fight).
             AV.RunOutOfCombat(initialize)

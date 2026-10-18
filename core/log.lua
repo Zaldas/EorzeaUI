@@ -115,6 +115,23 @@ function AV.PrintLog(count)
     AV.Print('%d entries; full text in WTF\\...\\SavedVariables\\AzerothVista.lua after /reload', #list)
 end
 
+-- Called on ADDON_LOADED: SavedVariables replace AzerothVistaLog, so entries logged before then
+-- went to a table that is never saved. Moves them into the saved log.
+function AV.BindLog()
+    local early = entries
+    entries = nil
+    indexByMessage = {}
+    local list = store()
+    if early and early ~= list then
+        for _, entry in ipairs(early) do
+            list[#list + 1] = entry
+        end
+        while #list > MAX_ENTRIES do
+            table.remove(list, 1)
+        end
+    end
+end
+
 function AV.ClearLog()
     local list = store()
     for i = #list, 1, -1 do

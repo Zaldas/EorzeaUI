@@ -84,6 +84,7 @@ UnitHealthPercent = function() return nil end
 UnitCastingInfo = function() return nil end
 UnitChannelInfo = function() return nil end
 IsInRaid = function() return false end
+IsInGroup = function() return true end
 UnitAffectingCombat = function() return false end
 IsResting = function() return true end
 UnitIsConnected = function() return true end
