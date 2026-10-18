@@ -53,6 +53,26 @@ function AV.AuraRow.StyleTimer(fontString, iconSize, fonts)
     fontString:SetTextColor(AV.Style.Color('#C8C8C8FF'))
 end
 
+-- PreserveAsset keeps our white edge texture; the engine tints it from colorMap by the aura's
+-- dispel type and hides it when the aura does not qualify.
+local function dispelOptions(kind, colors)
+    local colorMap = {}
+    for dispelType, hex in pairs(colors) do
+        colorMap[dispelType] = CreateColor(AV.Style.Color(hex))
+    end
+    local options = {
+        style = Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset,
+        showWhenHarmful = kind ~= 'stealable',
+        showWhenHelpful = kind == 'stealable',
+        customDispelColorMap = colorMap,
+    }
+    if kind == 'stealable' then
+        local filters = Enum.CustomAuraButtonDispelTypeStealableFilter
+        options.stealableFilter = filters and filters.Stealable
+    end
+    return options
+end
+
 local function makeInitializer(spec, fonts)
     local size = spec.size
     return function(button)
@@ -69,6 +89,18 @@ local function makeInitializer(spec, fonts)
         icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
         if button.SetIcon then
             button:SetIcon(icon)
+        end
+
+        -- Covers the plain edge and 1px beyond it, so the coloured edge reads at icon size.
+        if spec.dispelBorder and Enum.CustomAuraButtonDispelTypeTextureStyle then
+            local dispelBorder = button:CreateTexture(nil, 'BACKGROUND', nil, 1)
+            dispelBorder:SetPoint('TOPLEFT', -1, 1)
+            dispelBorder:SetPoint('BOTTOMRIGHT', 1, -1)
+            dispelBorder:SetColorTexture(1, 1, 1, 1)
+            local ok, err = pcall(button.AddDispelTypeTexture, button, dispelBorder, dispelOptions(spec.dispelBorder, spec.dispelColors))
+            if not ok then
+                AV.LogOnce('aura:dispel:' .. spec.dispelBorder, 'AddDispelTypeTexture (%s) failed: %s', spec.dispelBorder, tostring(err))
+            end
         end
 
         if spec.timers and button.SetDurationText then
@@ -88,7 +120,8 @@ local function makeInitializer(spec, fonts)
     end
 end
 
--- spec = { pos, size, spacing, max, timers, border = '#RRGGBBAA' edge colour }
+-- spec = { pos, size, spacing, max, timers, border = '#RRGGBBAA' edge colour,
+-- dispelBorder = 'dispel' | 'stealable' | nil, dispelColors = { [dispel type] = '#RRGGBBAA' } }
 -- filter: an aura filter, or a list of filters laid out one after another in the row, each
 -- showing up to spec.max auras.
 function AV.AuraRow.Create(parent, unit, filter, spec, fonts)

@@ -1,8 +1,8 @@
 local _, AV = ...
 
 -- Target bar: HP bar with heal prediction, raid marker and name coloured by unit kind and claim,
--- HP%, a class icon or portrait with the level badge, debuff/buff rows, target cast bar, and a
--- target-of-target mini bar.
+-- HP% and your threat, a class icon or portrait with the level badge, debuff/buff rows with
+-- dispel and stealable borders, target cast bar, and a target-of-target mini bar.
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- Not secure: it only displays, so it may show/hide in combat.
 
@@ -73,6 +73,8 @@ local function createIcon(parent, spec, fonts, frameLevel)
     TargetBar.pvp:SetSize(spec.pvp.size[1], spec.pvp.size[2])
     Style.Place(TargetBar.pvp, markers, spec.pvp.pos)
     TargetBar.pvp:Hide()
+    TargetBar.threat = Style.Image(markers, 'OVERLAY', spec.threat)
+    TargetBar.threat:Hide()
 end
 
 function TargetBar.Create(style, fonts)
@@ -102,6 +104,7 @@ function TargetBar.Create(style, fonts)
     Style.Place(TargetBar.marker, top, spec.raidMarker.pos)
     TargetBar.marker:Hide()
     TargetBar.hpp = Style.Text(top, spec.txtHpp, fonts)
+    TargetBar.threatText = Style.Text(top, spec.txtThreat, fonts)
     TargetBar.separator = createSeparator(top, spec.separator)
     createIcon(content, spec, fonts, top:GetFrameLevel() + 1)
     TargetBar.lowHealthCurve = AV.Curves.Step({ spec.lowHealth }, '#FFFFFFFF')
@@ -274,6 +277,51 @@ function TargetBar.UpdateIcon()
     setIcon('target', AV.Read('UnitIsPlayer', UnitIsPlayer, 'target') == true)
 end
 
+-- Returns a plain number, or nil when the value is missing or secret.
+local function plainNumber(value)
+    if type(value) == 'number' and AV.CanAccess(value) then
+        return value
+    end
+    return nil
+end
+
+-- Your threat on the target, as Blizzard's target frame shows it: the diamond while you have
+-- aggro or are about to, the percent whenever you have any threat. The main ticker calls this.
+function TargetBar.UpdateThreat()
+    if TargetBar.preview then
+        return
+    end
+    local status, display, detailed
+    if UnitExists('target') and not AV.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, 'target') then
+        status = plainNumber(AV.Read('UnitThreatSituation', UnitThreatSituation, 'player', 'target'))
+        local ok, isTanking, detailedStatus, _, rawPercent = pcall(UnitDetailedThreatSituation, 'player', 'target')
+        if ok then
+            detailed = plainNumber(detailedStatus)
+            display = plainNumber(rawPercent)
+            if isTanking == true then
+                display = plainNumber(AV.Read('UnitThreatPercentageOfLead', UnitThreatPercentageOfLead, 'player', 'target'))
+            end
+        end
+    end
+    if status and status > 0 then
+        TargetBar.threat:SetVertexColor(AV.Indicators.ThreatColor(status))
+        TargetBar.threat:Show()
+    else
+        TargetBar.threat:Hide()
+    end
+    if display and display > 0 then
+        TargetBar.threatText:SetFormattedText('%.0f%%', display)
+        if detailed and detailed > 0 then
+            TargetBar.threatText:SetTextColor(AV.Indicators.ThreatColor(detailed))
+        else
+            TargetBar.threatText:SetTextColor(Style.Color(TargetBar.spec.txtThreat.color))
+        end
+        TargetBar.threatText:Show()
+    else
+        TargetBar.threatText:Hide()
+    end
+end
+
 -- Name colour, NPC mode and PvP badge; claim and combat state change without a dedicated
 -- event, so the main ticker calls this too.
 function TargetBar.UpdateIdentity()
@@ -313,6 +361,7 @@ function TargetBar.Refresh()
         setLevel(level)
     end
     TargetBar.UpdateHealth(false)
+    TargetBar.UpdateThreat()
     TargetBar.debuffs:Refresh()
     TargetBar.buffs:Refresh()
     TargetBar.cast:EndFailure()
@@ -373,7 +422,8 @@ local function setLiveAurasShown(shown)
     end
 end
 
--- data = { name, level, classification, colorKey, pvp, raidMarker, portraitUnit, hpPercent, incoming, debuffs, buffs,
+-- data = { name, level, classification, colorKey, pvp, raidMarker, threat, threatPercent,
+-- portraitUnit, hpPercent, incoming, castNotInterruptible, debuffs, buffs,
 -- castName, castProgress, totName, totColorKey, totPercent }, or nil to restore live updates.
 function TargetBar.SetPreview(data)
     TargetBar.preview = data ~= nil
@@ -400,6 +450,11 @@ function TargetBar.SetPreview(data)
     setPvP(data.pvp)
     TargetBar.colorKey = nil
     TargetBar.hpp:SetText(string.format('%d%%', data.hpPercent))
+    TargetBar.threat:SetVertexColor(AV.Indicators.ThreatColor(data.threat))
+    TargetBar.threat:Show()
+    TargetBar.threatText:SetFormattedText('%.0f%%', data.threatPercent)
+    TargetBar.threatText:SetTextColor(AV.Indicators.ThreatColor(data.threat))
+    TargetBar.threatText:Show()
     setIcon(data.portraitUnit, false)
     TargetBar.portrait:SetDesaturated(false)
     TargetBar.portrait:SetVertexColor(1, 1, 1, 1)
@@ -417,5 +472,5 @@ function TargetBar.SetPreview(data)
     TargetBar.totName:SetText(data.totName)
     setMarkedName(TargetBar.totName, TargetBar.spec.tot.txtName, TargetBar.totMarker, TargetBar.spec.tot.raidMarker, nil)
     TargetBar.totName:SetTextColor(Style.Color(TargetBar.spec.nameColors[data.totColorKey]))
-    TargetBar.cast:SetPreview(data.castName, data.castProgress)
+    TargetBar.cast:SetPreview(data.castName, data.castProgress, data.castNotInterruptible)
 end

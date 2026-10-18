@@ -112,26 +112,13 @@ local function setName(self, name)
     end
 end
 
--- Blizzard's GetThreatStatusColor values for statuses 1-3, used when that function is absent.
-local THREAT_COLORS = { { 1, 1, 0.47 }, { 1, 0.6, 0 }, { 1, 0, 0 } }
-
 -- status: UnitThreatSituation result. 1 high threat, 2 tanking but not highest, 3 securely tanking.
 local function setThreat(self, status)
     if type(status) ~= 'number' or status < 1 then
         self.threat:Hide()
         return
     end
-    status = math.min(status, 3)
-    local r, g, b
-    if GetThreatStatusColor then
-        local ok, red, green, blue = pcall(GetThreatStatusColor, status)
-        if ok then
-            r, g, b = red, green, blue
-        end
-    end
-    if not r then
-        r, g, b = unpack(THREAT_COLORS[status])
-    end
+    local r, g, b = AV.Indicators.ThreatColor(status)
     self.threat:SetVertexColor(r, g, b, 1)
     self.threat:Show()
 end

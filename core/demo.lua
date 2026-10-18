@@ -23,6 +23,21 @@ local DEBUFFS = {
     { ICON .. 'Spell_Frost_FrostNova', '6' },
 }
 
+-- Target auras cover every edge the target rows draw: one debuff per dispel type plus an
+-- untyped one, and a stealable buff beside an ordinary one.
+local TARGET_DEBUFFS = {
+    { ICON .. 'Spell_Shadow_ShadowWordPain', '14', dispel = 'Magic' },
+    { ICON .. 'Spell_Shadow_CurseOfSargeras', '21', dispel = 'Curse' },
+    { ICON .. 'Ability_Poisons', '9', dispel = 'Poison' },
+    { ICON .. 'Spell_Shadow_CallofBone', '2m', dispel = 'Disease' },
+    { ICON .. 'Ability_Gouge', '6', dispel = 'Bleed' },
+    { ICON .. 'Ability_Warrior_Sunder', '24' },
+}
+local TARGET_BUFFS = {
+    { ICON .. 'Spell_Holy_PowerWordShield', '22', stealable = true },
+    { ICON .. 'Ability_Warrior_BattleShout', '1m' },
+}
+
 local function pick(list, count)
     local out = {}
     for i = 1, count do
@@ -69,9 +84,9 @@ end
 
 local function target()
     return {
-        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', raidMarker = 8, portraitUnit = 'player', hpPercent = 46,
-        debuffs = pick(DEBUFFS, 4), buffs = pick(BUFFS, 1),
-        castName = 'Fireball', castProgress = 0.6,
+        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', raidMarker = 8, threat = 3, threatPercent = 100, portraitUnit = 'player', hpPercent = 46,
+        debuffs = TARGET_DEBUFFS, buffs = TARGET_BUFFS,
+        castName = 'Fireball', castProgress = 0.6, castNotInterruptible = true,
         totName = AV.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,
     }
 end

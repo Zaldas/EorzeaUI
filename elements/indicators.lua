@@ -44,6 +44,21 @@ local PVP_ICONS = {
     Horde = { atlas = 'ui-hud-unitframe-player-pvp-hordeicon', path = 'Interface\\TargetingFrame\\UI-PVP-Horde' },
 }
 
+-- Blizzard's GetThreatStatusColor values for statuses 1-3, used when that function is absent.
+local THREAT_COLORS = { { 1, 1, 0.47 }, { 1, 0.6, 0 }, { 1, 0, 0 } }
+
+-- r, g, b for a plain threat status 1-3 (higher is clamped to 3).
+function AV.Indicators.ThreatColor(status)
+    status = math.min(status, 3)
+    if GetThreatStatusColor then
+        local ok, r, g, b = pcall(GetThreatStatusColor, status)
+        if ok and r then
+            return r, g, b
+        end
+    end
+    return unpack(THREAT_COLORS[status])
+end
+
 local function sizedTexture(parent, spec)
     local texture = parent:CreateTexture(nil, 'OVERLAY')
     texture:SetSize(spec.size[1], spec.size[2])

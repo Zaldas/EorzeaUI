@@ -7,7 +7,8 @@ AV.CastBar = {}
 local CastBar = {}
 CastBar.__index = CastBar
 
--- spec = { bar, txtName = { ..., width } }. unit may be nil until SetUnit.
+-- spec = { bar, txtName = { ..., width }, failure = { color, hold }, uninterruptible = { color } }.
+-- unit may be nil until SetUnit.
 -- onVisibility(shown), when set, is called whenever the bar shows or hides.
 function AV.CastBar.Create(parent, unit, spec, fonts, pos)
     local self = setmetatable({ unit = unit, spec = spec }, CastBar)
@@ -32,12 +33,45 @@ local function setVisible(self, shown)
     end
 end
 
-local function tryStart(self, durationFn, infoFn, remaining)
+-- notInterruptible is secret for other units' casts; EvaluateColorFromBoolean picks the colour
+-- engine-side.
+local function applyInterruptible(self, notInterruptible)
+    local spec = self.spec.uninterruptible
+    if not (spec and C_CurveUtil and C_CurveUtil.EvaluateColorFromBoolean) then
+        return
+    end
+    if type(notInterruptible) == 'nil' then
+        notInterruptible = false
+    end
+    local ok, color = pcall(C_CurveUtil.EvaluateColorFromBoolean, notInterruptible,
+        CreateColor(AV.Style.Color(spec.color)), CreateColor(AV.Style.Color(self.spec.bar.fill.color)))
+    if not ok or not color then
+        AV.LogOnce('cast:interruptible', 'EvaluateColorFromBoolean failed: %s', tostring(color))
+        return
+    end
+    local bar = self.bar
+    pcall(function()
+        local r, g, b, a = color:GetRGBA()
+        bar.status:SetStatusBarColor(r, g, b, a)
+        bar.bg:SetVertexColor(r, g, b, a)
+        bar.fg:SetVertexColor(r, g, b, a)
+    end)
+end
+
+local function resetColors(self)
+    local bar = self.bar
+    bar:SetFillColor(self.spec.bar.fill.color)
+    bar:SetFrameColor(self.spec.bar.bg.color)
+end
+
+-- interruptIndex: notInterruptible's position among infoFn's returns.
+local function tryStart(self, durationFn, infoFn, remaining, interruptIndex)
     if type(durationFn) ~= 'function' then
         return false
     end
     -- type() works on secret values; == nil comparisons may not.
-    local name = infoFn(self.unit)
+    local info = { infoFn(self.unit) }
+    local name = info[1]
     if type(name) == 'nil' then
         return false
     end
@@ -52,6 +86,7 @@ local function tryStart(self, durationFn, infoFn, remaining)
         return false
     end
     pcall(self.name.SetText, self.name, name)
+    applyInterruptible(self, info[interruptIndex])
     return true
 end
 
@@ -60,8 +95,8 @@ function CastBar:Update()
         return
     end
     local live = self.unit ~= nil and UnitExists(self.unit)
-        and (tryStart(self, UnitCastingDuration, UnitCastingInfo, false)
-            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true))
+        and (tryStart(self, UnitCastingDuration, UnitCastingInfo, false, 8)
+            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true, 7))
     -- A failure hold outlasts the STOP events that follow it; only a new cast ends it early.
     if self.failing then
         if not live then
@@ -79,6 +114,7 @@ function CastBar:ShowFailure(label)
         return
     end
     self.failing = true
+    resetColors(self)
     self.bar:SetRange(1)
     self.bar:SetValue(1)
     self.bar:SetFillColor(failure.color)
@@ -96,17 +132,20 @@ function CastBar:EndFailure()
         return
     end
     self.failing = nil
-    self.bar:SetFillColor(self.spec.bar.fill.color)
+    resetColors(self)
     setVisible(self, false)
 end
 
--- Demo: a static bar at progress (0..1) showing spellName; nil spellName restores live updates.
-function CastBar:SetPreview(spellName, progress)
+-- Demo: a static bar at progress (0..1) showing spellName, tinted as uninterruptible when
+-- notInterruptible; nil spellName restores live updates.
+function CastBar:SetPreview(spellName, progress, notInterruptible)
     self.preview = spellName ~= nil
+    resetColors(self)
     if self.preview then
         self.bar:SetRange(1)
         self.bar:SetValue(progress or 0.5)
         self.name:SetText(spellName)
+        applyInterruptible(self, notInterruptible == true)
         setVisible(self, true)
     else
         self:Update()

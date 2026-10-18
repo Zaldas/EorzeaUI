@@ -7,13 +7,14 @@ AV.StaticIcons = {}
 local StaticIcons = {}
 StaticIcons.__index = StaticIcons
 
--- spec = { pos, size, spacing, max, timers }
+-- spec = { pos, size, spacing, max, timers, border, dispelBorder, dispelColors } as in AuraRow.
 function AV.StaticIcons.Create(parent, spec, fonts)
     local self = setmetatable({ slots = {} }, StaticIcons)
     local frame = CreateFrame('Frame', nil, parent)
     frame:SetSize((spec.size + spec.spacing) * spec.max, spec.size)
     AV.Style.Place(frame, parent, spec.pos)
     self.frame = frame
+    self.spec = spec
 
     for i = 1, spec.max do
         local slot = CreateFrame('Frame', nil, frame)
@@ -22,6 +23,10 @@ function AV.StaticIcons.Create(parent, spec, fonts)
         local border = slot:CreateTexture(nil, 'BACKGROUND')
         border:SetAllPoints()
         border:SetColorTexture(AV.Style.Color(spec.border or '#000000D9'))
+        slot.dispelEdge = slot:CreateTexture(nil, 'BACKGROUND', nil, 1)
+        slot.dispelEdge:SetPoint('TOPLEFT', -1, 1)
+        slot.dispelEdge:SetPoint('BOTTOMRIGHT', 1, -1)
+        slot.dispelEdge:Hide()
         slot.icon = slot:CreateTexture(nil, 'ARTWORK')
         slot.icon:SetPoint('TOPLEFT', 1, -1)
         slot.icon:SetPoint('BOTTOMRIGHT', -1, 1)
@@ -36,13 +41,30 @@ function AV.StaticIcons.Create(parent, spec, fonts)
     return self
 end
 
--- icons = { { texture, timer }, ... }
+-- The edge colour a live AuraRow with the same spec would give entry, or nil.
+local function dispelColor(spec, entry)
+    local colors = spec.dispelColors
+    if not colors then
+        return nil
+    end
+    if spec.dispelBorder == 'stealable' then
+        return entry.stealable and colors.Magic or nil
+    end
+    return entry.dispel and colors[entry.dispel]
+end
+
+-- icons = { { texture, timer, dispel = dispel type name, stealable = bool }, ... }
 function StaticIcons:Set(icons)
     for i, slot in ipairs(self.slots) do
         local entry = icons and icons[i]
         if entry then
             slot.icon:SetTexture(entry[1])
             slot.timer:SetText(entry[2] or '')
+            local color = dispelColor(self.spec, entry)
+            if color then
+                slot.dispelEdge:SetColorTexture(AV.Style.Color(color))
+            end
+            slot.dispelEdge:SetShown(color ~= nil)
             slot:Show()
         else
             slot:Hide()

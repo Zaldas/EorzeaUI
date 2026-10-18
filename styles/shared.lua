@@ -11,6 +11,18 @@ Kit.STROKE_RED = '#3B0B0BC8'
 -- 1px edge around every aura icon (the icon is inset over this colour).
 Kit.AURA_BORDER = '#4A4A4AFF'
 
+-- Pastel takes on Blizzard's debuff-type colours, keyed by dispel type name. An aura with no
+-- dispel type keeps the plain edge.
+Kit.DISPEL_COLORS = {
+    Magic = '#7FBFFFFF',
+    Curse = '#C58CFFFF',
+    Poison = '#8CD98CFF',
+    Disease = '#D9B880FF',
+    Bleed = '#FF9597FF',
+}
+-- Stealable buffs (always Magic): lighter than the Magic debuff edge.
+Kit.STEALABLE_COLOR = '#BFE3FFFF'
+
 -- 128x64 party bar on a 256x128 texture; no slicing needed at uniform half scale.
 -- art: asset folder, e.g. 'ffxi'
 function Kit.rowBar(art, frameColor, fillColor)
@@ -142,20 +154,27 @@ function Kit.target(cast)
         levelBadge = Kit.levelBadge,
         -- Straddles the icon's left edge in its lower half, as on the party rows.
         pvp = { pos = { -49, 27 }, size = { 22, 22 } },
+        -- Your threat on the target: a diamond on the icon's top-right corner, tinted with
+        -- Blizzard's threat colours, and the percent under HP% (raw, or lead while tanking).
+        threat = { path = 'ffxi/Range', pos = { 3, 0 }, size = { 12, 12 } },
+        txtThreat = { pos = { 523, 38 }, size = 12, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         txtName = { pos = { 20, 15 }, size = 17, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE },
         -- Before the name, which shifts right while it shows; as on the party rows.
         raidMarker = { pos = { 20, 16 }, size = { 16, 16 } },
         healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
         txtHpp = { pos = { 523, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
-        debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER },
-        buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER },
+        -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
+        debuffs = { pos = { 15, 44 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'dispel', dispelColors = Kit.DISPEL_COLORS },
+        buffs = { pos = { 15, 82 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'stealable', dispelColors = { Magic = Kit.STEALABLE_COLOR } },
         cast = {
             pos = { 233, -15 },
             bar = Kit.wideBar(234, cast.frame, cast.fill),
             txtName = Kit.castName(cast.text),
             -- Interrupted or failed: the bar holds full in `color` for `hold` seconds.
             failure = { color = '#FF6666FF', hold = 1 },
+            -- Casts that cannot be interrupted tint the whole bar.
+            uninterruptible = { color = '#B4B4B4FF' },
         },
         attention = { path = 'ffxi/attention', pos = { 545, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
         tot = {
