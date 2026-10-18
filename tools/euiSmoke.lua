@@ -141,6 +141,9 @@ CHAT = {}
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) CHAT[#CHAT + 1] = msg end }
 SlashCmdList = {}
 ReloadUI = function() RELOADED = true end
+SOUNDKIT = { INTERFACE_SOUND_LOST_TARGET_UNIT = 684 }
+SOUNDS = {}
+PlaySound = function(kit) SOUNDS[#SOUNDS + 1] = kit end
 EorzeaUIDB = {
     style = STYLE,
     colors = { [STYLE] = { hp = '#123456FF', reaction = { hostile = '#654321FF' } }, other = { hp = '#ABCDEFFF' } },
@@ -458,6 +461,27 @@ for _, object in pairs(spied) do
         rawset(object, name, nil)
     end
 end
+
+-- Losing the target or focus plays Blizzard's sound once; a soft target change does not.
+SOUNDS = {}
+local unitExists = UnitExists
+onEvent(nil, 'PLAYER_TARGET_CHANGED')
+UnitExists = function(unit) return unit ~= 'target' end
+onEvent(nil, 'PLAYER_TARGET_CHANGED')
+onEvent(nil, 'PLAYER_TARGET_CHANGED')
+assert(#SOUNDS == 1 and SOUNDS[1] == 684, 'lost target sound: ' .. #SOUNDS)
+UnitExists = unitExists
+onEvent(nil, 'PLAYER_TARGET_CHANGED')
+IsTargetLoose = function() return true end
+UnitExists = function(unit) return unit ~= 'target' end
+onEvent(nil, 'PLAYER_TARGET_CHANGED')
+assert(#SOUNDS == 1, 'soft target change played the sound')
+UnitExists, IsTargetLoose = unitExists, nil
+onEvent(nil, 'PLAYER_FOCUS_CHANGED')
+UnitExists = function(unit) return unit ~= 'focus' end
+onEvent(nil, 'PLAYER_FOCUS_CHANGED')
+assert(#SOUNDS == 2, 'lost focus sound: ' .. #SOUNDS)
+UnitExists = unitExists
 
 -- Palettes: every colour the layout reads is set in each style.
 local REQUIRED = {

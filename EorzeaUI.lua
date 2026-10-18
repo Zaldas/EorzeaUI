@@ -227,6 +227,18 @@ local function onUnitEvent(route, event, unit, arg3, arg4, arg5)
     end
 end
 
+-- Blizzard plays this from the target and focus frames' OnHide, which never fires while they sit
+-- in the hidden parent. Soft target changes stay silent, as there.
+local hadUnit = {}
+local function checkUnitLost(unit)
+    local exists = UnitExists(unit) == true
+    if hadUnit[unit] and not exists and not (IsTargetLoose and IsTargetLoose())
+        and PlaySound and SOUNDKIT and SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT then
+        PlaySound(SOUNDKIT.INTERFACE_SOUND_LOST_TARGET_UNIT, nil, true)
+    end
+    hadUnit[unit] = exists
+end
+
 local function refreshRoster()
     EUI.PartyList.OnRosterChanged()
     EUI.PartyList.RefreshAll()
@@ -253,8 +265,11 @@ local GLOBAL_ROUTES = {
         refreshRoster()
         forEachBar('Refresh')
         EUI.playerCast:Update()
+        hadUnit.target = UnitExists('target') == true
+        hadUnit.focus = UnitExists('focus') == true
     end,
     PLAYER_TARGET_CHANGED = function()
+        checkUnitLost('target')
         EUI.TargetBar.target:Refresh()
         forEachRow('UpdateCursor')
     end,
@@ -262,6 +277,7 @@ local GLOBAL_ROUTES = {
         EUI.TargetBar.target:UpdateCombo()
     end,
     PLAYER_FOCUS_CHANGED = function()
+        checkUnitLost('focus')
         EUI.TargetBar.focus:Refresh()
     end,
     GROUP_ROSTER_UPDATE = refreshRoster,
