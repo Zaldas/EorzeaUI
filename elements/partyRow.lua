@@ -60,7 +60,6 @@ local function buildArt(self, host, style, fonts)
     iconFrame, self.classGradient, self.classIcon = UnitVisual.JobFrame(art, iconSpec.pos, iconSpec.size, iconSpec.size / 8, iconSpec)
     iconFrame:SetFrameLevel(self.power.overlay:GetFrameLevel() + 1)
     self.classIcon:SetTexture(CLASS_ICONS)
-    self.iconFrame = iconFrame
 
     -- Row-relative text and markers, drawn above both bars.
     local top = CreateFrame('Frame', nil, art)

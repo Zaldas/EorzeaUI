@@ -76,7 +76,6 @@ local function createFormDriver()
     driver:SetFrameRef('player', rows[1].button)
     driver:SetAttribute('_onstate-druidform', FORM_SNIPPET)
     RegisterStateDriver(driver, 'druidform', EUI.Druid.CONDITION)
-    PartyList.formDriver = driver
 end
 
 -- The pet sub-row: a secure unit button at the bottom of the owner's button. It starts hidden
@@ -407,12 +406,6 @@ function PartyList.OnReadyCheck(event)
     end
     PartyList.ForEachVisibleRow(function(row)
         row:UpdateReadyCheck(readyPhase)
-    end)
-end
-
-function PartyList.UpdateStatusIcons()
-    PartyList.ForEachVisibleRow(function(row)
-        row:UpdateStatusIcon()
     end)
 end
 

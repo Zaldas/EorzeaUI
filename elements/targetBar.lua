@@ -70,7 +70,6 @@ local function createClickArea(self, unit, rect, origin)
     if RegisterUnitWatch then
         RegisterUnitWatch(button)
     end
-    return button
 end
 
 -- Builds a bar on anchor, sized spec.width x spec.height by the caller. unit (e.g. 'target')
@@ -145,8 +144,8 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.totMarker:Hide()
 
     if unit then
-        self.clickUnit = createClickArea(self, unit, spec.click, { 0, 0 })
-        self.clickTot = createClickArea(self, self.totUnit, spec.tot.click, spec.tot.pos)
+        createClickArea(self, unit, spec.click, { 0, 0 })
+        createClickArea(self, self.totUnit, spec.tot.click, spec.tot.pos)
         bars[unit] = self
         self:Refresh()
     else
