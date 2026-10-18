@@ -40,9 +40,14 @@ local function setVisible(self, shown)
     end
 end
 
--- The bar's colour for the current spell: channelColor while channeling, else the bar's own.
+-- The bar's fill and frame colours for the current spell: channelColor while channeling, else
+-- the bar's own.
 local function baseColor(self)
     return self.channeling and self.spec.channelColor or self.spec.bar.fill.color
+end
+
+local function baseFrameColor(self)
+    return self.channeling and self.spec.channelColor or self.spec.bar.bg.color
 end
 
 -- notInterruptible is secret for other units' casts; EvaluateColorFromBoolean picks the colour
@@ -61,26 +66,26 @@ local function applyInterruptible(self, notInterruptible)
     if not (spec and C_CurveUtil and C_CurveUtil.EvaluateColorFromBoolean) then
         return
     end
-    local ok, color = pcall(C_CurveUtil.EvaluateColorFromBoolean, notInterruptible,
-        CreateColor(EUI.Style.Color(spec.color)), CreateColor(EUI.Style.Color(baseColor(self))))
-    if not ok or not color then
-        EUI.LogOnce('cast:interruptible', 'EvaluateColorFromBoolean failed: %s', tostring(color))
+    local tint = CreateColor(EUI.Style.Color(spec.color))
+    local ok, fill = pcall(C_CurveUtil.EvaluateColorFromBoolean, notInterruptible, tint, CreateColor(EUI.Style.Color(baseColor(self))))
+    local frameOk, frame = pcall(C_CurveUtil.EvaluateColorFromBoolean, notInterruptible, tint,
+        CreateColor(EUI.Style.Color(baseFrameColor(self))))
+    if not (ok and fill and frameOk and frame) then
+        EUI.LogOnce('cast:interruptible', 'EvaluateColorFromBoolean failed: %s', tostring(ok and frame or fill))
         return
     end
     local bar = self.bar
     pcall(function()
-        local r, g, b, a = color:GetRGBA()
-        bar.status:SetStatusBarColor(r, g, b, a)
-        bar.bg:SetVertexColor(r, g, b, a)
-        bar.fg:SetVertexColor(r, g, b, a)
+        bar.status:SetStatusBarColor(fill:GetRGBA())
+        bar.bg:SetVertexColor(frame:GetRGBA())
+        bar.fg:SetVertexColor(frame:GetRGBA())
     end)
 end
 
 local function resetColors(self)
     local bar = self.bar
-    local channel = self.channeling and self.spec.channelColor
-    bar:SetFillColor(channel or self.spec.bar.fill.color)
-    bar:SetFrameColor(channel or self.spec.bar.bg.color)
+    bar:SetFillColor(baseColor(self))
+    bar:SetFrameColor(baseFrameColor(self))
     if self.lock then
         self.lock:SetAlpha(0)
     end
@@ -179,18 +184,21 @@ function CastBar:EndFailure()
 end
 
 -- Demo: a static bar at progress (0..1) showing spellName, tinted as uninterruptible when
--- notInterruptible and as a channel when channel; nil spellName restores live updates.
+-- notInterruptible and as a channel when channel. false keeps the preview with the bar hidden;
+-- nil restores live updates.
 function CastBar:SetPreview(spellName, progress, notInterruptible, channel)
     self:EndFailure()
     self.preview = spellName ~= nil
     self.channeling = self.preview and channel == true
     resetColors(self)
-    if self.preview then
+    if spellName then
         self.bar:SetRange(1)
         self.bar:SetValue(progress or 0.5)
         self.name:SetText(spellName)
         applyInterruptible(self, notInterruptible == true)
         setVisible(self, true)
+    elseif self.preview then
+        setVisible(self, false)
     else
         self:Update()
     end

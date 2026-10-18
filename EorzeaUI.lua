@@ -298,7 +298,11 @@ local GLOBAL_ROUTES = {
         checkUnitLost('focus')
         EUI.TargetBar.focus:Refresh()
     end,
-    GROUP_ROSTER_UPDATE = refreshRoster,
+    -- CompactPartyFrame is created when raid-style party frames are first needed.
+    GROUP_ROSTER_UPDATE = function()
+        EUI.Blizzard.HideReplaced()
+        refreshRoster()
+    end,
     PARTY_LEADER_CHANGED = function()
         EUI.PartyList.ForEachVisibleRow(function(row)
             row:UpdateLeader()
@@ -405,6 +409,10 @@ end))
 SLASH_EORZEAUI1 = '/eui'
 SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
     msg = (msg or ''):lower()
+    if not EUI.ready and not msg:match('^log') then
+        EUI.Print('not set up yet; /eui log shows why')
+        return
+    end
     if msg == 'unlock' then
         EUI.EditMode.SetUnlocked(true)
     elseif msg == 'lock' then

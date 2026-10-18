@@ -28,7 +28,3 @@ function EUI.FlushOutOfCombat()
         EUI.Guard('deferred job', fn)()
     end
 end
-
-function EUI.Print(fmt, ...)
-    print(string.format('|cff7fd4ffEorzeaUI|r ' .. fmt, ...))
-end

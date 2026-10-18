@@ -48,9 +48,9 @@ local vanadiel = {
 }
 
 -- Blizzard's default colours, as the Forever client reports them: PowerBarColor,
--- UnitSelectionColor, DEBUFF_TYPE_*_COLOR and NORMAL_FONT_COLOR names; heals is
--- MyHealPrediction, combo COMBO_POINTS. Cast bar colours are
--- the average shade of Forever's ui-castingbar-* atlases.
+-- UnitSelectionColor, DEBUFF_TYPE_*_COLOR and NORMAL_FONT_COLOR names. heals colours everyone's
+-- incoming heals in MyHealPrediction's colour; combo is COMBO_POINTS. Cast bar colours are the
+-- average shade of Forever's ui-castingbar-* atlases.
 local azeroth = {
     stroke = '#000000C8',
     strokeAlt = '#000000C8',

@@ -36,28 +36,25 @@ function Curves.Step(thresholds, defaultColor)
     return built and curve or nil
 end
 
-function Curves.ApplyHealthColor(fontString, unit, curve)
+-- Evaluates curve on unit's health and passes the colour to region[setter].
+local function applyCurve(region, setter, unit, curve)
     if not curve then
         return
     end
     local ok, color = pcall(UnitHealthPercent, unit, true, curve)
     if not ok then
-        EUI.LogOnce('curve:text', 'UnitHealthPercent colour failed: %s', tostring(color))
+        EUI.LogOnce('curve:' .. setter, 'UnitHealthPercent for %s failed: %s', setter, tostring(color))
     elseif color and color.GetRGBA then
-        pcall(function() fontString:SetTextColor(color:GetRGBA()) end)
+        pcall(region[setter], region, color:GetRGBA())
     end
 end
 
+function Curves.ApplyHealthColor(fontString, unit, curve)
+    applyCurve(fontString, 'SetTextColor', unit, curve)
+end
+
 function Curves.ApplyHealthTint(texture, unit, curve)
-    if not curve then
-        return
-    end
-    local ok, color = pcall(UnitHealthPercent, unit, true, curve)
-    if not ok then
-        EUI.LogOnce('curve:tint', 'UnitHealthPercent tint failed: %s', tostring(color))
-    elseif color and color.GetRGBA then
-        pcall(function() texture:SetVertexColor(color:GetRGBA()) end)
-    end
+    applyCurve(texture, 'SetVertexColor', unit, curve)
 end
 
 function Curves.SetHealthPercentText(fontString, unit)

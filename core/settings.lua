@@ -29,10 +29,11 @@ local function copy(value)
 end
 Settings.Copy = copy
 
--- Fills keys missing from saved with defaults, recursing into tables both have.
+-- Fills keys missing from saved with defaults, recursing into tables both have. A saved value
+-- of another type than its default is replaced.
 local function fill(saved, defaults)
     for key, value in pairs(defaults) do
-        if saved[key] == nil then
+        if saved[key] == nil or type(saved[key]) ~= type(value) then
             saved[key] = copy(value)
         elseif type(value) == 'table' and type(saved[key]) == 'table' then
             fill(saved[key], value)

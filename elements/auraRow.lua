@@ -160,8 +160,11 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
         EUI.Print('AuraContainer unavailable (%s)', tostring(container))
         return self
     end
-    local lineWidth = EUI.AuraRow.LineWidth(spec)
-    container:SetSize(lineWidth or (spec.size + spec.spacing) * spec.max * #filters, spec.size)
+    local count = 0
+    for _, groupFilter in ipairs(filters) do
+        count = count + EUI.AuraRow.GroupSpec(spec, groupFilter).max
+    end
+    container:SetSize(EUI.AuraRow.LineWidth(spec) or (spec.size + spec.spacing) * count, spec.size)
     EUI.Style.Place(container, parent, spec.pos)
 
     local sortMethod = AuraContainerSortMethod and (AuraContainerSortMethod.Expiration or AuraContainerSortMethod.ExpirationOnly) or 4

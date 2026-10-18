@@ -45,8 +45,11 @@ function EUI.SetNumberText(fontString, value)
         fontString:SetText('')
         return
     end
-    if BreakUpLargeNumbers and pcall(function() fontString:SetText(BreakUpLargeNumbers(value)) end) then
-        return
+    if BreakUpLargeNumbers then
+        local ok, text = pcall(BreakUpLargeNumbers, value)
+        if ok and pcall(fontString.SetText, fontString, text) then
+            return
+        end
     end
     if not pcall(fontString.SetFormattedText, fontString, '%d', value) then
         fontString:SetText('')

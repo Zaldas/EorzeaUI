@@ -100,6 +100,9 @@ function Kit.partyIndicators(p, nameX, nameY)
     }
 end
 
+-- Blizzard's frames tint the portrait red at 20% health or below.
+Kit.LOW_HEALTH = { below = 0.2, color = '#FF0000FF' }
+
 Kit.HP_THRESHOLDS = {
     { below = 0.25, color = '#FC8182FF' },
     { below = 0.50, color = '#F8BA80FF' },
@@ -122,29 +125,34 @@ end
 
 -- p: the palette (styles/palettes.lua); castText as in Kit.castName.
 -- size = { bar, icon, name, hpp, cast, tot, totName, height, perLine, debuffs, buffs, label,
---         castHidesName }: widths of the HP, cast and mini bars, the icon's side, text sizes, the
--- anchor height, the aura row's line length and maxes, an optional header label, and whether the
--- name line hides while the unit casts. Everything else is placed from these.
+--         castHidesName, combo }: widths of the HP, cast and mini bars, the icon's side, text
+-- sizes, the anchor height, the aura row's line length and maxes, an optional header label,
+-- whether the name line hides while the unit casts, and whether combo points show. Everything
+-- else is placed from these.
 function Kit.target(p, castText, size)
     local barWidth, iconSize = size.bar, size.icon
     -- The icon is centred on y 28 (the name's top to the bar line's bottom), its right edge 5px
     -- before the fill.
     local iconX, iconY = 8 - iconSize, 28 - iconSize / 2
-    local nameY = 32 - size.name
+    local nameX, nameY, nameRight = 20, 32 - size.name, barWidth - 64
+    -- The aura row's top; the click areas end there.
+    local aurasY = 44
     local totX = barWidth + 23
+    local bar = Kit.wideBar(barWidth, p.hp, p.hp)
     return {
         width = totX + size.tot,
         height = size.height,
-        bar = Kit.wideBar(barWidth, p.hp, p.hp),
-        -- Keyed by the unit's reaction as Blizzard's target frame tracks it (targetBar.lua
-        -- reactionKey). They tint the separator and nameBg; the name too unless nameColor is set.
+        bar = bar,
+        -- Keyed by the unit's reaction as Blizzard's target frame tracks it
+        -- (UnitInfo.ReactionKey). They tint the separator and nameBg; the name too unless
+        -- nameColor is set.
         reactionColors = p.reaction,
         nameColor = p.targetName,
         -- From under the icon, the icon art's height, fading like the separator to pad past the
         -- name's end (width is the cap). color, when set, replaces the reaction tint.
         nameBg = p.nameBg and {
             pos = { iconX + iconSize / 8, iconY + iconSize / 8 },
-            width = barWidth - 64 - iconX - iconSize / 8,
+            width = nameRight - iconX - iconSize / 8,
             height = iconSize * 3 / 4,
             pad = 0,
             fadeMin = 40,
@@ -152,10 +160,10 @@ function Kit.target(p, castText, size)
             alpha = p.nameBg.alpha,
             leftAlpha = p.nameBg.leftAlpha,
         } or nil,
-        -- Non-attackable NPCs: this line replaces the HP bar, over its fill area (x 13..width-13)
-        -- at the line's centre, in the name colour at `alpha` mid-line, fading to `leftAlpha`
-        -- at the icon end and to 0 at the right.
-        separator = { pos = { 13, 31 }, width = barWidth - 26, height = 2, alpha = 0.6, leftAlpha = 0.4 },
+        -- Non-attackable NPCs: this line replaces the HP bar, over its fill area at the line's
+        -- centre, in the reaction colour at `alpha` mid-line, fading to `leftAlpha` at the icon
+        -- end and to 0 at the right.
+        separator = { pos = { bar.fill.x, 31 }, width = bar.fill.width, height = 2, alpha = 0.6, leftAlpha = 0.4 },
         -- Class icon for players, portrait for NPCs, in the party job frame. inset keeps the
         -- party's 5px-at-40 ratio.
         icon = {
@@ -193,25 +201,25 @@ function Kit.target(p, castText, size)
         leader = { pos = { iconX + iconSize / 2 - 8, iconY - 8 }, size = { 16, 16 } },
         -- Secure click area: left-click targets, right-click opens the unit menu, hover shows the
         -- tooltip. Spans the icon and bar from the icon's top to the aura row's top.
-        click = { pos = { iconX, iconY }, size = { barWidth - iconX, 44 - iconY } },
+        click = { pos = { iconX, iconY }, size = { barWidth - iconX, aurasY - iconY } },
         -- Your threat on the unit: a diamond on the icon's bottom-right corner, right of the
         -- level badge, tinted with Blizzard's threat colours, and the percent under HP% (raw, or
         -- lead while tanking).
         threat = { path = 'pips/diamondFill-16', pos = { 1.5, iconY + iconSize - 8.5 }, size = { 15, 15 } },
         txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
-        lowHealth = { below = 0.2, color = '#FF0000FF' },
+        lowHealth = Kit.LOW_HEALTH,
         -- right: the name truncates there, clear of the HP% text.
-        txtName = { pos = { 20, nameY }, size = size.name, color = p.targetText, stroke = p.stroke, right = barWidth - 64 },
+        txtName = { pos = { nameX, nameY }, size = size.name, color = p.targetText, stroke = p.stroke, right = nameRight },
         -- Before the name, which shifts right while it shows; as on the party rows.
-        raidMarker = { pos = { 20, nameY + 1 }, size = { 16, 16 } },
+        raidMarker = { pos = { nameX, nameY + 1 }, size = { 16, 16 } },
         -- AFK/DND on players, after any raid marker.
-        flag = { pos = { 20, nameY + 1 }, size = { 38, 15 } },
+        flag = { pos = { nameX, nameY + 1 }, size = { 38, 15 } },
         healPrediction = { color = p.heals, absorbColor = p.absorbs },
         txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
         auras = {
-            pos = { 25, 44 }, size = 22, spacing = 3, perLine = size.perLine, lineSpacing = 16, timers = true, border = Kit.AURA_BORDER,
+            pos = { 25, aurasY }, size = 22, spacing = 3, perLine = size.perLine, lineSpacing = 16, timers = true, border = Kit.AURA_BORDER,
             groups = {
                 HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = p.dispel },
                 HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
@@ -249,16 +257,17 @@ function Kit.target(p, castText, size)
             bar = Kit.wideBar(size.tot, p.hp, p.hp),
             txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = p.targetText, stroke = p.strokeAlt, right = size.tot - 14 },
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
-            click = { pos = { 0, 10 }, size = { size.tot, 34 } },
+            click = { pos = { 0, 10 }, size = { size.tot, aurasY - 10 } },
         },
     }
 end
 
 function Kit.castBar(p, castText)
+    local width = 467
     return {
-        width = 467,
+        width = width,
         height = 64,
-        bar = Kit.wideBar(467, p.cast, p.cast),
+        bar = Kit.wideBar(width, p.cast, p.cast),
         channelColor = p.channel,
         txtName = Kit.castName(castText),
     }

@@ -17,7 +17,9 @@ end
 local function store()
     if not entries then
         EorzeaUILog = type(EorzeaUILog) == 'table' and EorzeaUILog or {}
-        EorzeaUILog.entries = EorzeaUILog.entries or {}
+        if type(EorzeaUILog.entries) ~= 'table' then
+            EorzeaUILog.entries = {}
+        end
         entries = EorzeaUILog.entries
     end
     return entries
@@ -110,6 +112,10 @@ function EUI.LogSession()
     local addonVersion = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, 'Version')
     EUI.Log('session: client %s (%s) interface %s, EorzeaUI %s, style %s',
         tostring(version), tostring(build), tostring(interface), tostring(addonVersion), tostring(EUI.Settings.Get('style')))
+end
+
+function EUI.Print(fmt, ...)
+    print(string.format('|cff7fd4ffEorzeaUI|r ' .. fmt, ...))
 end
 
 -- Prints the newest `count` entries to chat.

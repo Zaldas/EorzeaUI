@@ -59,6 +59,9 @@ function EUI.Blizzard.HideReplaced()
     end
     -- Stops its cast event handling, which would otherwise keep showing it.
     if PlayerCastingBarFrame and PlayerCastingBarFrame.SetUnit then
-        pcall(PlayerCastingBarFrame.SetUnit, PlayerCastingBarFrame, nil)
+        local ok, err = pcall(PlayerCastingBarFrame.SetUnit, PlayerCastingBarFrame, nil)
+        if not ok then
+            EUI.LogOnce('hide:castbar', 'PlayerCastingBarFrame:SetUnit failed: %s', tostring(err))
+        end
     end
 end

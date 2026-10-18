@@ -107,6 +107,10 @@ function EditMode.Register(key, frame, label, bounds)
     end))
     mover:SetScript('OnDragStop', EUI.Guard('drag stop', function()
         frame:StopMovingOrSizing()
+        -- Positions live in EorzeaUIDB; the client's layout cache would override them at login.
+        if frame.SetUserPlaced then
+            pcall(frame.SetUserPlaced, frame, false)
+        end
         savePosition(key, frame)
     end))
 

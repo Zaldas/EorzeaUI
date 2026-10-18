@@ -1,7 +1,7 @@
 local _, EUI = ...
 
 -- Visuals for a party row's pet sub-row: portrait, HP and power. The player's own pet adds
--- hunter happiness, a cast bar over the power bar and an aura row. The party list builds the
+-- hunter happiness, a cast bar on the name line and an aura row. The party list builds the
 -- secure button that carries the pet unit; this only draws on it and follows unit changes.
 
 EUI.PetRow = {}
@@ -69,10 +69,11 @@ local function buildArt(self, host, spec, fonts)
     self.auraLayer:Hide()
 end
 
--- button: the secure pet button. owner: the party row it belongs to.
-function EUI.PetRow.Attach(button, owner, partyStyle, fonts)
+-- button: the secure pet button. owner: the party row it belongs to. hooks = { unitChanged(pet,
+-- previous, unit), heightChanged() }: the party list's callbacks.
+function EUI.PetRow.Attach(button, owner, partyStyle, fonts, hooks)
     local spec = partyStyle.pet
-    local self = setmetatable({ button = button, owner = owner, spec = spec, partyStyle = partyStyle }, Pet)
+    local self = setmetatable({ button = button, owner = owner, spec = spec, partyStyle = partyStyle, hooks = hooks }, Pet)
     buildArt(self, button, spec, fonts)
 
     -- Created at login (out of combat) with the button's initial unit.
@@ -80,12 +81,8 @@ function EUI.PetRow.Attach(button, owner, partyStyle, fonts)
 
     UnitVisual.AttachButton(self, button)
     -- The secure show/hide handlers have resized the owner's row by the time these run.
-    button:HookScript('OnShow', function()
-        EUI.PartyList.UpdateBackground()
-    end)
-    button:HookScript('OnHide', function()
-        EUI.PartyList.UpdateBackground()
-    end)
+    button:HookScript('OnShow', hooks.heightChanged)
+    button:HookScript('OnHide', hooks.heightChanged)
 
     self:SetUnit(button:GetAttribute('unit'))
     return self
@@ -108,7 +105,7 @@ function EUI.PetRow.CreateDemo(parent, owner, partyStyle, fonts)
 end
 
 -- The job frame's gradient takes the owner's class colour.
-local function matchOwnerGradient(self)
+function Pet:UpdateGradient()
     self.gradient:SetVertexColor(self.owner.classGradient:GetVertexColor())
 end
 
@@ -131,7 +128,7 @@ function Pet:ShowDemo(pet)
     if not pet then
         return
     end
-    matchOwnerGradient(self)
+    self:UpdateGradient()
     self.name:SetText(pet.name)
     self.portrait:SetTexture(pet.icon)
     self.portrait:SetTexCoord(ICON_INSET, 1 - ICON_INSET, ICON_INSET, 1 - ICON_INSET)
@@ -159,7 +156,7 @@ function Pet:SetUnit(unit)
     local previous = self.unit
     self.unit = unit
     self.isOwn = unit == 'pet'
-    EUI.PartyList.OnPetUnitChanged(self, previous, unit)
+    self.hooks.unitChanged(self, previous, unit)
     self.cast:SetUnit(self.isOwn and unit or nil)
     self.auraLayer:SetShown(self.isOwn)
     if unit then
@@ -172,7 +169,7 @@ function Pet:Refresh()
     if not self.unit or not UnitExists(self.unit) then
         return
     end
-    matchOwnerGradient(self)
+    self:UpdateGradient()
     self:UpdateName()
     self:UpdatePortrait()
     self:UpdateHealth(false)

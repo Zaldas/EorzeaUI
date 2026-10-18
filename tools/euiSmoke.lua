@@ -302,7 +302,7 @@ end
 assert(driver, 'druid driver missing')
 local driverHandle = handle(driver)
 local owner2Handle = handle(owner2)
-driverHandle.refs = { row1 = ownerHandle, row2 = owner2Handle }
+driverHandle.refs = { player = ownerHandle }
 owner1:SetAttribute('eui-player', true)
 owner2:SetAttribute('eui-player', false)
 driver:SetAttribute('rowCount', 2)
@@ -624,6 +624,56 @@ do
     EUI.ClearLog()
 end
 
+-- Party row states: offline greys both bars full; reconnecting restores them.
+do
+    local row = EUI.PartyList.RowForUnit('party1')
+    local unitIsConnected = UnitIsConnected
+    UnitIsConnected = function(unit) return unit ~= 'party1' end
+    onEvent(nil, 'UNIT_CONNECTION', 'party1')
+    assert(row.state == 'offline' and row.greyed and row.power.tintKey == 'offline', 'offline state not applied')
+    UnitIsConnected = unitIsConnected
+    onEvent(nil, 'UNIT_CONNECTION', 'party1')
+    assert(row.state == nil and not row.greyed and row.power.tintKey ~= 'offline', 'online state not restored')
+end
+
+-- Ready check: a result stays with the member who gave it, not a renumbered token.
+do
+    local row = EUI.PartyList.RowForUnit('party1')
+    local unitGUID = UnitGUID
+    row:UpdateReadyCheck('active')
+    UnitGUID = function(unit) return unit == 'party1' and 'GUID-someone-else' or unitGUID(unit) end
+    row:UpdateReadyCheck('finished')
+    assert(row.readyStatus == nil, 'ready check result kept for a renumbered member')
+    UnitGUID = unitGUID
+    row:UpdateReadyCheck('active')
+    row:UpdateReadyCheck('finished')
+    assert(row.readyStatus == 'notready', 'waiting member not marked not ready')
+    row:UpdateReadyCheck(nil)
+end
+
+-- Settings: a saved value of the wrong type takes its default.
+EorzeaUIDB.scale = 'big'
+Settings.Load()
+assert(Settings.Get('scale') == 1, 'mistyped setting not repaired')
+
+-- Secrets: a value canaccessvalue rejects is logged by EUI.Read, never compared, and names
+-- holding one pass through as-is.
+do
+    local SECRET = setmetatable({}, { __eq = function() error('compared a secret') end, __lt = function() error('compared a secret') end })
+    canaccessvalue = function(value) return rawequal(value, SECRET) == false end
+    assert(EUI.Read('smokeSecret', function() return SECRET end) == nil, 'secret returned by EUI.Read')
+    local logged = false
+    for _, entry in ipairs(EorzeaUILog.entries) do
+        if entry.msg:find('smokeSecret returned a secret', 1, true) then logged = true end
+    end
+    assert(logged, 'secret read not logged')
+    local unitName = UnitName
+    UnitName = function() return SECRET, SECRET end
+    assert(rawequal(EUI.UnitDisplayName('player'), SECRET), 'secret name not passed through')
+    UnitName = unitName
+    canaccessvalue = nil
+end
+
 -- Palettes: every colour the layout reads is set in each style.
 local REQUIRED = {
     'party.hp.bar.fill.color', 'party.hp.offlineColor', 'party.power.bar.fill.color', 'party.power.colors',
@@ -632,6 +682,8 @@ local REQUIRED = {
     'target.reactionColors', 'target.txtHpp.color', 'target.txtHpp.stroke', 'target.cast.failure.color',
     'target.cast.uninterruptible.color', 'target.comboPoints.color', 'target.healPrediction.color',
     'target.auras.groups.HARMFUL.dispelColors', 'focus.header.txtLabel.color', 'castBar.bar.fill.color',
+    'target.auras.groups.HELPFUL.dispelColors.Magic', 'target.cast.bar.fill.color', 'target.txtThreat.color',
+    'target.tot.txtName.stroke', 'party.hp.thresholds',
 }
 local REACTIONS = { 'party', 'partyPvP', 'player', 'hostilePlayer', 'friendly', 'neutral', 'unfriendly', 'hostile', 'tapped' }
 for _, name in ipairs({ 'vanadiel', 'azeroth' }) do
@@ -655,7 +707,13 @@ local RAID_GROUPS = { 1, 2, 2, 1, 2, 2 }
 GetRaidRosterInfo = function(i) return 'm' .. i, 0, RAID_GROUPS[i] end
 UnitInRaid = function(unit) return unit == 'player' and 3 or nil end
 UnitGUID = function(u) return u == 'raid3' and 'GUID-player' or 'GUID-' .. tostring(u) end
+-- In combat the reassignment waits for PLAYER_REGEN_ENABLED.
+InCombatLockdown = function() return true end
+onEvent(nil, 'PLAYER_REGEN_DISABLED')
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
+assert(_G.EorzeaUIPartyButton2:GetAttribute('unit') == 'party1', 'rows reassigned in combat')
+InCombatLockdown = function() return false end
+onEvent(nil, 'PLAYER_REGEN_ENABLED')
 local raidUnits = {}
 for i = 1, 5 do
     raidUnits[i] = tostring(_G['EorzeaUIPartyButton' .. i]:GetAttribute('unit'))

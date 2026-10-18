@@ -144,6 +144,10 @@ end
 -- state: 'dead' | 'ghost' | 'offline' | nil. Returns true when a label replaced the HP value.
 -- maxHealth fills the bar while offline; it may be secret.
 local function applyState(self, state, maxHealth)
+    -- The health curve recolours the text afterwards; without one it keeps this colour.
+    if self.state and not state then
+        self.hpText:SetTextColor(Style.Color(self.style.hp.textColor))
+    end
     self.state = state
     greyHealth(self, state == 'offline')
     self.classIcon:SetDesaturated(state ~= nil)
@@ -160,8 +164,9 @@ local function applyState(self, state, maxHealth)
     return true
 end
 
-function EUI.PartyRow.Attach(button, style, fonts)
-    local self = setmetatable({ button = button, style = style }, Row)
+-- hooks = { unitChanged(row, previous, unit), readyCheckPhase() }: the party list's callbacks.
+function EUI.PartyRow.Attach(button, style, fonts, hooks)
+    local self = setmetatable({ button = button, style = style, hooks = hooks }, Row)
     buildArt(self, button, style, fonts)
     local art = self.art
 
@@ -176,12 +181,11 @@ function EUI.PartyRow.Attach(button, style, fonts)
     return self
 end
 
--- A non-secure row showing fixed sample data. index is the 1-based row position.
-function EUI.PartyRow.CreateDemo(parent, style, fonts, index)
+-- A non-secure row showing fixed sample data; PartyList.StackDemoRows places it.
+function EUI.PartyRow.CreateDemo(parent, style, fonts)
     local self = setmetatable({ style = style }, Row)
     local host = CreateFrame('Frame', nil, parent)
     host:SetSize(style.width, style.rowHeight)
-    host:SetPoint('TOPLEFT', parent, 'TOPLEFT', 0, -(index - 1) * (style.rowHeight + style.rowSpacing))
     self.host = host
     buildArt(self, host, style, fonts)
     self.buffs = EUI.StaticIcons.Create(self.art, style.buffs, fonts)
@@ -290,7 +294,7 @@ function Row:SetUnit(unit)
     local previous = self.unit
     self.unit = unit
     self.readyStatus = nil
-    EUI.PartyList.OnRowUnitChanged(self, previous, unit)
+    self.hooks.unitChanged(self, previous, unit)
     if unit then
         self.buffs:SetUnit(unit)
         if self.cast then
@@ -319,7 +323,7 @@ function Row:Refresh()
     self:UpdatePvP()
     self:UpdateRaidMarker()
     self:UpdatePlayerState()
-    self:UpdateReadyCheck(EUI.PartyList.ReadyCheckPhase())
+    self:UpdateReadyCheck(self.hooks.readyCheckPhase())
     self.buffs:Refresh()
     self.debuffs:Refresh()
 end
@@ -347,6 +351,9 @@ function Row:UpdateName()
     setClassIcon(self, EUI.SafeValue(function() return select(2, UnitClass(unit)) end))
     setName(self, EUI.UnitDisplayName(unit))
     self.levelBadge:Set(EUI.SafeValue(UnitLevel, unit))
+    if self.pet then
+        self.pet:UpdateGradient()
+    end
 end
 
 function Row:UpdateHealth(smooth)
@@ -431,12 +438,17 @@ function Row:UpdatePlayerState()
 end
 
 -- phase: 'active' while a check runs, 'finished' while results linger, nil otherwise.
--- Members still waiting when the check ends count as not ready.
+-- Members still waiting when the check ends count as not ready. A result stays with the member
+-- who gave it, not the token, which renumbers when someone leaves.
 function Row:UpdateReadyCheck(phase)
+    local guid = EUI.SafeValue(UnitGUID, self.unit)
     if phase == 'active' then
         self.readyStatus = EUI.Read('GetReadyCheckStatus', GetReadyCheckStatus, self.unit)
+        self.readyGuid = guid
     elseif phase == 'finished' then
-        if self.readyStatus == 'waiting' then
+        if guid ~= self.readyGuid then
+            self.readyStatus = nil
+        elseif self.readyStatus == 'waiting' then
             self.readyStatus = 'notready'
         end
     else
@@ -623,7 +635,8 @@ function Row:UpdateRange()
     showNear(self, EUI.SafeValue(CheckInteractDistance, unit, 4) ~= false)
 end
 
--- GUIDs stay readable in combat, unlike UnitIsUnit against compound tokens.
+-- GUIDs are readable in combat unless unit identity is restricted, unlike UnitIsUnit against
+-- compound tokens.
 function Row:UpdateCursor()
     local guid = self.unit and EUI.SafeValue(UnitGUID, self.unit)
     local targetGuid = EUI.SafeValue(UnitGUID, 'target')

@@ -39,8 +39,7 @@ function Kit.BuildLayout(p)
                 txtLabel = { size = 18, color = '#FFD200FF', stroke = '#000000FF', outline = '', font = 'standard' },
                 line = { color = '#FFD200FF', alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
             },
-            -- Blizzard's party frames tint the portrait red at 20% health or below.
-            lowHealth = { below = 0.2, color = '#FF0000FF' },
+            lowHealth = Kit.LOW_HEALTH,
             hp = {
                 pos = { 19, -7 },
                 bar = Kit.rowBar('ffxi', p.hp, p.hp),

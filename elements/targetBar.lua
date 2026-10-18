@@ -1,9 +1,8 @@
 local _, EUI = ...
 
--- Target bar: HP bar with heal prediction, raid marker and name coloured by reaction,
--- HP% and your threat, a class icon or portrait with the level badge, your combo points on the
--- target bar, debuff/buff rows with
--- dispel and stealable borders, the unit's cast bar, and a mini bar for the unit's target.
+-- Target bar: HP bar with heal prediction, raid marker and name coloured by reaction, HP% and
+-- your threat, a class icon or portrait with the level badge, your combo points, debuff/buff
+-- rows with dispel and stealable borders, the unit's cast bar, and a mini bar for its target.
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- The drawing is not secure, so it may show/hide in combat. Secure buttons on the anchor take
 -- clicks on both bars: left-click targets, right-click opens the unit menu, hover shows the tooltip.
@@ -12,8 +11,8 @@ local _, EUI = ...
 
 EUI.TargetBar = {}
 local TargetBar = EUI.TargetBar
-local Bar = {}
-Bar.__index = Bar
+local TargetBarClass = {}
+TargetBarClass.__index = TargetBarClass
 
 -- Live bars by unit.
 local bars = {}
@@ -79,7 +78,7 @@ end
 -- unit reach it through TargetBar.ForUnit. Live bars are built out of combat. Without a unit the
 -- bar is a demo that shows SetPreview data only, from plain frames.
 function TargetBar.New(anchor, spec, fonts, unit)
-    local self = setmetatable({ anchor = anchor, spec = spec, fonts = fonts, unit = unit }, Bar)
+    local self = setmetatable({ anchor = anchor, spec = spec, fonts = fonts, unit = unit }, TargetBarClass)
     self.totUnit = unit and unit .. 'target'
 
     local content = CreateFrame('Frame', nil, anchor)
@@ -93,8 +92,8 @@ function TargetBar.New(anchor, spec, fonts, unit)
     end
 
     self.bar = EUI.Bar.Create(content, spec.bar, { 0, 0 }, { prediction = spec.healPrediction })
-    -- Text lives above the bar rather than on it, so the bar can hide for NPCs. The bar sits
-    -- at the content's origin, so both share coordinates.
+    -- Text sits on its own layer above the bar, which hides for NPCs. The bar sits at the
+    -- content's origin, so both share coordinates.
     local top = CreateFrame('Frame', nil, content)
     top:SetAllPoints(content)
     top:SetFrameLevel(self.bar.overlay:GetFrameLevel() + 1)
@@ -106,7 +105,7 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.flag = top:CreateTexture(nil, 'OVERLAY')
     self.flag:SetSize(spec.flag.size[1], spec.flag.size[2])
     self.flag:Hide()
-    self.hpp =Style.Text(top, spec.txtHpp, fonts)
+    self.hpp = Style.Text(top, spec.txtHpp, fonts)
     self.threatText = Style.Text(top, spec.txtThreat, fonts)
     -- A child frame draws over its parent's regions; one level below keeps the name over the line.
     self.separator = Style.Fade(top, spec.separator)
@@ -230,7 +229,7 @@ local function fitNameBg(self)
     Style.SetFadeWidth(fade, total, peak)
 end
 
-function Bar:UpdateRaidMarker()
+function TargetBarClass:UpdateRaidMarker()
     if not isLive(self) then
         return
     end
@@ -241,7 +240,7 @@ function Bar:UpdateRaidMarker()
 end
 
 -- AFK/DND flag; players only.
-function Bar:UpdateFlags()
+function TargetBarClass:UpdateFlags()
     if not isLive(self) then
         return
     end
@@ -327,7 +326,7 @@ local function setTier(self, classification)
 end
 
 -- Class icon for players, the engine-rendered portrait for everything else.
-function Bar:UpdateIcon()
+function TargetBarClass:UpdateIcon()
     if not isLive(self) then
         return
     end
@@ -349,7 +348,7 @@ end
 
 -- Your threat on the unit, as Blizzard's target frame shows it: the diamond while you have
 -- aggro or are about to, the percent whenever you have any threat. The main ticker calls this.
-function Bar:UpdateThreat()
+function TargetBarClass:UpdateThreat()
     if self.preview or not self.unit then
         return
     end
@@ -398,9 +397,9 @@ local function usesComboPoints()
     return class == 'ROGUE'
 end
 
--- Your combo points on the unit. They are stored on the unit, so GetComboPoints reads them
--- rather than UnitPower, which is the raw count wherever the points are.
-function Bar:UpdateCombo()
+-- Your combo points on the unit. They are stored on the unit: GetComboPoints reads them
+-- there, while UnitPower is the raw count wherever the points are.
+function TargetBarClass:UpdateCombo()
     if not self.combo or not isLive(self) then
         return
     end
@@ -421,7 +420,7 @@ end
 
 -- Name colour, NPC mode, PvP badge and leader crown; tapping and combat state change without a
 -- dedicated event, so the main ticker calls this too.
-function Bar:UpdateIdentity()
+function TargetBarClass:UpdateIdentity()
     if not isLive(self) then
         return
     end
@@ -444,7 +443,7 @@ function Bar:UpdateIdentity()
     self.leader:SetShown(leads == true)
 end
 
-function Bar:UpdateName()
+function TargetBarClass:UpdateName()
     if not isLive(self) then
         return
     end
@@ -452,7 +451,7 @@ function Bar:UpdateName()
     fitNameBg(self)
 end
 
-function Bar:UpdateTier()
+function TargetBarClass:UpdateTier()
     if not isLive(self) then
         return
     end
@@ -460,7 +459,7 @@ function Bar:UpdateTier()
 end
 
 -- Difficulty-coloured for units you can attack, so it also changes with faction and PvP state.
-function Bar:UpdateLevel()
+function TargetBarClass:UpdateLevel()
     if not isLive(self) then
         return
     end
@@ -473,7 +472,7 @@ function Bar:UpdateLevel()
     end
 end
 
-function Bar:Refresh()
+function TargetBarClass:Refresh()
     if self.preview or not self.unit then
         return
     end
@@ -500,7 +499,7 @@ function Bar:Refresh()
     self:UpdateTargetOfTarget()
 end
 
-function Bar:UpdateHealth(smooth)
+function TargetBarClass:UpdateHealth(smooth)
     if not isLive(self) then
         return
     end
@@ -519,7 +518,7 @@ function Bar:UpdateHealth(smooth)
     end
 end
 
-function Bar:UpdateHealPrediction()
+function TargetBarClass:UpdateHealPrediction()
     if not isLive(self) then
         return
     end
@@ -527,7 +526,7 @@ function Bar:UpdateHealPrediction()
 end
 
 -- The unit's target fires no UNIT_HEALTH events; the main ticker calls this.
-function Bar:UpdateTargetOfTarget()
+function TargetBarClass:UpdateTargetOfTarget()
     if self.preview or not self.unit then
         return
     end
@@ -538,8 +537,11 @@ function Bar:UpdateTargetOfTarget()
     if not exists then
         return
     end
+    -- Eases only while the same unit stays the target's target.
+    local guid = EUI.SafeValue(UnitGUID, totUnit)
     self.totBar:SetRange(UnitHealthMax(totUnit))
-    self.totBar:SetValue(UnitHealth(totUnit), true)
+    self.totBar:SetValue(UnitHealth(totUnit), guid ~= nil and guid == self.totGuid)
+    self.totGuid = guid
     pcall(self.totName.SetText, self.totName, EUI.UnitDisplayName(totUnit))
     self.totName:SetTextColor(Style.Color(nameHex(self.spec, (UnitInfo.ReactionKey(totUnit)))))
     setMarkedName(self.totName, self.spec.tot.txtName, self.totMarker, self.spec.tot.raidMarker,
@@ -575,7 +577,7 @@ end
 --          combo }
 -- npc: the separator line replaces the HP bar. class: a class token's icon; portrait: a texture
 -- path; portraitUnit: that unit's portrait. threat, totName and combo are optional; nil hides them.
-function Bar:SetPreview(data)
+function TargetBarClass:SetPreview(data)
     self.preview = data ~= nil
     if not data then
         if self.demoAuras then
@@ -608,11 +610,13 @@ function Bar:SetPreview(data)
     end
     self.hpp:SetText(string.format('%d%%', data.hpPercent))
     self.threat:SetShown(data.threat ~= nil)
-    self.threatText:SetShown(data.threat ~= nil)
+    self.threatText:SetShown(data.threat ~= nil and data.threatPercent ~= nil)
     if data.threat then
         self.threat:SetVertexColor(EUI.Indicators.ThreatColor(data.threat))
-        self.threatText:SetFormattedText('%.0f%%', data.threatPercent)
-        self.threatText:SetTextColor(EUI.Indicators.ThreatColor(data.threat))
+        if data.threatPercent then
+            self.threatText:SetFormattedText('%.0f%%', data.threatPercent)
+            self.threatText:SetTextColor(EUI.Indicators.ThreatColor(data.threat))
+        end
     end
     setIcon(self, data.class, function(texture)
         if data.portrait then
@@ -643,5 +647,5 @@ function Bar:SetPreview(data)
         setMarkedName(self.totName, spec.tot.txtName, self.totMarker, spec.tot.raidMarker, nil)
         self.totName:SetTextColor(Style.Color(nameHex(spec, data.totColorKey)))
     end
-    self.cast:SetPreview(data.castName, data.castProgress, data.castNotInterruptible, data.castChannel)
+    self.cast:SetPreview(data.castName or false, data.castProgress, data.castNotInterruptible, data.castChannel)
 end

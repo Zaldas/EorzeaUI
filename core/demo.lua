@@ -50,6 +50,15 @@ local TARGET_BUFFS = {
     { ICON .. 'Spell_Holy_DevotionAura', '3m' },
 }
 
+-- The player's name for samples; 'You' when it is missing or secret.
+local function playerDisplayName()
+    local name = EUI.UnitDisplayName('player')
+    if not EUI.CanAccess(name) then
+        return 'You'
+    end
+    return name
+end
+
 local function pick(list, count)
     local out = {}
     for i = 1, count do
@@ -77,7 +86,7 @@ local IMP = {
 }
 
 local function members()
-    local playerName = EUI.UnitDisplayName('player') or 'You'
+    local playerName = playerDisplayName()
     local playerClass = select(2, UnitClass('player')) or 'PALADIN'
     local playerFaction = UnitFactionGroup and UnitFactionGroup('player') or 'Alliance'
     return {
@@ -99,7 +108,7 @@ local function target()
         name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'hostile', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
         debuffs = TARGET_DEBUFFS, buffs = TARGET_BUFFS,
         castName = 'Fireball', castProgress = 0.6, castNotInterruptible = true,
-        totName = EUI.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,
+        totName = playerDisplayName(), totColorKey = 'party', totPercent = 92,
     }
 end
 
@@ -132,6 +141,10 @@ function Demo.ToggleGallery(kind)
     if not EUI.ready then
         return
     end
+    if not (C_AddOns and C_AddOns.LoadAddOn) then
+        EUI.Print('cannot load %s: C_AddOns.LoadAddOn missing', GALLERY)
+        return
+    end
     local loaded, reason = C_AddOns.LoadAddOn(GALLERY)
     if not loaded then
         EUI.Print('%s not loaded: %s', GALLERY, tostring(reason))
@@ -143,8 +156,8 @@ end
 -- The gallery's only way into this addon. Valid once the party list exists.
 EorzeaUI = {
     -- Returns a non-secure demo row: row:ShowDemo(member), row:DemoHeight(member).
-    CreateDemoRow = function(parent, index)
-        return EUI.PartyRow.CreateDemo(parent, EUI.PartyList.style, EUI.PartyList.fonts, index)
+    CreateDemoRow = function(parent)
+        return EUI.PartyRow.CreateDemo(parent, EUI.PartyList.style, EUI.PartyList.fonts)
     end,
     StackDemoRows = function(...)
         return EUI.PartyList.StackDemoRows(...)

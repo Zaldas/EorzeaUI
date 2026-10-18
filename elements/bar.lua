@@ -91,7 +91,7 @@ local function createCostPreview(self, frame, spec, costSpec)
     self.cost = { bar = bar, fade = fade }
 end
 
--- spec: see styles/shared.lua (rowBar / wideBar).
+-- spec: see styles/shared.lua (rowBar / wideBar / allyBar).
 -- opts = { prediction = { color }, cost = { color, fade } }
 function EUI.Bar.Create(parent, spec, pos, opts)
     local self = setmetatable({ spec = spec }, Bar)
@@ -170,8 +170,8 @@ function Bar:CommitCost()
     end
 end
 
--- amount and maxValue may be secret.
--- amount: incoming heals; absorbs: damage absorb shields. All may be secret.
+-- amount: incoming heals; absorbs: damage absorb shields. amount, maxValue and absorbs may be
+-- secret.
 function Bar:SetIncoming(amount, maxValue, absorbs)
     local prediction = self.prediction
     if not prediction then

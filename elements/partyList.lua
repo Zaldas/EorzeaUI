@@ -40,17 +40,11 @@ local SET_ROW_HEIGHT = [[
         + (row:GetAttribute('eui-pet') and row:GetAttribute('eui-petHeight') or 0))
 ]]
 
--- The first row, always the player, carries 'eui-player'.
+-- Resizes the player's row, always the first.
 local FORM_SNIPPET = [[
-    local shifted = newstate == 'shifted'
-    for i = 1, self:GetAttribute('rowCount') do
-        local row = self:GetFrameRef('row' .. i)
-        if row and row:GetAttribute('eui-player') then
-            row:SetAttribute('eui-form', shifted)
-]] .. SET_ROW_HEIGHT .. [[
-        end
-    end
-]]
+    local row = self:GetFrameRef('player')
+    row:SetAttribute('eui-form', newstate == 'shifted')
+]] .. SET_ROW_HEIGHT
 
 -- Run by the pet button as the unit watch shows or hides it.
 local PET_SHOW_SNIPPET = [[
@@ -79,10 +73,7 @@ local function createFormDriver()
         return
     end
     local driver = CreateFrame('Frame', nil, UIParent, 'SecureHandlerStateTemplate')
-    for i, row in ipairs(rows) do
-        driver:SetFrameRef('row' .. i, row.button)
-    end
-    driver:SetAttribute('rowCount', #rows)
+    driver:SetFrameRef('player', rows[1].button)
     driver:SetAttribute('_onstate-druidform', FORM_SNIPPET)
     RegisterStateDriver(driver, 'druidform', EUI.Druid.CONDITION)
     PartyList.formDriver = driver
@@ -200,6 +191,34 @@ function PartyList.CreateBackground(anchor)
     return bg
 end
 
+-- Moves object's entry in map from previous to unit, unless another object took previous.
+local function trackUnit(map, object, previous, unit)
+    if previous and map[previous] == object then
+        map[previous] = nil
+    end
+    if unit then
+        map[unit] = object
+    end
+end
+
+-- Callbacks the rows and pet sub-rows report through (PartyRow.Attach, PetRow.Attach).
+local ROW_HOOKS = {
+    unitChanged = function(row, previous, unit)
+        trackUnit(rowsByUnit, row, previous, unit)
+    end,
+    readyCheckPhase = function()
+        return PartyList.ReadyCheckPhase()
+    end,
+}
+local PET_HOOKS = {
+    unitChanged = function(pet, previous, unit)
+        trackUnit(petsByUnit, pet, previous, unit)
+    end,
+    heightChanged = function()
+        PartyList.UpdateBackground()
+    end,
+}
+
 function PartyList.Create(style, fonts)
     local partyStyle = style.party
     PartyList.style = partyStyle
@@ -225,6 +244,7 @@ function PartyList.Create(style, fonts)
     local previous
     for i = 1, MAX_ROWS do
         local button = CreateFrame('Button', 'EorzeaUIPartyButton' .. i, rowsFrame, 'EorzeaUIPartyButtonTemplate')
+        button:SetWidth(partyStyle.width)
         if previous then
             button:SetPoint('TOPLEFT', previous, 'BOTTOMLEFT', 0, -partyStyle.rowSpacing)
         else
@@ -234,10 +254,10 @@ function PartyList.Create(style, fonts)
         button:RegisterForClicks('AnyUp')
         button:SetAttribute('eui-player', i == 1)
         button:SetAttribute('unit', PARTY_UNITS[i])
-        local row = EUI.PartyRow.Attach(button, partyStyle, fonts)
+        local row = EUI.PartyRow.Attach(button, partyStyle, fonts, ROW_HOOKS)
         local petButton = createPetButton(button, i, partyStyle)
         petButton:SetAttribute('unit', PARTY_PETS[i])
-        row.pet = EUI.PetRow.Attach(petButton, row, partyStyle, fonts)
+        row.pet = EUI.PetRow.Attach(petButton, row, partyStyle, fonts, PET_HOOKS)
         rows[i] = row
         button:HookScript('OnShow', PartyList.UpdateBackground)
         button:HookScript('OnHide', PartyList.UpdateBackground)
@@ -249,7 +269,7 @@ function PartyList.Create(style, fonts)
     PartyList.UpdateFormRows()
 end
 
--- members: list of demo rows to show in place of the live rows, or nil to restore them.
+-- members: list of demo member tables to show in place of the live rows, or nil to restore them.
 -- The rows are protected, so this runs out of combat only.
 function PartyList.SetDemo(members)
     if not PartyList.demoFrame then
@@ -259,7 +279,7 @@ function PartyList.SetDemo(members)
         PartyList.demoFrame = frame
         PartyList.demoRows = {}
         for i = 1, MAX_ROWS do
-            PartyList.demoRows[i] = EUI.PartyRow.CreateDemo(frame, PartyList.style, PartyList.fonts, i)
+            PartyList.demoRows[i] = EUI.PartyRow.CreateDemo(frame, PartyList.style, PartyList.fonts)
         end
     end
     PartyList.demoCount = members and #members or nil
@@ -307,24 +327,6 @@ function PartyList.StackDemoRows(demoRows, members, parent, maxHeight)
     return columns, width, height
 end
 
--- Moves object's entry in map from previous to unit, unless another object took previous.
-local function trackUnit(map, object, previous, unit)
-    if previous and map[previous] == object then
-        map[previous] = nil
-    end
-    if unit then
-        map[unit] = object
-    end
-end
-
-function PartyList.OnRowUnitChanged(row, previous, unit)
-    trackUnit(rowsByUnit, row, previous, unit)
-end
-
-function PartyList.OnPetUnitChanged(pet, previous, unit)
-    trackUnit(petsByUnit, pet, previous, unit)
-end
-
 function PartyList.RowForUnit(unit)
     return rowsByUnit[unit]
 end
@@ -335,7 +337,7 @@ end
 
 function PartyList.ForEachVisibleRow(fn)
     for _, row in ipairs(rows) do
-        if row.button:IsShown() and row.unit then
+        if row.button:IsVisible() and row.unit then
             fn(row)
         end
     end

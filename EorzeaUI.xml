@@ -1,5 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
-    <!-- Party row button (elements/partyList.lua). Size matches styles/layout.lua party.width x rowHeight. -->
+    <!-- Party row button (elements/partyList.lua), which sets its width from the style and height by snippet. -->
     <Button name="EorzeaUIPartyButtonTemplate" virtual="true" inherits="SecureUnitButtonTemplate">
         <Size x="410" y="46"/>
         <Attributes>
