@@ -6,8 +6,8 @@ local _, AV = ...
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- The drawing is not secure, so it may show/hide in combat. Secure buttons on the anchor take
 -- clicks on both bars: left-click targets, right-click opens the unit menu, hover shows the tooltip.
--- Each bar is an instance for one unit ('target'; the unit's target gets the mini bar). Demo
--- bars have no unit and only show SetPreview data.
+-- Each bar is an instance for one unit ('target' or 'focus'; the unit's target gets the mini
+-- bar). Demo bars have no unit and only show SetPreview data.
 
 AV.TargetBar = {}
 local TargetBar = AV.TargetBar
@@ -158,6 +158,19 @@ function TargetBar.New(anchor, spec, fonts, unit)
     end
 
     self.cast = AV.CastBar.Create(content, unit, spec.cast, fonts, spec.cast.pos)
+    if spec.cast.hidesName then
+        -- Alpha, not Hide, so marker and flag updates mid-cast stick.
+        self.cast.onVisibility = function(casting)
+            local alpha = casting and 0 or 1
+            self.name:SetAlpha(alpha)
+            self.marker:SetAlpha(alpha)
+            self.flag:SetAlpha(alpha)
+        end
+    end
+
+    if spec.header then
+        Style.Header(content, spec.header, fonts)
+    end
 
     self.attention = Style.Image(content, 'ARTWORK', spec.attention)
     local tot = CreateFrame('Frame', nil, content)
@@ -183,14 +196,18 @@ function TargetBar.New(anchor, spec, fonts, unit)
     return self
 end
 
--- The live target bar, on its own movable anchor.
-function TargetBar.Create(style, fonts)
-    local spec = style.target
-    local anchor = CreateFrame('Frame', 'AzerothVistaTargetAnchor', UIParent)
+-- The live target and focus bars, each on its own movable anchor.
+local function createLive(anchorName, spec, fonts, unit)
+    local anchor = CreateFrame('Frame', anchorName, UIParent)
     anchor:SetSize(spec.width, spec.height)
     anchor:SetMovable(true)
     anchor:SetClampedToScreen(true)
-    TargetBar.target = TargetBar.New(anchor, spec, fonts, 'target')
+    return TargetBar.New(anchor, spec, fonts, unit)
+end
+
+function TargetBar.Create(style, fonts)
+    TargetBar.target = createLive('AzerothVistaTargetAnchor', style.target, fonts, 'target')
+    TargetBar.focus = createLive('AzerothVistaFocusAnchor', style.focus, fonts, 'focus')
 end
 
 -- A demo bar in parent, on its own anchor sized to spec. Show data with bar:SetPreview.

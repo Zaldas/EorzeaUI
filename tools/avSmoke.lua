@@ -210,8 +210,8 @@ local owner2 = _G.AzerothVistaPartyHeaderUnitButton2
 local petButton1 = _G.AzerothVistaPartyPetButton1
 local petButton2 = _G.AzerothVistaPartyPetButton2
 assert(petButton1 and petButton2, 'pet buttons not created')
--- 5 pet buttons plus the target and target-of-target click areas.
-assert(#WATCHED == 7, 'pet buttons not unit-watched: ' .. #WATCHED)
+-- 5 pet buttons plus the target, focus and their mini bars' click areas.
+assert(#WATCHED == 9, 'pet buttons not unit-watched: ' .. #WATCHED)
 owner1:SetAttribute('unit', 'player')
 owner2:SetAttribute('unit', 'party1')
 assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))
@@ -293,14 +293,19 @@ for _, kind in ipairs({ 'party', 'target' }) do
     assert(#missing == 0, kind .. ' gallery states without a sample: ' .. table.concat(missing, ', '))
 end
 
--- Target bars: the live bar routes events by unit; demo bars stay out of routing.
+-- Target bars: the live bars route events by unit; demo bars stay out of routing.
 assert(AV.TargetBar.ForUnit('target') == AV.TargetBar.target, 'live target bar not routed')
+assert(AV.TargetBar.ForUnit('focus') == AV.TargetBar.focus, 'live focus bar not routed')
 local liveBars = 0
 AV.TargetBar.ForEach(function() liveBars = liveBars + 1 end)
-assert(liveBars == 1, 'demo target bars registered as live: ' .. liveBars)
-onEvent(nil, 'UNIT_HEALTH', 'target')
-onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', 'target')
-onEvent(nil, 'UNIT_FLAGS', 'target')
+assert(liveBars == 2, 'demo target bars registered as live: ' .. liveBars)
+for _, unit in ipairs({ 'target', 'focus' }) do
+    onEvent(nil, 'UNIT_HEALTH', unit)
+    onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', unit)
+    onEvent(nil, 'UNIT_FLAGS', unit)
+end
+onEvent(nil, 'PLAYER_FLAGS_CHANGED', 'party1')
+onEvent(nil, 'PLAYER_FOCUS_CHANGED')
 onEvent(nil, 'RAID_TARGET_UPDATE')
 TICK()
 assert(#CHAT == 0, 'gallery printed: ' .. tostring(CHAT[1]))

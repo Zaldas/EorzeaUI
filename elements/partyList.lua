@@ -20,12 +20,11 @@ local function playerSubgroup()
 end
 
 local function setGroupNumber(subgroup)
-    local text = PartyList.groupText
+    local header = PartyList.groupHeader
     if subgroup then
-        text:SetFormattedText(GROUP_NUMBER or 'Group %d', subgroup)
-    else
-        text:SetText('')
+        header.label:SetFormattedText(GROUP_NUMBER or 'Group %d', subgroup)
     end
+    header:SetShown(subgroup ~= nil)
 end
 
 -- A row is its base height plus a sub-row per flag: 'av-form' (player only, druid in bear/cat
@@ -185,7 +184,7 @@ function PartyList.Create(style, fonts)
     local bg = PartyList.CreateBackground(anchor)
     PartyList.background = bg
     PartyList.bgMid = bg.mid
-    PartyList.groupText = AV.Style.Text(bg, partyStyle.groupNumber, fonts)
+    PartyList.groupHeader = AV.Style.Header(bg, partyStyle.groupNumber, fonts)
 
     local header = CreateFrame('Frame', 'AzerothVistaPartyHeader', anchor, 'SecureGroupHeaderTemplate')
     header:SetPoint('TOPLEFT', anchor, 'TOPLEFT', 0, 0)

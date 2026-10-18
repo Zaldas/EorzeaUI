@@ -103,6 +103,17 @@ local function target()
     }
 end
 
+-- A crowd-controlled caster: the usual focus target.
+local function focus()
+    return {
+        name = 'Defias Conjurer', level = 17, colorKey = 'claimed', leader = true, raidMarker = 5, portraitUnit = 'player', hpPercent = 78,
+        debuffs = { { ICON .. 'Spell_Nature_Polymorph', '41', dispel = 'Magic' }, TARGET_DEBUFFS[1] },
+        buffs = { { ICON .. 'Spell_Frost_FrostArmor02', '9m', stealable = true } },
+        castName = 'Frostbolt', castProgress = 0.3,
+        totName = 'Brightmane Stormhold', totColorKey = 'party', totPercent = 100,
+    }
+end
+
 function Demo.Toggle()
     if InCombatLockdown() then
         AV.Print('demo mode cannot change in combat')
@@ -159,5 +170,6 @@ function Demo.Refresh()
     Demo.active = active
     AV.PartyList.SetDemo(active and members() or nil)
     AV.TargetBar.target:SetPreview(active and target() or nil)
+    AV.TargetBar.focus:SetPreview(active and focus() or nil)
     AV.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)
 end

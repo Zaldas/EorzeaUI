@@ -23,6 +23,7 @@ local function applyScale()
         local scale = AV.Style.RootScale()
         AV.PartyList.anchor:SetScale(scale)
         AV.TargetBar.target.anchor:SetScale(scale)
+        AV.TargetBar.focus.anchor:SetScale(scale)
         AV.castAnchor:SetScale(scale)
     end, 'scale')
     if AzerothVistaGallery and AzerothVistaGallery.ApplyScale then
@@ -83,6 +84,7 @@ local function initialize()
     local partyBg = AV.PartyList.background
     AV.EditMode.Register('party', AV.PartyList.anchor, 'Party', { partyBg.top, partyBg.bottom })
     AV.EditMode.Register('target', AV.TargetBar.target.anchor, 'Target')
+    AV.EditMode.Register('focus', AV.TargetBar.focus.anchor, 'Focus')
     AV.EditMode.Register('cast', AV.castAnchor, 'Cast bar')
     AV.EditMode.Initialize()
 
@@ -102,7 +104,9 @@ local function initialize()
 
     AV.ready = true
     AV.PartyList.RefreshAll()
-    AV.TargetBar.target:Refresh()
+    AV.TargetBar.ForEach(function(bar)
+        bar:Refresh()
+    end)
 end
 
 -- Unit events route to the party row, pet sub-row and target-style bar showing that unit.
@@ -150,10 +154,13 @@ local function onUnitEvent(event, unit, arg3)
         if bar then
             bar:UpdateIdentity()
         end
-        -- PLAYER_FLAGS_CHANGED may name the target by another token (party1, raid3).
-        local flagBar = event == 'PLAYER_FLAGS_CHANGED' and AV.TargetBar.target or bar
-        if flagBar then
-            flagBar:UpdateFlags()
+        -- PLAYER_FLAGS_CHANGED may name the unit by another token (party1, raid3).
+        if event == 'PLAYER_FLAGS_CHANGED' then
+            AV.TargetBar.ForEach(function(each)
+                each:UpdateFlags()
+            end)
+        elseif bar then
+            bar:UpdateFlags()
         end
     elseif event == 'UNIT_FACTION' then
         if row then row:UpdatePvP() end
@@ -199,7 +206,7 @@ local GLOBAL_EVENTS = {
     'DISPLAY_SIZE_CHANGED', 'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST',
     'READY_CHECK', 'READY_CHECK_CONFIRM', 'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE',
     'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
-    'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE',
+    'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE', 'PLAYER_FOCUS_CHANGED',
 }
 
 local function forEachRow(method)
@@ -267,6 +274,8 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
             row:UpdateCursor()
             row:UpdateCombo()
         end)
+    elseif event == 'PLAYER_FOCUS_CHANGED' then
+        AV.TargetBar.focus:Refresh()
     elseif event == 'GROUP_ROSTER_UPDATE' then
         AV.PartyList.UpdateGroupFilter()
         AV.PartyList.RefreshAll()
@@ -352,6 +361,7 @@ SlashCmdList.AZEROTHVISTA = function(msg)
             AV.db.positions = {}
             AV.EditMode.RestorePosition('party', AV.PartyList.anchor)
             AV.EditMode.RestorePosition('target', AV.TargetBar.target.anchor)
+            AV.EditMode.RestorePosition('focus', AV.TargetBar.focus.anchor)
             AV.EditMode.RestorePosition('cast', AV.castAnchor)
         end)
     else

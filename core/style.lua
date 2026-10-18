@@ -158,6 +158,39 @@ function Style.Text(parent, spec, fonts)
     return text
 end
 
+-- Label centred in spec.width with a line each side, opaque at the label and fading outward.
+-- spec = { label (optional), pos, width, height, txtLabel = Style.Text spec without pos,
+--          line = { color, alpha, height, gap } }
+-- Returns the frame; frame.label is its FontString. Hide the frame while the label is empty.
+function Style.Header(parent, spec, fonts)
+    local frame = CreateFrame('Frame', nil, parent)
+    frame:SetSize(spec.width, spec.height)
+    Style.Place(frame, parent, spec.pos)
+    local label = Style.Text(frame, spec.txtLabel, fonts)
+    label:ClearAllPoints()
+    label:SetPoint('CENTER', frame, 'CENTER', 0, 0)
+    if spec.label then
+        label:SetText(spec.label)
+    end
+    local line = spec.line
+    local r, g, b = Style.Color(line.color)
+    local outer, inner = CreateColor(r, g, b, 0), CreateColor(r, g, b, line.alpha)
+    local function side(fromPoint, toPoint, gap, startColor, endColor)
+        local texture = frame:CreateTexture(nil, 'ARTWORK')
+        texture:SetColorTexture(1, 1, 1, 1)
+        texture:SetHeight(line.height)
+        texture:SetPoint(fromPoint, frame, fromPoint, 0, 0)
+        texture:SetPoint(toPoint, label, fromPoint, gap, 0)
+        if not pcall(texture.SetGradient, texture, 'HORIZONTAL', startColor, endColor) then
+            texture:SetVertexColor(r, g, b, line.alpha)
+        end
+    end
+    side('LEFT', 'RIGHT', -line.gap, outer, inner)
+    side('RIGHT', 'LEFT', line.gap, inner, outer)
+    frame.label = label
+    return frame
+end
+
 -- Scale that maps one style pixel to one screen pixel at 1440p, for a frame parented to UIParent.
 function Style.RootScale()
     local height = UIParent:GetHeight()

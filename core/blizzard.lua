@@ -9,6 +9,8 @@ local REPLACED = {
     'PlayerFrame',
     'TargetFrame',
     'TargetFrameToT',
+    'FocusFrame',
+    'FocusFrameToT',
     'PartyFrame',
     'CompactPartyFrame',
     'PlayerCastingBarFrame',

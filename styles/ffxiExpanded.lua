@@ -24,10 +24,16 @@ AV.styles.ffxiExpanded = {
             mid = { path = 'ffxi/BgMid' },
             bottom = { path = 'ffxi/BgBottom', height = 8 },
         },
-        -- Raid only. Centred on the background (x 7..427); the text's bottom overlaps the
-        -- background's top edge (y -11) by 3px, as the name overlaps the HP bar. Gold with a black
-        -- shadow and no outline in Friz Quadrata: WoW's GameFontNormal look.
-        groupNumber = { pos = { 217, -26 }, size = 18, color = '#FFD100FF', stroke = '#000000FF', outline = '', font = 'standard', alignCenter = true },
+        -- Raid only. Centred on the background (x 7..427) with header lines in the text's gold;
+        -- the box ends 3px above the background's top edge (y -11). Gold with a black shadow and
+        -- no outline in Friz Quadrata: WoW's GameFontNormal look.
+        groupNumber = {
+            pos = { 7, -32 },
+            width = 420,
+            height = 18,
+            txtLabel = { size = 18, color = '#FFD100FF', stroke = '#000000FF', outline = '', font = 'standard' },
+            line = { color = '#FFD100FF', alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
+        },
         -- Blizzard's party frames tint the portrait red at 20% health or below.
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         hp = {
@@ -132,6 +138,17 @@ AV.styles.ffxiExpanded = {
         },
     },
 
-    target = Kit.target({ frame = '#6AB4F8FF', fill = '#6AB4F8FF', text = castText }),
+    -- Maxes match Blizzard's target frame (16 debuffs, 32 buffs): at most 3 lines.
+    target = Kit.target({ frame = '#6AB4F8FF', fill = '#6AB4F8FF', text = castText }, {
+        bar = 537, icon = 46, name = 17, hpp = 14, cast = 234, tot = 226, totName = 16,
+        height = 120, perLine = 16, debuffs = 16, buffs = 32,
+    }),
+    -- HP bar half the target's; the party's 40px icon. 16 auras at most, 8 per line; the
+    -- containers cannot cap a total, so each group gets half. The cast bar covers most of the
+    -- name line, so the name hides while it shows.
+    focus = Kit.target({ frame = '#6AB4F8FF', fill = '#6AB4F8FF', text = castText }, {
+        bar = 268, icon = 40, name = 15, hpp = 13, cast = 160, tot = 180, totName = 14,
+        height = 100, perLine = 8, debuffs = 8, buffs = 8, label = 'Focus', castHidesName = true,
+    }),
     castBar = Kit.castBar('#6AB4F8FF', '#6AB4F8FF', castText),
 }
