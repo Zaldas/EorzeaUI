@@ -1,10 +1,10 @@
 local _, EUI = ...
 
 -- Party list: five secure unit buttons stacked under one another, each with a pet button, as
--- Blizzard's PartyFrame. In a party their units never change: player, party1-4 and pet,
--- partypet1-4. The client renumbers the party tokens as members leave and the unit watch hides
--- rows whose unit is gone, so roster changes need no secure work in combat. In a raid the rows
--- show the player's subgroup, assigned out of combat as Blizzard's raid groups are.
+-- Blizzard's PartyFrame. Their units never change: player, party1-4 and pet, partypet1-4. The
+-- client renumbers the party tokens as members leave and the unit watch hides rows whose unit
+-- is gone, so roster changes need no secure work in combat. In a raid a state driver hides rows
+-- 2-5, leaving the player's row as the player frame; the raid list shows the groups.
 
 EUI.PartyList = {}
 local PartyList = EUI.PartyList
@@ -13,22 +13,6 @@ local MAX_ROWS = 5
 local rows = {}
 local rowsByUnit = {}
 local petsByUnit = {}
-
-local function playerSubgroup()
-    if not IsInRaid() then
-        return nil
-    end
-    local raidIndex = UnitInRaid('player')
-    return raidIndex and select(3, GetRaidRosterInfo(raidIndex))
-end
-
-local function setGroupNumber(subgroup)
-    local header = PartyList.groupHeader
-    if subgroup then
-        header.label:SetFormattedText(GROUP_NUMBER or 'Group %d', subgroup)
-    end
-    header:SetShown(subgroup ~= nil)
-end
 
 -- A row is its base height plus a sub-row per flag: 'eui-form' (player only, druid in bear/cat
 -- form) and 'eui-pet' (its pet exists). Secure snippets set the flags and resize the row in
@@ -112,40 +96,8 @@ end
 local PARTY_UNITS = { 'player', 'party1', 'party2', 'party3', 'party4' }
 local PARTY_PETS = { 'pet', 'partypet1', 'partypet2', 'partypet3', 'partypet4' }
 
--- The units each row shows: the party tokens, or in a raid the player then the rest of the
--- player's subgroup in raid order (raidN, raidpetN).
-local function rowUnits(subgroup)
-    if not subgroup then
-        return PARTY_UNITS, PARTY_PETS
-    end
-    local units, pets = { 'player' }, { 'pet' }
-    local playerIndex = UnitInRaid('player')
-    for i = 1, GetNumGroupMembers() do
-        if #units < MAX_ROWS and i ~= playerIndex and select(3, GetRaidRosterInfo(i)) == subgroup then
-            units[#units + 1] = 'raid' .. i
-            pets[#pets + 1] = 'raidpet' .. i
-        end
-    end
-    return units, pets
-end
-
--- Out of combat: point each row and its pet button at its unit. In a party this sets the same
--- tokens every time, which the rows ignore.
-local function assignUnits()
-    EUI.RunOutOfCombat(function()
-        local subgroup = playerSubgroup()
-        PartyList.subgroup = subgroup
-        if not PartyList.demoCount then
-            setGroupNumber(subgroup)
-        end
-        local units, pets = rowUnits(subgroup)
-        for i, row in ipairs(rows) do
-            row.button:SetAttribute('unit', units[i])
-            row.pet.button:SetAttribute('unit', pets[i])
-        end
-        PartyList.UpdateBackground()
-    end, 'assignUnits')
-end
+-- Hides rows 2-5 in a raid, in combat too.
+local MEMBERS_VISIBILITY = '[group:raid] hide; show'
 
 -- Out of combat: match each row's form flag and height to the druid's current form.
 function PartyList.UpdateFormRows()
@@ -161,8 +113,9 @@ end
 
 -- The list's background behind rows stacked from anchor's top-left. Size it with bg.mid:SetHeight
 -- (the rows' total height); bg.top and bg.bottom pad it above and below. One fade spans all three.
-function PartyList.CreateBackground(anchor)
-    local bgSpec = PartyList.style.background
+-- bgSpec: a style's background, default the party list's.
+function PartyList.CreateBackground(anchor, bgSpec)
+    bgSpec = bgSpec or PartyList.style.background
     local bg = CreateFrame('Frame', nil, anchor)
     bg:SetAllPoints(anchor)
     bg:SetFrameLevel(anchor:GetFrameLevel())
@@ -232,7 +185,6 @@ function PartyList.Create(style, fonts)
     local bg = PartyList.CreateBackground(anchor)
     PartyList.background = bg
     PartyList.bgMid = bg.mid
-    PartyList.groupHeader = EUI.Style.Header(bg, partyStyle.groupNumber, fonts)
 
     -- Plain parent of the secure buttons, so the demo can hide them all out of combat.
     local rowsFrame = CreateFrame('Frame', nil, anchor)
@@ -240,9 +192,16 @@ function PartyList.Create(style, fonts)
     rowsFrame:SetFrameLevel(anchor:GetFrameLevel() + 2)
     PartyList.rowsFrame = rowsFrame
 
+    -- Parent of rows 2-5.
+    local members = CreateFrame('Frame', nil, rowsFrame, 'SecureHandlerStateTemplate')
+    members:SetAllPoints(rowsFrame)
+    members:SetFrameLevel(rowsFrame:GetFrameLevel())
+    members:HookScript('OnShow', PartyList.UpdateBackground)
+    members:HookScript('OnHide', PartyList.UpdateBackground)
+
     local previous
     for i = 1, MAX_ROWS do
-        local button = CreateFrame('Button', 'EorzeaUIPartyButton' .. i, rowsFrame, 'EorzeaUIPartyButtonTemplate')
+        local button = CreateFrame('Button', 'EorzeaUIPartyButton' .. i, i == 1 and rowsFrame or members, 'EorzeaUIPartyButtonTemplate')
         button:SetWidth(partyStyle.width)
         if previous then
             button:SetPoint('TOPLEFT', previous, 'BOTTOMLEFT', 0, -partyStyle.rowSpacing)
@@ -263,8 +222,10 @@ function PartyList.Create(style, fonts)
         watchButton(button)
     end
 
+    if RegisterStateDriver then
+        RegisterStateDriver(members, 'visibility', MEMBERS_VISIBILITY)
+    end
     createFormDriver()
-    assignUnits()
     PartyList.UpdateFormRows()
 end
 
@@ -282,7 +243,6 @@ function PartyList.SetDemo(members)
         end
     end
     PartyList.demoCount = members and #members or nil
-    setGroupNumber(members and 1 or PartyList.subgroup)
     local _, _, height = PartyList.StackDemoRows(PartyList.demoRows, members, PartyList.demoFrame)
     PartyList.demoHeight = height
     PartyList.demoFrame:SetShown(members ~= nil)
@@ -352,9 +312,8 @@ function PartyList.ForEachVisiblePet(fn)
     end
 end
 
--- Roster changes: in a raid, the rows follow the player's subgroup.
 function PartyList.OnRosterChanged()
-    assignUnits()
+    PartyList.UpdateBackground()
 end
 
 function PartyList.UpdateBackground()
@@ -366,9 +325,9 @@ function PartyList.UpdateBackground()
     local shown = 0
     local extra = EUI.Druid.IsShifted() and style.formRowHeight or 0
     for _, row in ipairs(rows) do
-        if row.button:IsShown() then
+        if row.button:IsVisible() then
             shown = shown + 1
-            if row.pet and row.pet.button:IsShown() then
+            if row.pet and row.pet.button:IsVisible() then
                 extra = extra + style.pet.rowHeight
             end
         end
@@ -387,7 +346,9 @@ function PartyList.ReadyCheckPhase()
     return readyPhase
 end
 
-function PartyList.OnReadyCheck(event)
+-- forEach(fn): calls fn on every shown row taking ready checks; default the party rows.
+function PartyList.OnReadyCheck(event, forEach)
+    forEach = forEach or PartyList.ForEachVisibleRow
     if event == 'READY_CHECK' then
         readyPhase = 'active'
         readyGeneration = readyGeneration + 1
@@ -398,13 +359,13 @@ function PartyList.OnReadyCheck(event)
         C_Timer.After(READY_CHECK_LINGER, function()
             if generation == readyGeneration then
                 readyPhase = nil
-                PartyList.ForEachVisibleRow(function(row)
+                forEach(function(row)
                     row:UpdateReadyCheck(nil)
                 end)
             end
         end)
     end
-    PartyList.ForEachVisibleRow(function(row)
+    forEach(function(row)
         row:UpdateReadyCheck(readyPhase)
     end)
 end

@@ -55,10 +55,24 @@ local frameMeta = { __index = methodResolver }
 newFrame = function() return setmetatable({}, frameMeta) end
 
 local eventFrames = {}
-CreateFrame = function(kind, name)
+CreateFrame = function(kind, name, parent, template)
     local f = newFrame()
     if name then _G[name] = f end
     eventFrames[#eventFrames + 1] = f
+    if template == 'SecureGroupHeaderTemplate' then
+        -- As SecureGroupHeader_Update: a startingIndex below 1 builds 1 - startingIndex buttons.
+        local setAttribute = f.SetAttribute
+        rawset(f, 'SetAttribute', function(self, attr, value)
+            setAttribute(self, attr, value)
+            if attr == 'startingIndex' and value < 1 then
+                for i = 1, 1 - value do
+                    if not rawget(self, i) then
+                        rawset(self, i, CreateFrame('Button', name .. 'UnitButton' .. i, self, self:GetAttribute('template')))
+                    end
+                end
+            end
+        end)
+    end
     return f
 end
 UIParent = newFrame()
@@ -80,7 +94,11 @@ UnitLevel = function() return 11 end
 UnitReaction = function() return 2 end
 UnitClass = function() return 'Druid', 'DRUID' end
 GetBonusBarOffset = function() return 1 end
-RegisterStateDriver = function(frame, state, condition) STATE_DRIVER = condition end
+STATE_DRIVERS = {}
+RegisterStateDriver = function(frame, state, condition)
+    STATE_DRIVERS[#STATE_DRIVERS + 1] = { frame = frame, state = state, condition = condition }
+    if state == 'druidform' then STATE_DRIVER = condition end
+end
 UnitHealth = function() return 100 end
 UnitHealthMax = function() return 200 end
 UnitPower = function() return 50 end
@@ -746,25 +764,40 @@ for _, name in ipairs({ 'vanadiel', 'azeroth' }) do
     end
 end
 
--- Raid: the player first, then the rest of subgroup 2 in raid order; the remaining rows are cleared.
+-- Raid: the party list keeps its tokens and hides rows 2-5 by state driver. Each group header
+-- builds 5 cells that route events by their raidN unit; your cell takes 'player' events instead
+-- of its own token's.
+local function countDrivers(condition)
+    local count = 0
+    for _, entry in ipairs(STATE_DRIVERS) do
+        if entry.state == 'visibility' and entry.condition == condition then count = count + 1 end
+    end
+    return count
+end
+assert(countDrivers('[group:raid] hide; show') == 1, 'party members visibility driver missing')
+assert(countDrivers('[group:raid] show; hide') == 8, 'raid header drivers: ' .. countDrivers('[group:raid] show; hide'))
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 6 end
-local RAID_GROUPS = { 1, 2, 2, 1, 2, 2 }
-GetRaidRosterInfo = function(i) return 'm' .. i, 0, RAID_GROUPS[i] end
 UnitInRaid = function(unit) return unit == 'player' and 3 or nil end
 UnitGUID = function(u) return u == 'raid3' and 'GUID-player' or 'GUID-' .. tostring(u) end
--- In combat the reassignment waits for PLAYER_REGEN_ENABLED.
-InCombatLockdown = function() return true end
-onEvent(nil, 'PLAYER_REGEN_DISABLED')
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
-assert(_G.EorzeaUIPartyButton2:GetAttribute('unit') == 'party1', 'rows reassigned in combat')
-InCombatLockdown = function() return false end
-onEvent(nil, 'PLAYER_REGEN_ENABLED')
-local raidUnits = {}
-for i = 1, 5 do
-    raidUnits[i] = tostring(_G['EorzeaUIPartyButton' .. i]:GetAttribute('unit'))
+assert(_G.EorzeaUIPartyButton2:GetAttribute('unit') == 'party1', 'party rows reassigned in a raid')
+local you, member = _G.EorzeaUIRaidGroup1UnitButton1, _G.EorzeaUIRaidGroup1UnitButton2
+assert(you and member and _G.EorzeaUIRaidGroup8UnitButton5, 'raid cells not built')
+you:SetAttribute('unit', 'raid3')
+member:SetAttribute('unit', 'raid4')
+onEvent(nil, 'GROUP_ROSTER_UPDATE')
+local RaidList = EUI.RaidList
+assert(RaidList.CellForUnit('player') and RaidList.CellForUnit('player').button == you, 'player events miss your cell')
+assert(RaidList.CellForUnit('raid3') == nil, 'your cell also takes its raid token')
+assert(RaidList.CellForUnit('raid4') and RaidList.CellForUnit('raid4').button == member, 'raid4 not routed')
+for _, event in ipairs({ 'UNIT_HEALTH', 'UNIT_POWER_UPDATE', 'UNIT_FLAGS', 'UNIT_SPELLCAST_START', 'UNIT_THREAT_SITUATION_UPDATE' }) do
+    onEvent(nil, event, 'raid4')
+    onEvent(nil, event, 'player')
 end
-assert(table.concat(raidUnits, ',') == 'player,raid2,raid5,raid6,nil', 'raid rows: ' .. table.concat(raidUnits, ','))
-assert(_G.EorzeaUIPartyPetButton2:GetAttribute('unit') == 'raidpet2', 'raid pet unit')
+onEvent(nil, 'READY_CHECK')
+onEvent(nil, 'READY_CHECK_FINISHED')
+onEvent(nil, 'PARTY_LEADER_CHANGED')
+TICK()
 assert(#ERRORS == 0, 'errors reported:\n' .. table.concat(ERRORS, '\n'))
 print('SMOKE OK')

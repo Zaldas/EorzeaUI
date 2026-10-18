@@ -8,6 +8,7 @@ local function applyScale()
     EUI.RunOutOfCombat(function()
         local scale = EUI.Style.RootScale()
         EUI.PartyList.anchor:SetScale(scale)
+        EUI.RaidList.anchor:SetScale(scale)
         EUI.TargetBar.target.anchor:SetScale(scale)
         EUI.TargetBar.focus.anchor:SetScale(scale)
         EUI.castAnchor:SetScale(scale)
@@ -83,11 +84,13 @@ local function initialize()
     end
 
     EUI.PartyList.Create(style, fonts)
+    EUI.RaidList.Create(style, fonts)
     EUI.TargetBar.Create(style, fonts)
     createPlayerCastBar(style, fonts)
 
     local partyBg = EUI.PartyList.background
     EUI.EditMode.Register('party', EUI.PartyList.anchor, 'Party', { partyBg.top, partyBg.bottom })
+    EUI.EditMode.Register('raid', EUI.RaidList.anchor, 'Raid')
     EUI.EditMode.Register('target', EUI.TargetBar.target.anchor, 'Target')
     EUI.EditMode.Register('focus', EUI.TargetBar.focus.anchor, 'Focus')
     EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar')
@@ -103,6 +106,9 @@ local function initialize()
         EUI.PartyList.ForEachVisiblePet(function(pet)
             pet:UpdateRange()
         end)
+        EUI.RaidList.ForEachVisibleCell(function(cell)
+            cell:UpdateRange()
+        end)
         EUI.TargetBar.ForEach(function(bar)
             bar:UpdateIdentity()
             bar:UpdateThreat()
@@ -114,14 +120,21 @@ local function initialize()
     -- Last, so a failed setup leaves Blizzard's frames in place.
     EUI.Blizzard.HideReplaced()
     EUI.PartyList.RefreshAll()
+    EUI.RaidList.RefreshAll()
     EUI.TargetBar.ForEach(function(bar)
         bar:Refresh()
     end)
     seedLostUnits()
 end
 
+-- Party rows and raid cells, which share the row methods.
+local function forEachUnitRow(fn)
+    EUI.PartyList.ForEachVisibleRow(fn)
+    EUI.RaidList.ForEachVisibleCell(fn)
+end
+
 local function forEachRow(method)
-    EUI.PartyList.ForEachVisibleRow(function(row)
+    forEachUnitRow(function(row)
         row[method](row)
     end)
 end
@@ -132,9 +145,10 @@ local function forEachBar(method)
     end)
 end
 
--- Unit events, by the frames showing the event's unit: row (party row), pet (pet sub-row), bar
--- (target or focus bar). Each is a method name, a list of them, or fn(frame, event, arg3, arg4,
--- arg5). smooth, when set, is passed to named methods (UpdateHealth/UpdatePower ease the change).
+-- Unit events, by the frames showing the event's unit: row (party row and raid cell), pet (pet
+-- sub-row), bar (target or focus bar). Each is a method name, a list of them, or fn(frame, event,
+-- arg3, arg4, arg5). smooth, when set, is passed to named methods (UpdateHealth/UpdatePower ease
+-- the change).
 -- also(unit, event, arg3, arg4, arg5) runs once per event, for frames not tied to the unit.
 local UNIT_ROUTES = {
     UNIT_HEALTH = { row = 'UpdateHealth', pet = 'UpdateHealth', bar = 'UpdateHealth', smooth = true },
@@ -263,6 +277,7 @@ end
 
 local function onUnitEvent(route, event, unit, arg3, arg4, arg5)
     runAction(route.row and EUI.PartyList.RowForUnit(unit), route.row, route, event, arg3, arg4, arg5)
+    runAction(route.row and EUI.RaidList.CellForUnit(unit), route.row, route, event, arg3, arg4, arg5)
     runAction(route.pet and EUI.PartyList.PetForUnit(unit), route.pet, route, event, arg3, arg4, arg5)
     runAction(route.bar and EUI.TargetBar.ForUnit(unit), route.bar, route, event, arg3, arg4, arg5)
     if route.also then
@@ -274,6 +289,7 @@ local function refreshRoster()
     EUI.PartyList.OnRosterChanged()
     EUI.PartyList.RefreshAll()
     EUI.PartyList.UpdateFormRows()
+    EUI.RaidList.OnRosterChanged()
 end
 
 local function updateRowStates()
@@ -285,7 +301,7 @@ local function updateRoles()
 end
 
 local function readyCheck(event)
-    EUI.PartyList.OnReadyCheck(event)
+    EUI.PartyList.OnReadyCheck(event, forEachUnitRow)
 end
 
 -- Events with no unit, run once EUI.ready; fn(event).
@@ -319,7 +335,7 @@ local GLOBAL_ROUTES = {
         refreshRoster()
     end,
     PARTY_LEADER_CHANGED = function()
-        EUI.PartyList.ForEachVisibleRow(function(row)
+        forEachUnitRow(function(row)
             row:UpdateLeader()
             row:UpdateGroupRoles()
         end)
@@ -469,6 +485,7 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
         EUI.RunOutOfCombat(function()
             Settings.Reset('positions')
             EUI.EditMode.RestorePosition('party', EUI.PartyList.anchor)
+            EUI.EditMode.RestorePosition('raid', EUI.RaidList.anchor)
             EUI.EditMode.RestorePosition('target', EUI.TargetBar.target.anchor)
             EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)
             EUI.EditMode.RestorePosition('cast', EUI.castAnchor)

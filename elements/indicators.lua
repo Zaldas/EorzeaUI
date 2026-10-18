@@ -2,7 +2,7 @@ local _, EUI = ...
 
 -- Status markers on a party row: rest/combat on the player row, one status icon centred on
 -- the class icon, leader crown on its top edge, role and PvP on its left edge, and a raid
--- marker before the name.
+-- marker before the name. A style without indicators.pvp builds no PvP badge.
 
 EUI.Indicators = {}
 local Indicators = {}
@@ -139,7 +139,9 @@ function EUI.Indicators.Create(parent, top, style)
     self.raidMarker:SetTexture(RAID_MARKERS)
     self.flag = sizedTexture(top, spec.flag)
     self.role = sizedTexture(parent, spec.role)
-    self.pvp = sizedTexture(parent, spec.pvp)
+    if spec.pvp then
+        self.pvp = sizedTexture(parent, spec.pvp)
+    end
     return self
 end
 
@@ -152,8 +154,11 @@ function Indicators:SetLeader(shown, guide)
 end
 
 -- Assistant and master looter stack on the icon's right edge when both show; either one
--- alone sits centred between the two slots.
+-- alone sits centred between the two slots. spec.fixedRanks keeps both at their own spots.
 local function layoutRightEdge(self)
+    if self.spec.fixedRanks then
+        return
+    end
     local upper, lower = self.spec.assistant.pos, self.spec.masterLooter.pos
     if self.assistant:IsShown() and self.masterLooter:IsShown() then
         Style.Place(self.assistant, self.parent, upper)
@@ -264,7 +269,7 @@ end
 
 -- kind: 'FFA' | 'Alliance' | 'Horde' | nil
 function Indicators:SetPvP(kind)
-    if kind == self.pvpKind then
+    if not self.pvp or kind == self.pvpKind then
         return
     end
     self.pvpKind = kind

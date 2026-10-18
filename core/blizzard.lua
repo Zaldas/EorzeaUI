@@ -15,6 +15,7 @@ local REPLACED = {
     'FocusFrameToT',
     'PartyFrame',
     'CompactPartyFrame',
+    'CompactRaidFrameContainer',
     'PlayerCastingBarFrame',
 }
 

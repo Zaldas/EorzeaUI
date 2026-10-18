@@ -29,16 +29,6 @@ function Kit.BuildLayout(p)
                 top = { height = 10 },
                 bottom = { height = 8 },
             },
-            -- Raid only. Centred on the background (x 7..427) with header lines in the text's gold;
-            -- the box ends 3px above the background's top edge (y -11). Gold with a black shadow and
-            -- no outline in Friz Quadrata: WoW's GameFontNormal look.
-            groupNumber = {
-                pos = { 7, -32 },
-                width = 420,
-                height = 18,
-                txtLabel = { size = 18, color = '#FFD200FF', stroke = '#000000FF', outline = '', font = 'standard' },
-                line = { color = '#FFD200FF', alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
-            },
             lowHealth = Kit.LOW_HEALTH,
             hp = {
                 pos = { 19, -7 },
@@ -144,6 +134,74 @@ function Kit.BuildLayout(p)
                 -- Own pet only: debuffs then buffs in the party aura column, max of each.
                 auras = { pos = { 284, 7 }, size = 18, spacing = 2, max = 3, border = Kit.AURA_BORDER },
             },
+        },
+
+        -- Raid groups: one block of up to 5 cells per subgroup, laid out groupsPerRow to a row in
+        -- group order. Cells are ported from VanaVista layouts/styles/ffxiAlliance.lua: the name
+        -- line with the HP value at its right end, the HP bar under it and the short MP bar below
+        -- that, right of a 34px class icon. One aura line runs under the bars.
+        raid = {
+            width = 168,
+            rowHeight = 45,
+            rowSpacing = 4,
+            groupsPerRow = 4,
+            -- Between blocks: x from one background's right edge (or the cursor's overhang) to the
+            -- next, y from one block's bottom padding to the next header.
+            groupSpacing = { 8, 14 },
+            background = {
+                color = p.partyBg.color,
+                alpha = p.partyBg.alpha,
+                leftAlpha = p.partyBg.leftAlpha,
+                pos = { 7, -7 },
+                width = 165,
+                top = { height = 7 },
+                bottom = { height = 6 },
+            },
+            -- "Group N", centred on the background with header lines in the text's gold, its box
+            -- ending 3px above the background. Gold with a black shadow and no outline in Friz
+            -- Quadrata: WoW's GameFontNormal look.
+            groupNumber = {
+                pos = { 7, -24 },
+                width = 165,
+                height = 14,
+                txtLabel = { size = 14, color = '#FFD200FF', stroke = '#000000FF', outline = '', font = 'standard' },
+                line = { color = '#FFD200FF', alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
+            },
+            lowHealth = Kit.LOW_HEALTH,
+            -- The bar's line starts under the name (x 27) and keeps VanaVista's right end.
+            hp = {
+                pos = { 16, -17 },
+                bar = Kit.wideBar(142, p.hp, p.hp),
+                txtValue = { pos = { 128, 22 }, size = 10, color = p.text, stroke = p.stroke, font = 'number', alignRight = true },
+                textColor = p.text,
+                thresholds = p.hpThresholds,
+                offlineColor = p.offline,
+            },
+            power = {
+                pos = { 56, -8 },
+                -- No value, as on Blizzard's raid frames.
+                bar = Kit.allyBar(p.power, p.power),
+                colors = p.powerColors,
+            },
+            classIcon = {
+                pos = { -10, 2 },
+                size = 34,
+                bg = 'jobIcons/bg',
+                gradient = 'jobIcons/gradient',
+                frame = 'jobIcons/frame',
+            },
+            range = { farAlpha = 0.5, notPresentAlpha = 0.6 },
+            -- On the icon's bottom-right corner, as on the target.
+            threat = { path = 'pips/diamondFill-16', pos = { 19, 29 }, size = { 12, 12 } },
+            hover = { path = 'ffxi/Hover', pos = { 18, -6 }, size = { 156, 57 }, color = '#9C94E8AA' },
+            -- Placed against the icon as on the party rows: tip on its left edge, centred.
+            cursor = { path = 'ffxi/Cursor', pos = { -42, 7.5 }, size = { 35, 23 }, color = '#FFFFFFFF', onTop = true },
+            -- Ends before the HP value on the same line.
+            txtName = { pos = { 27, 0 }, width = 73, size = 12, color = p.name, stroke = p.stroke },
+            indicators = Kit.raidIndicators(p, 27, 0),
+            -- Under the bars, from the threat diamond's right edge. Demo rows fill it; live cells
+            -- build no auras yet.
+            auras = { pos = { 31, 31 }, size = 12, spacing = 1, max = 11, border = Kit.AURA_BORDER },
         },
 
         -- Maxes match Blizzard's target frame (16 debuffs, 32 buffs): at most 3 lines.

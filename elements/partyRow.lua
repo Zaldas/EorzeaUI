@@ -1,7 +1,9 @@
 local _, EUI = ...
 
--- Visuals for one secure party button. The party list owns the button's unit attribute and
--- the unit watch its visibility; this only draws on it and follows unit changes.
+-- Visuals for one secure party button or raid cell. Its list owns the button's unit attribute
+-- and visibility; this only draws on it and follows unit changes. The form bar, level badge,
+-- power value, cast bar, auras and pet sub-row are optional: a style without the spec builds
+-- none.
 
 EUI.PartyRow = {}
 local Row = {}
@@ -39,10 +41,14 @@ local function buildArt(self, host, style, fonts)
     self.lowHealthCurve = EUI.Curves.Step({ style.lowHealth }, '#FFFFFFFF')
 
     self.power = EUI.Bar.Create(art, style.power.bar, style.power.pos, { cost = style.power.cost })
-    self.powerText = Style.Text(self.power.overlay, style.power.txtValue, fonts)
-    self.formBar = EUI.Bar.Create(art, style.formBar.bar, style.formBar.pos, { cost = style.power.cost })
-    self.formText = Style.Text(self.formBar.overlay, style.formBar.txtValue, fonts)
-    self.formBar.frame:Hide()
+    if style.power.txtValue then
+        self.powerText = Style.Text(self.power.overlay, style.power.txtValue, fonts)
+    end
+    if style.formBar then
+        self.formBar = EUI.Bar.Create(art, style.formBar.bar, style.formBar.pos, { cost = style.power.cost })
+        self.formText = Style.Text(self.formBar.overlay, style.formBar.txtValue, fonts)
+        self.formBar.frame:Hide()
+    end
 
     if style.cast then
         self.cast = EUI.CastBar.Create(art, nil, style.cast, fonts, style.cast.pos)
@@ -71,8 +77,10 @@ local function buildArt(self, host, style, fonts)
     self.name:SetWidth(style.txtName.width)
     self.name:SetWordWrap(false)
 
-    self.levelBadge = EUI.LevelBadge.Create(iconFrame, iconFrame, style.levelBadge, fonts)
-    self.levelBadge.frame:SetFrameLevel(iconFrame:GetFrameLevel() + 2)
+    if style.levelBadge then
+        self.levelBadge = EUI.LevelBadge.Create(iconFrame, iconFrame, style.levelBadge, fonts)
+        self.levelBadge.frame:SetFrameLevel(iconFrame:GetFrameLevel() + 2)
+    end
 
     local markers = CreateFrame('Frame', nil, art)
     markers:SetAllPoints(art)
@@ -105,6 +113,13 @@ local function setThreat(self, status)
     local r, g, b = EUI.Indicators.ThreatColor(status)
     self.threat:SetVertexColor(r, g, b, 1)
     self.threat:Show()
+end
+
+-- value: a number (possibly secret), or nil to clear.
+local function setPowerText(self, value)
+    if self.powerText then
+        EUI.SetNumberText(self.powerText, value)
+    end
 end
 
 -- Stands in for a power type while the member is offline.
@@ -163,9 +178,11 @@ function EUI.PartyRow.Attach(button, style, fonts, hooks)
     local art = self.art
 
     -- AuraContainers are created at login (out of combat) with the button's initial unit.
-    local initialUnit = button:GetAttribute('unit') or 'player'
-    self.buffs = EUI.AuraRow.Create(art, initialUnit, 'HELPFUL', style.buffs, fonts)
-    self.debuffs = EUI.AuraRow.Create(art, initialUnit, 'HARMFUL', style.debuffs, fonts)
+    if style.buffs then
+        local initialUnit = button:GetAttribute('unit') or 'player'
+        self.buffs = EUI.AuraRow.Create(art, initialUnit, 'HELPFUL', style.buffs, fonts)
+        self.debuffs = EUI.AuraRow.Create(art, initialUnit, 'HARMFUL', style.debuffs, fonts)
+    end
 
     UnitVisual.AttachButton(self, button)
 
@@ -180,9 +197,16 @@ function EUI.PartyRow.CreateDemo(parent, style, fonts)
     host:SetSize(style.width, style.rowHeight)
     self.host = host
     buildArt(self, host, style, fonts)
-    self.buffs = EUI.StaticIcons.Create(self.art, style.buffs, fonts)
-    self.debuffs = EUI.StaticIcons.Create(self.art, style.debuffs, fonts)
-    self.pet = EUI.PetRow.CreateDemo(host, self, style, fonts)
+    if style.buffs then
+        self.buffs = EUI.StaticIcons.Create(self.art, style.buffs, fonts)
+        self.debuffs = EUI.StaticIcons.Create(self.art, style.debuffs, fonts)
+    end
+    if style.auras then
+        self.auras = EUI.StaticIcons.Create(self.art, style.auras, fonts)
+    end
+    if style.pet then
+        self.pet = EUI.PetRow.CreateDemo(host, self, style, fonts)
+    end
     return self
 end
 
@@ -206,7 +230,7 @@ end
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, guide, targeted, far,
 --            state, resting, combat, status, raidMarker, tag, role, pvp, cast, threat, powerType,
 --            form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
---            buffs, debuffs, pet (see PetRow ShowDemo) }
+--            buffs, debuffs, auras (one row, for styles with auras), pet (see PetRow ShowDemo) }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
     if not member then
@@ -214,7 +238,9 @@ function Row:ShowDemo(member)
     end
     setClassIcon(self, member.class)
     setName(self, member.name)
-    self.levelBadge:Set(member.level)
+    if self.levelBadge then
+        self.levelBadge:Set(member.level)
+    end
 
     self.hp:SetRange(member.hpMax)
     if not applyState(self, member.state, member.hpMax) then
@@ -248,18 +274,18 @@ function Row:ShowDemo(member)
     tintPower(self, self.power, offline and OFFLINE or member.powerType)
     self.power:SetRange(member.powerMax)
     self.power:SetValue(offline and member.powerMax or member.power)
-    local form = member.form
-    self.formBar.frame:SetShown(form ~= nil)
+    local form = self.formBar and member.form
+    if self.formBar then
+        self.formBar.frame:SetShown(form ~= nil)
+    end
     if form then
         tintPower(self, self.formBar, form.powerType)
         self.formBar:SetRange(form.powerMax)
         self.formBar:SetValue(form.power)
         self.formText:SetText(UnitVisual.FormatNumber(form.power))
     end
-    if offline then
-        self.powerText:SetText('')
-    else
-        self.powerText:SetText(UnitVisual.FormatNumber(member.power))
+    if self.powerText then
+        self.powerText:SetText(offline and '' or UnitVisual.FormatNumber(member.power))
     end
 
     indicators:SetLeader(member.leader == true, member.guide == true)
@@ -269,9 +295,17 @@ function Row:ShowDemo(member)
     setThreat(self, member.threat)
     self.art:SetAlpha(member.far and self.style.range.farAlpha or 1)
 
-    self.buffs:Set(member.buffs)
-    self.debuffs:Set(member.debuffs)
+    if self.buffs then
+        self.buffs:Set(member.buffs)
+        self.debuffs:Set(member.debuffs)
+    end
+    if self.auras then
+        self.auras:Set(member.auras)
+    end
 
+    if not self.pet then
+        return
+    end
     -- The pet sub-row follows the form sub-row when both show.
     local petY = self.style.rowHeight + (form and self.style.formRowHeight or 0)
     self.pet.host:ClearAllPoints()
@@ -288,11 +322,13 @@ function Row:SetUnit(unit)
     self.readyStatus = nil
     self.hooks.unitChanged(self, previous, unit)
     if unit then
-        self.buffs:SetUnit(unit)
+        if self.buffs then
+            self.buffs:SetUnit(unit)
+            self.debuffs:SetUnit(unit)
+        end
         if self.cast then
             self.cast:SetUnit(unit)
         end
-        self.debuffs:SetUnit(unit)
         self:Refresh()
     end
 end
@@ -301,6 +337,7 @@ function Row:Refresh()
     if not self.unit or not UnitExists(self.unit) then
         return
     end
+    self:UpdateSelf()
     self:UpdateName()
     self:UpdateHealth(false)
     self:UpdatePower(false)
@@ -316,13 +353,22 @@ function Row:Refresh()
     self:UpdateRaidMarker()
     self:UpdatePlayerState()
     self:UpdateReadyCheck(self.hooks.readyCheckPhase())
-    self.buffs:Refresh()
-    self.debuffs:Refresh()
+    if self.buffs then
+        self.buffs:Refresh()
+        self.debuffs:Refresh()
+    end
 end
 
--- Row 1 is bound to 'player' in party and raid.
+-- The party list's first row, bound to 'player'.
 function Row:IsPlayer()
     return self.unit == 'player'
+end
+
+-- isSelf: the unit is you by any token (the raidN cell for you). Rechecked on refresh, as a
+-- roster change can put someone else behind the same token.
+function Row:UpdateSelf()
+    local guid = EUI.SafeValue(UnitGUID, self.unit)
+    self.isSelf = guid ~= nil and guid == EUI.SafeValue(UnitGUID, 'player')
 end
 
 local function readState(unit)
@@ -342,7 +388,9 @@ function Row:UpdateName()
     local unit = self.unit
     setClassIcon(self, EUI.SafeValue(function() return select(2, UnitClass(unit)) end))
     setName(self, EUI.UnitDisplayName(unit))
-    self.levelBadge:Set(EUI.SafeValue(UnitLevel, unit))
+    if self.levelBadge then
+        self.levelBadge:Set(EUI.SafeValue(UnitLevel, unit))
+    end
     if self.pet then
         self.pet:UpdateGradient()
     end
@@ -480,24 +528,26 @@ function Row:UpdatePower(smooth)
         self.power:SetRange(UnitPowerMax(unit, MANA))
         local mana = UnitPower(unit, MANA)
         self.power:SetValue(mana, smooth)
-        EUI.SetNumberText(self.powerText, mana)
+        setPowerText(self, mana)
         self:UpdateFormBar(smooth)
         return
     end
-    self.formBar.frame:Hide()
+    if self.formBar then
+        self.formBar.frame:Hide()
+    end
     -- Offline: a full bar in the offline grey, as the HP bar.
     if self.state == 'offline' then
         tintPower(self, self.power, OFFLINE)
         self.power:SetRange(1)
         self.power:SetValue(1)
-        self.powerText:SetText('')
+        setPowerText(self, nil)
         return
     end
     tintPower(self, self.power, EUI.Read('UnitPowerType', UnitPowerType, unit))
     self.power:SetRange(UnitPowerMax(unit))
     local power = UnitPower(unit)
     self.power:SetValue(power, smooth)
-    EUI.SetNumberText(self.powerText, power)
+    setPowerText(self, power)
 end
 
 function Row:UpdateFormBar(smooth)
@@ -602,7 +652,7 @@ function Row:UpdateRange()
     self.notPresent = false
     if self.state == 'offline' then
         self.art:SetAlpha(range.farAlpha)
-    elseif not unit or self:IsPlayer() then
+    elseif not unit or self:IsPlayer() or self.isSelf then
         self.art:SetAlpha(1)
     elseif notPresent(unit) then
         self.notPresent = true

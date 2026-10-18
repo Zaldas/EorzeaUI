@@ -103,6 +103,53 @@ local function members()
     }
 end
 
+-- A full 40-player raid: you lead group 1; tanks, healers and a few states spread over the rest.
+local RAID_CLASSES = { 'WARRIOR', 'PRIEST', 'MAGE', 'ROGUE', 'DRUID', 'HUNTER', 'WARLOCK', 'PALADIN', 'SHAMAN' }
+local RAID_POWER = { WARRIOR = 1, ROGUE = 3 }
+local RAID_ROLES = { WARRIOR = 'TANK', PRIEST = 'HEALER', DRUID = 'HEALER', PALADIN = 'HEALER', SHAMAN = 'HEALER' }
+local NAME_STARTS = { 'Ael', 'Bran', 'Cor', 'Dra', 'Eli', 'Fen', 'Gar', 'Hal', 'Ish', 'Jor', 'Kael', 'Lio', 'Mor' }
+local NAME_ENDS = { 'dor', 'wyn', 'ric', 'tha', 'mir' }
+-- By raid slot (group * 5 + member): states and markers the cells show.
+local RAID_EXTRAS = {
+    [2] = { raidMarker = 8, threat = 3, assistant = true, auras = petAuras(5, 6) },
+    [4] = { status = 'ready' },
+    [7] = { targeted = true, incoming = 640 },
+    [9] = { state = 'dead' },
+    [12] = { far = true },
+    [14] = { status = 'notready', tag = 'AFK' },
+    [18] = { state = 'offline' },
+    [21] = { raidMarker = 1, threat = 1 },
+    [26] = { status = 'summonPending' },
+    [31] = { status = 'resurrect', state = 'dead' },
+    [35] = { far = true, absorb = 400 },
+}
+
+local function raidMembers()
+    local groups = {}
+    for g = 1, 8 do
+        local list = {}
+        for m = 1, 5 do
+            local slot = (g - 1) * 5 + m
+            local class = RAID_CLASSES[(slot - 1) % #RAID_CLASSES + 1]
+            local hpMax = class == 'WARRIOR' and 5200 or 3100
+            local member = {
+                name = NAME_STARTS[(slot - 1) % #NAME_STARTS + 1] .. NAME_ENDS[(slot - 1) % #NAME_ENDS + 1],
+                class = class, role = RAID_ROLES[class] or 'DAMAGER',
+                hp = math.floor(hpMax * (0.35 + (slot * 37 % 65) / 100)), hpMax = hpMax,
+                powerType = RAID_POWER[class] or 0, power = 60, powerMax = 100,
+            }
+            for key, value in pairs(RAID_EXTRAS[slot] or {}) do
+                member[key] = value
+            end
+            list[m] = member
+        end
+        groups[g] = list
+    end
+    local you = groups[1][1]
+    you.name, you.class, you.leader, you.role = playerDisplayName(), select(2, UnitClass('player')) or 'PALADIN', true, nil
+    return groups
+end
+
 local function target()
     return {
         name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'hostile', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
@@ -183,6 +230,7 @@ function Demo.Refresh()
     end
     Demo.active = active
     EUI.PartyList.SetDemo(active and members() or nil)
+    EUI.RaidList.SetDemo(active and raidMembers() or nil)
     EUI.TargetBar.target:SetPreview(active and target() or nil)
     EUI.TargetBar.focus:SetPreview(active and focus() or nil)
     EUI.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)

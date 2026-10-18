@@ -111,6 +111,29 @@ function Kit.partyIndicators(p, nameX, nameY)
     }
 end
 
+-- Raid cell indicators around the 34px class icon at (-10,2), which spans x -10..24, y 2..36.
+-- The name and HP bar start 3px right of the icon, so ranks sit on its top and bottom edges:
+-- leader or assistant (never both) centred on the top edge, master looter on the bottom edge.
+-- role: straddling the left edge, centred. No PvP badge, as Blizzard's raid frames; rest/combat
+-- never show on cells.
+function Kit.raidIndicators(p, nameX, nameY)
+    return {
+        fixedRanks = true,
+        leader = { pos = { -2, -5 }, size = { 18, 18 } },
+        assistant = { pos = { -2, -5 }, size = { 18, 18 } },
+        masterLooter = { pos = { -0.5, 28 }, size = { 15, 15 } },
+        rest = { pos = { 14, -5 }, size = { 20, 20 } },
+        combat = { pos = { 16, -1 }, size = { 15, 15 } },
+        status = { pos = { -3, 9 }, size = { 20, 20 } },
+        summon = { pos = { -7, 5 }, size = { 28, 28 } },
+        raidMarker = { pos = { nameX, nameY }, size = { 12, 12 } },
+        role = { pos = { -18, 11 }, size = { 16, 16 } },
+        flag = { pos = { nameX, nameY + 1 }, size = { 28, 11 } },
+        stateColor = '#A0A0A0FF',
+        healPrediction = { color = p.heals, absorbColor = p.absorbs },
+    }
+end
+
 -- Blizzard's frames tint the portrait red at 20% health or below.
 Kit.LOW_HEALTH = { below = 0.2, color = '#FF0000FF' }
 
