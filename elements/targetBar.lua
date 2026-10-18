@@ -523,6 +523,27 @@ function Bar:UpdateIdentity()
     self.leader:SetShown(leads == true)
 end
 
+function Bar:UpdateTier()
+    if not isLive(self) then
+        return
+    end
+    setTier(self, AV.Read('UnitClassification', UnitClassification, self.unit))
+end
+
+-- Difficulty-coloured for units you can attack, so it also changes with faction and PvP state.
+function Bar:UpdateLevel()
+    if not isLive(self) then
+        return
+    end
+    local unit = self.unit
+    local level = AV.SafeValue(UnitLevel, unit)
+    if level and AV.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
+        setLevel(self, level, difficultyColor(unit, level))
+    else
+        setLevel(self, level)
+    end
+end
+
 function Bar:Refresh()
     if self.preview or not self.unit then
         return
@@ -539,13 +560,8 @@ function Bar:Refresh()
     self:UpdateIdentity()
     self:UpdateIcon()
     self:UpdateFlags()
-    setTier(self, AV.Read('UnitClassification', UnitClassification, unit))
-    local level = AV.SafeValue(UnitLevel, unit)
-    if level and AV.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
-        setLevel(self, level, difficultyColor(unit, level))
-    else
-        setLevel(self, level)
-    end
+    self:UpdateTier()
+    self:UpdateLevel()
     self:UpdateHealth(false)
     self:UpdateThreat()
     self:UpdateCombo()

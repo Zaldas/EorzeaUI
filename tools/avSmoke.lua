@@ -53,6 +53,16 @@ CreateFrame = function(kind, name)
     return f
 end
 UIParent = newFrame()
+hooksecurefunc = function(t, name, hook)
+    local original = t[name]
+    rawset(t, name, function(...)
+        local result = original(...)
+        hook(...)
+        return result
+    end)
+end
+PlayerFrame = newFrame()
+PlayerCastingBarFrame = newFrame()
 InCombatLockdown = function() return false end
 UnitExists = function() return true end
 UnitName = function() return 'Zal', 'Brightforge' end

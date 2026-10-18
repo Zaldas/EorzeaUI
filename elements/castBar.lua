@@ -79,8 +79,8 @@ local function resetColors(self)
     end
 end
 
--- interruptIndex: notInterruptible's position among infoFn's returns.
-local function tryStart(self, durationFn, infoFn, remaining, interruptIndex)
+-- interruptIndex, castBarIndex: positions of notInterruptible and castBarID among infoFn's returns.
+local function tryStart(self, durationFn, infoFn, remaining, interruptIndex, castBarIndex)
     if type(durationFn) ~= 'function' then
         return false
     end
@@ -102,7 +102,12 @@ local function tryStart(self, durationFn, infoFn, remaining, interruptIndex)
     end
     pcall(self.name.SetText, self.name, name)
     applyInterruptible(self, info[interruptIndex])
+    self.castBarID = info[castBarIndex]
     return true
+end
+
+local function isCasting(unit)
+    return type(UnitCastingInfo(unit)) ~= 'nil' or type(UnitChannelInfo(unit)) ~= 'nil'
 end
 
 function CastBar:Update()
@@ -110,8 +115,8 @@ function CastBar:Update()
         return
     end
     local live = self.unit ~= nil and UnitExists(self.unit)
-        and (tryStart(self, UnitCastingDuration, UnitCastingInfo, false, 8)
-            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true, 7))
+        and (tryStart(self, UnitCastingDuration, UnitCastingInfo, false, 8, 10)
+            or tryStart(self, UnitChannelDuration, UnitChannelInfo, true, 7, 12))
     -- A failure hold outlasts the STOP events that follow it; only a new cast ends it early.
     if self.failing then
         if not live then
@@ -123,9 +128,18 @@ function CastBar:Update()
 end
 
 -- Holds the showing bar full with label in spec.failure's colour. No-op without spec.failure.
-function CastBar:ShowFailure(label)
+-- castBarID: the failure event's, when it has one; a different cast's failure is ignored.
+-- UNIT_SPELLCAST_FAILED also fires for a spell pressed during a cast that carries on, so
+-- failed = true ignores the event while the unit is still casting.
+function CastBar:ShowFailure(label, castBarID, failed)
     local failure = self.spec.failure
     if not failure or self.preview or self.failing or not self.bar.frame:IsShown() then
+        return
+    end
+    if castBarID ~= nil and self.castBarID ~= nil and castBarID ~= self.castBarID then
+        return
+    end
+    if failed and isCasting(self.unit) then
         return
     end
     self.failing = true

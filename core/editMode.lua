@@ -114,8 +114,10 @@ function EditMode.Register(key, frame, label, bounds)
     EditMode.RestorePosition(key, frame)
 end
 
+-- Locking in combat hides the movers at once; the demo, which hides the secure party
+-- header, ends when combat does.
 function EditMode.SetUnlocked(unlocked)
-    if InCombatLockdown() then
+    if unlocked and InCombatLockdown() then
         AV.Print('cannot unlock frames in combat')
         return
     end
@@ -123,7 +125,7 @@ function EditMode.SetUnlocked(unlocked)
     for _, mover in pairs(movers) do
         mover:SetShown(unlocked)
     end
-    AV.Demo.Refresh()
+    AV.RunOutOfCombat(AV.Demo.Refresh, 'demoRefresh')
 end
 
 function EditMode.Initialize()

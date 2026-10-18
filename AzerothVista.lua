@@ -110,7 +110,7 @@ local function initialize()
 end
 
 -- Unit events route to the party row, pet sub-row and target-style bar showing that unit.
-local function onUnitEvent(event, unit, arg3)
+local function onUnitEvent(event, unit, arg3, arg4, arg5)
     local row = AV.PartyList.RowForUnit(unit)
     local pet = AV.PartyList.PetForUnit(unit)
     local bar = AV.TargetBar.ForUnit(unit)
@@ -164,7 +164,18 @@ local function onUnitEvent(event, unit, arg3)
         end
     elseif event == 'UNIT_FACTION' then
         if row then row:UpdatePvP() end
-        if bar then bar:UpdateIdentity() end
+        if bar then
+            bar:UpdateIdentity()
+            bar:UpdateLevel()
+        end
+        -- Whether you can attack a unit also follows your own faction and PvP state.
+        if unit == 'player' then
+            AV.TargetBar.ForEach(function(each)
+                each:UpdateLevel()
+            end)
+        end
+    elseif event == 'UNIT_CLASSIFICATION_CHANGED' then
+        if bar then bar:UpdateTier() end
     elseif event == 'UNIT_THREAT_SITUATION_UPDATE' then
         if row then row:UpdateThreat() end
     elseif event == 'INCOMING_SUMMON_CHANGED' or event == 'INCOMING_RESURRECT_CHANGED' or event == 'UNIT_PHASE' then
@@ -178,9 +189,9 @@ local function onUnitEvent(event, unit, arg3)
         if pet then pet:UpdateCast() end
         if bar then
             if event == 'UNIT_SPELLCAST_INTERRUPTED' then
-                bar.cast:ShowFailure(INTERRUPTED or 'Interrupted')
+                bar.cast:ShowFailure(INTERRUPTED or 'Interrupted', arg5)
             elseif event == 'UNIT_SPELLCAST_FAILED' then
-                bar.cast:ShowFailure(FAILED or 'Failed')
+                bar.cast:ShowFailure(FAILED or 'Failed', arg4, true)
             else
                 bar.cast:Update()
             end
@@ -198,6 +209,7 @@ local UNIT_EVENTS = {
     'UNIT_HEAL_PREDICTION', 'UNIT_ABSORB_AMOUNT_CHANGED', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
     'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED', 'UNIT_PHASE', 'UNIT_FACTION',
     'UNIT_THREAT_SITUATION_UPDATE', 'UNIT_PET', 'UNIT_PORTRAIT_UPDATE', 'UNIT_HAPPINESS',
+    'UNIT_CLASSIFICATION_CHANGED',
 }
 
 local GLOBAL_EVENTS = {
@@ -227,7 +239,7 @@ for _, list in ipairs({ GLOBAL_EVENTS, UNIT_EVENTS }) do
     end
 end
 
-events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, arg3)
+events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, arg3, arg4, arg5)
     if event == 'ADDON_LOADED' then
         if arg1 == addonName then
             loadSettings()
@@ -313,7 +325,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
             pet:UpdateHappiness()
         end)
     else
-        onUnitEvent(event, arg1, arg3)
+        onUnitEvent(event, arg1, arg3, arg4, arg5)
     end
 end))
 
