@@ -123,12 +123,6 @@ local function tintPower(self, bar, powerType)
     UnitVisual.TintBar(bar, powerType, color)
 end
 
-local STATE_LABELS = {
-    dead = DEAD and DEAD:upper() or 'DEAD',
-    ghost = GHOST and GHOST:upper() or 'GHOST',
-    offline = PLAYER_OFFLINE and PLAYER_OFFLINE:upper() or 'OFFLINE',
-}
-
 -- Offline members get a full HP bar in style.hp.offlineColor, as on Blizzard's frames.
 local function greyHealth(self, offline)
     if offline == self.greyed then
@@ -158,7 +152,7 @@ local function applyState(self, state, maxHealth)
     end
     self.hp:SetValue(state == 'offline' and maxHealth or 0)
     self.hp:SetIncoming(0)
-    self.hpText:SetText(STATE_LABELS[state])
+    self.hpText:SetText(EUI.UnitInfo.STATE_LABELS[state])
     self.hpText:SetTextColor(Style.Color(self.style.indicators.stateColor))
     return true
 end
@@ -593,51 +587,32 @@ function Row:UpdateLeader()
     self.indicators:SetLeader(EUI.SafeBool(UnitIsGroupLeader, self.unit))
 end
 
-local function showNear(self, near)
-    self.art:SetAlpha(near and 1 or self.style.range.farAlpha)
+-- Phased or in another group (a cross-faction or public group), as Blizzard's
+-- UpdateNotPresentIcon checks.
+local function notPresent(unit)
+    if EUI.Read('UnitInOtherParty', UnitInOtherParty, unit) then
+        return true
+    end
+    return EUI.Read('UnitIsConnected', UnitIsConnected, unit) == true
+        and EUI.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil
 end
 
--- inRange is a secret boolean, so the engine picks between the alphas.
-local function showNearSecret(self, inRange)
-    return pcall(self.art.SetAlphaFromBoolean, self.art, inRange, 1, self.style.range.farAlpha)
-end
-
--- UnitInRange is the 40-yard group check; CheckInteractDistance(unit, 4) (28 yards) is the fallback.
 function Row:UpdateRange()
     local unit = self.unit
+    local range = self.style.range
+    self.notPresent = false
     if self.state == 'offline' then
-        showNear(self, false)
-        return
+        self.art:SetAlpha(range.farAlpha)
+    elseif not unit or self:IsPlayer() then
+        self.art:SetAlpha(1)
+    elseif notPresent(unit) then
+        self.notPresent = true
+        self.art:SetAlpha(range.notPresentAlpha)
+    else
+        UnitVisual.ShowRange(self.art, unit, range.farAlpha)
     end
-    if not unit or self:IsPlayer() then
-        showNear(self, true)
-        return
-    end
-    if UnitInRange then
-        local ok, inRange, checked = pcall(UnitInRange, unit)
-        if not ok then
-            EUI.LogOnce('range:error', 'UnitInRange failed: %s', tostring(inRange))
-        elseif EUI.CanAccess(inRange) then
-            if EUI.CanAccess(checked) and checked then
-                showNear(self, inRange == true)
-                return
-            end
-        elseif EUI.CanAccess(checked) and not checked then
-            -- Unchecked: the secret result says nothing; fall through to CheckInteractDistance.
-        elseif self.art.SetAlphaFromBoolean and showNearSecret(self, inRange) then
-            EUI.LogOnce('range:secret', 'range: UnitInRange is secret; dimming via SetAlphaFromBoolean')
-            return
-        else
-            EUI.LogOnce('range:fallback', 'range: UnitInRange is secret and SetAlphaFromBoolean failed; using CheckInteractDistance')
-        end
-    end
-    showNear(self, EUI.SafeValue(CheckInteractDistance, unit, 4) ~= false)
 end
 
--- GUIDs are readable in combat unless unit identity is restricted, unlike UnitIsUnit against
--- compound tokens.
 function Row:UpdateCursor()
-    local guid = self.unit and EUI.SafeValue(UnitGUID, self.unit)
-    local targetGuid = EUI.SafeValue(UnitGUID, 'target')
-    self.cursor:SetShown(guid ~= nil and guid == targetGuid)
+    self.cursor:SetShown(UnitVisual.IsTarget(self.unit))
 end

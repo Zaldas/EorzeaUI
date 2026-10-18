@@ -208,6 +208,8 @@ function Kit.target(p, castText, size)
         threat = { path = 'pips/diamondFill-16', pos = { 1.5, iconY + iconSize - 8.5 }, size = { 15, 15 } },
         txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         lowHealth = Kit.LOW_HEALTH,
+        -- Replaces HP% while the unit is dead or unconscious.
+        stateColor = '#A0A0A0FF',
         -- right: the name truncates there, clear of the HP% text.
         txtName = { pos = { nameX, nameY }, size = size.name, color = p.targetText, stroke = p.stroke, right = nameRight },
         -- Before the name, which shifts right while it shows; as on the party rows.
@@ -269,6 +271,7 @@ function Kit.castBar(p, castText)
         height = 64,
         bar = Kit.wideBar(width, p.cast, p.cast),
         channelColor = p.channel,
+        failure = { color = p.castFailure, hold = 1 },
         txtName = Kit.castName(castText),
     }
 end

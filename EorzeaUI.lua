@@ -32,7 +32,7 @@ local FEATURE_APIS = {
     'IsResting', 'UnitIsConnected', 'UnitIsDead', 'UnitIsGhost', 'UnitIsAFK', 'UnitIsDND',
     'GetReadyCheckStatus', 'GetRaidTargetIndex', 'C_IncomingSummon', 'UnitHasIncomingResurrection',
     'UnitPhaseReason', 'UnitInRange', 'CreateUnitHealPredictionCalculator', 'UnitGetDetailedHealPrediction',
-    'UnitCastingDuration', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
+    'UnitCastingDuration', 'UnitInOtherParty', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',
     'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
     'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell', 'C_ActionBar', 'RegisterStateDriver',
     'RegisterUnitWatch', 'SetPortraitTexture', 'HasPetUI', 'C_PetInfo', 'UnitHealthPercent', 'C_CurveUtil',
@@ -100,6 +100,9 @@ local function initialize()
         EUI.PartyList.ForEachVisibleRow(function(row)
             row:UpdateRange()
         end)
+        EUI.PartyList.ForEachVisiblePet(function(pet)
+            pet:UpdateRange()
+        end)
         EUI.TargetBar.ForEach(function(bar)
             bar:UpdateIdentity()
             bar:UpdateThreat()
@@ -132,7 +135,7 @@ end
 -- Unit events, by the frames showing the event's unit: row (party row), pet (pet sub-row), bar
 -- (target or focus bar). Each is a method name, a list of them, or fn(frame, event, arg3, arg4,
 -- arg5). smooth, when set, is passed to named methods (UpdateHealth/UpdatePower ease the change).
--- also(unit) runs once per event, for frames not tied to the unit.
+-- also(unit, event, arg3, arg4, arg5) runs once per event, for frames not tied to the unit.
 local UNIT_ROUTES = {
     UNIT_HEALTH = { row = 'UpdateHealth', pet = 'UpdateHealth', bar = 'UpdateHealth', smooth = true },
     UNIT_MAXHEALTH = { row = 'UpdateHealth', pet = 'UpdateHealth', bar = 'UpdateHealth', smooth = false },
@@ -178,7 +181,7 @@ local UNIT_ROUTES = {
     UNIT_THREAT_SITUATION_UPDATE = { row = 'UpdateThreat' },
     INCOMING_SUMMON_CHANGED = { row = 'UpdateStatusIcon' },
     INCOMING_RESURRECT_CHANGED = { row = 'UpdateStatusIcon' },
-    UNIT_PHASE = { row = 'UpdateStatusIcon' },
+    UNIT_PHASE = { row = { 'UpdateStatusIcon', 'UpdateRange' } },
     -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
     UNIT_PET = {
         also = function()
@@ -200,26 +203,35 @@ UNIT_ROUTES.UNIT_POWER_UPDATE = { row = 'UpdatePower', pet = 'UpdatePower', smoo
 UNIT_ROUTES.UNIT_MAXPOWER = { row = 'UpdatePower', pet = 'UpdatePower', smooth = false, also = playerPowerChanged }
 UNIT_ROUTES.UNIT_DISPLAYPOWER = UNIT_ROUTES.UNIT_MAXPOWER
 
+-- Interrupted and failed casts hold the bar with a label; other cast events update it.
+local function castEvent(cast, event, failedCastBarID, interruptedCastBarID)
+    if event == 'UNIT_SPELLCAST_INTERRUPTED' then
+        cast:ShowFailure(INTERRUPTED or 'Interrupted', interruptedCastBarID)
+    elseif event == 'UNIT_SPELLCAST_FAILED' then
+        cast:ShowFailure(FAILED or 'Failed', failedCastBarID, true)
+    else
+        cast:Update()
+    end
+end
+
 -- Payload after unit and castGUID: spellID, then FAILED's castBarID, or INTERRUPTED's
 -- interruptedBy and castBarID.
 local CAST_ROUTE = {
-    row = function(row, event, spellID)
-        row:UpdateCast()
+    row = function(row, event, spellID, failedCastBarID, interruptedCastBarID)
+        if row.cast then
+            castEvent(row.cast, event, failedCastBarID, interruptedCastBarID)
+        end
         row:UpdateCostPreview(event, spellID)
     end,
-    pet = 'UpdateCast',
-    bar = function(bar, event, _, failedCastBarID, interruptedCastBarID)
-        if event == 'UNIT_SPELLCAST_INTERRUPTED' then
-            bar.cast:ShowFailure(INTERRUPTED or 'Interrupted', interruptedCastBarID)
-        elseif event == 'UNIT_SPELLCAST_FAILED' then
-            bar.cast:ShowFailure(FAILED or 'Failed', failedCastBarID, true)
-        else
-            bar.cast:Update()
-        end
+    pet = function(pet, event, _, failedCastBarID, interruptedCastBarID)
+        castEvent(pet.cast, event, failedCastBarID, interruptedCastBarID)
     end,
-    also = function(unit)
+    bar = function(bar, event, _, failedCastBarID, interruptedCastBarID)
+        castEvent(bar.cast, event, failedCastBarID, interruptedCastBarID)
+    end,
+    also = function(unit, event, _, failedCastBarID, interruptedCastBarID)
         if unit == 'player' then
-            EUI.playerCast:Update()
+            castEvent(EUI.playerCast, event, failedCastBarID, interruptedCastBarID)
         end
     end,
 }
@@ -254,7 +266,7 @@ local function onUnitEvent(route, event, unit, arg3, arg4, arg5)
     runAction(route.pet and EUI.PartyList.PetForUnit(unit), route.pet, route, event, arg3, arg4, arg5)
     runAction(route.bar and EUI.TargetBar.ForUnit(unit), route.bar, route, event, arg3, arg4, arg5)
     if route.also then
-        route.also(unit)
+        route.also(unit, event, arg3, arg4, arg5)
     end
 end
 
@@ -290,6 +302,9 @@ local GLOBAL_ROUTES = {
         checkUnitLost('target')
         EUI.TargetBar.target:Refresh()
         forEachRow('UpdateCursor')
+        EUI.PartyList.ForEachVisiblePet(function(pet)
+            pet:UpdateCursor()
+        end)
     end,
     COMBO_TARGET_CHANGED = function()
         EUI.TargetBar.target:UpdateCombo()

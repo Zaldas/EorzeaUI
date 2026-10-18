@@ -74,7 +74,8 @@ function Kit.BuildLayout(p)
                 gradient = 'jobIcons/gradient',
                 frame = 'jobIcons/frame',
             },
-            range = { farAlpha = 0.55 },
+            -- notPresentAlpha: phased or in another group, as Blizzard's party frames fade them.
+            range = { farAlpha = 0.5, notPresentAlpha = 0.6 },
             -- Tinted with Blizzard's threat colours; hidden without threat.
             threat = { path = 'pips/diamondFill-16', pos = { 29, 29 }, size = { 12, 12 } },
             hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
@@ -86,12 +87,17 @@ function Kit.BuildLayout(p)
                 pos = { 19, -19 },
                 bar = Kit.wideBar(259, p.cast, p.cast),
                 channelColor = p.channel,
+                failure = { color = p.castFailure, hold = 1 },
                 txtName = Kit.castName(castText, 219, -1),
             },
             levelBadge = Kit.levelBadge,
             indicators = Kit.partyIndicators(p, 38, 3),
             buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER },
-            debuffs = { pos = { 284, 16 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER },
+            -- dispelBorder: edges debuffs by dispel type, as on the target.
+            debuffs = {
+                pos = { 284, 16 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER,
+                dispelBorder = 'dispel', dispelColors = p.dispel,
+            },
             -- Pet sub-row at the bottom of the owner's row, which grows by rowHeight while the pet
             -- exists. A compact member row, in sub-row coordinates: name line on top, then HP and
             -- power side by side on VanaVista's short alliance bars (lines x 52.5..129.5 and
@@ -124,11 +130,14 @@ function Kit.BuildLayout(p)
                     pos = { 27, -25 },
                     bar = Kit.allyBar(p.cast, p.cast, 215),
                     channelColor = p.channel,
+                    failure = { color = p.castFailure, hold = 1 },
                     txtName = { pos = { 29, 24 }, width = 160, size = 10, color = p.text, stroke = p.stroke, font = 'number' },
                 },
                 -- Own hunter pet only, right of the power bar.
                 happiness = { pos = { 223, 10 }, size = { 20, 19 } },
                 hover = { path = 'ffxi/Hover', pos = { 20, -6 }, size = { 390, 44 }, color = '#9C94E8AA' },
+                -- Points at the portrait (x 24..51, y 3..30) as the member cursor does at the class icon.
+                cursor = { path = 'ffxi/Cursor', pos = { -10, 5 }, size = { 37, 24 }, color = '#FFFFFFFF' },
                 -- Own pet only: debuffs then buffs in the party aura column, max of each.
                 auras = { pos = { 284, 7 }, size = 18, spacing = 2, max = 3, border = Kit.AURA_BORDER },
             },

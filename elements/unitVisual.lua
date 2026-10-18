@@ -89,3 +89,36 @@ function UnitVisual.NameLineShift(parent, marker, markerSpec, flag, flagSpec)
     end
     return shift
 end
+
+-- Whether unit is your target. GUIDs are readable in combat unless unit identity is restricted,
+-- unlike UnitIsUnit against compound tokens.
+function UnitVisual.IsTarget(unit)
+    local guid = unit and EUI.SafeValue(UnitGUID, unit)
+    return guid ~= nil and guid == EUI.SafeValue(UnitGUID, 'target')
+end
+
+-- Dims region to farAlpha while unit is out of range. UnitInRange is the 40-yard group check;
+-- its result may be a secret boolean, which SetAlphaFromBoolean takes. CheckInteractDistance
+-- (unit, 4), 28 yards, is the fallback.
+function UnitVisual.ShowRange(region, unit, farAlpha)
+    if UnitInRange then
+        local ok, inRange, checked = pcall(UnitInRange, unit)
+        if not ok then
+            EUI.LogOnce('range:error', 'UnitInRange failed: %s', tostring(inRange))
+        elseif EUI.CanAccess(inRange) then
+            if EUI.CanAccess(checked) and checked then
+                region:SetAlpha(inRange == true and 1 or farAlpha)
+                return
+            end
+        elseif EUI.CanAccess(checked) and not checked then
+            -- Unchecked: the secret result says nothing; fall through to CheckInteractDistance.
+        elseif region.SetAlphaFromBoolean and pcall(region.SetAlphaFromBoolean, region, inRange, 1, farAlpha) then
+            EUI.LogOnce('range:secret', 'range: UnitInRange is secret; dimming via SetAlphaFromBoolean')
+            return
+        else
+            EUI.LogOnce('range:fallback', 'range: UnitInRange is secret and SetAlphaFromBoolean failed; using CheckInteractDistance')
+        end
+    end
+    region:SetAlpha(EUI.SafeValue(CheckInteractDistance, unit, 4) ~= false and 1 or farAlpha)
+end
+

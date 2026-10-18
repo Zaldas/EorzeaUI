@@ -507,7 +507,14 @@ function TargetBarClass:UpdateHealth(smooth)
     self.bar:SetRange(maxHealth)
     self.bar:SetValue(UnitHealth(unit), smooth)
     self.bar:ShowIncomingHeals(unit, maxHealth)
-    EUI.Curves.SetHealthPercentText(self.hpp, unit)
+    local state = UnitInfo.DeadState(unit)
+    if state then
+        self.hpp:SetText(UnitInfo.STATE_LABELS[state])
+        self.hpp:SetTextColor(Style.Color(self.spec.stateColor))
+    else
+        EUI.Curves.SetHealthPercentText(self.hpp, unit)
+        self.hpp:SetTextColor(Style.Color(self.spec.txtHpp.color))
+    end
     local dead = EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) == true
     self.portrait:SetDesaturated(dead)
     if dead then
@@ -607,7 +614,13 @@ function TargetBarClass:SetPreview(data)
         self.combo:SetShown(data.combo ~= nil)
         self.combo:SetCount(data.combo)
     end
-    self.hpp:SetText(string.format('%d%%', data.hpPercent))
+    if data.dead then
+        self.hpp:SetText(UnitInfo.STATE_LABELS.dead)
+        self.hpp:SetTextColor(Style.Color(spec.stateColor))
+    else
+        self.hpp:SetText(string.format('%d%%', data.hpPercent))
+        self.hpp:SetTextColor(Style.Color(spec.txtHpp.color))
+    end
     self.threat:SetShown(data.threat ~= nil)
     self.threatText:SetShown(data.threat ~= nil and data.threatPercent ~= nil)
     if data.threat then

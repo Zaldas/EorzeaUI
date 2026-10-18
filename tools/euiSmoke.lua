@@ -394,6 +394,9 @@ local spied = {
     focus = EUI.TargetBar.focus,
     targetCast = EUI.TargetBar.target.cast,
     focusCast = EUI.TargetBar.focus.cast,
+    rowCast = EUI.PartyList.RowForUnit('player').cast,
+    party1Cast = EUI.PartyList.RowForUnit('party1').cast,
+    petCast = EUI.PartyList.PetForUnit('pet').cast,
     playerCast = EUI.playerCast,
 }
 local calls, depth = {}, 0
@@ -636,6 +639,21 @@ do
     assert(row.state == nil and not row.greyed and row.power.tintKey ~= 'offline', 'online state not restored')
 end
 
+-- Phased members and their pets fade to notPresentAlpha.
+do
+    local row = EUI.PartyList.RowForUnit('party1')
+    local alpha
+    rawset(row.art, 'SetAlpha', function(_, value) alpha = value end)
+    local unitPhaseReason = UnitPhaseReason
+    UnitPhaseReason = function(unit) return unit == 'party1' and 1 or nil end
+    onEvent(nil, 'UNIT_PHASE', 'party1')
+    assert(row.notPresent and alpha == row.style.range.notPresentAlpha, 'phased member not faded: ' .. tostring(alpha))
+    UnitPhaseReason = unitPhaseReason
+    onEvent(nil, 'UNIT_PHASE', 'party1')
+    assert(not row.notPresent and alpha ~= row.style.range.notPresentAlpha, 'unphased member still faded')
+    rawset(row.art, 'SetAlpha', nil)
+end
+
 -- Ready check: a result stays with the member who gave it, not a renumbered token.
 do
     local row = EUI.PartyList.RowForUnit('party1')
@@ -672,6 +690,33 @@ do
     assert(rawequal(EUI.UnitDisplayName('player'), SECRET), 'secret name not passed through')
     UnitName = unitName
     canaccessvalue = nil
+end
+
+-- The player cast bar holds an interrupt through the STOP that follows; the target shows Dead or
+-- Unconscious in place of HP%.
+do
+    local cast = EUI.playerCast
+    local after = C_Timer.After
+    C_Timer.After = function() end
+    onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', 'player', 'guid', 133, 'kicker', nil)
+    onEvent(nil, 'UNIT_SPELLCAST_STOP', 'player', 'guid', 133)
+    assert(cast.failing, 'player cast bar did not hold the interrupt')
+    cast:EndFailure()
+    C_Timer.After = after
+
+    local bar = EUI.TargetBar.target
+    local hppText
+    rawset(bar.hpp, 'SetText', function(_, text) hppText = text end)
+    local unitIsDead, unitIsUnconscious = UnitIsDead, UnitIsUnconscious
+    UnitIsDead = function(unit) return unit == 'target' end
+    bar:UpdateHealth(false)
+    assert(hppText == EUI.UnitInfo.STATE_LABELS.dead, 'dead text: ' .. tostring(hppText))
+    UnitIsUnconscious = function(unit) return unit == 'target' end
+    bar:UpdateHealth(false)
+    assert(hppText == EUI.UnitInfo.STATE_LABELS.unconscious, 'unconscious text: ' .. tostring(hppText))
+    UnitIsDead, UnitIsUnconscious = unitIsDead, unitIsUnconscious
+    rawset(bar.hpp, 'SetText', nil)
+    bar:UpdateHealth(false)
 end
 
 -- Palettes: every colour the layout reads is set in each style.

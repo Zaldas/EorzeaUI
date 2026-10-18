@@ -121,3 +121,27 @@ function UnitInfo.DifficultyColor(unit, level)
     end
     return nil
 end
+
+-- Labels that replace a health number.
+UnitInfo.STATE_LABELS = {
+    dead = DEAD and DEAD:upper() or 'DEAD',
+    ghost = GHOST and GHOST:upper() or 'GHOST',
+    offline = PLAYER_OFFLINE and PLAYER_OFFLINE:upper() or 'OFFLINE',
+    unconscious = UNCONSCIOUS and UNCONSCIOUS:upper() or 'UNCONSCIOUS',
+}
+
+-- 'unconscious' or 'dead' for a connected unit at zero health, else nil; Blizzard's target frame
+-- (CheckDead) shows the same two.
+function UnitInfo.DeadState(unit)
+    if EUI.Read('UnitIsConnected', UnitIsConnected, unit) == false then
+        return nil
+    end
+    if EUI.Read('UnitIsUnconscious', UnitIsUnconscious, unit) then
+        return 'unconscious'
+    end
+    if EUI.Read('UnitIsDead', UnitIsDead, unit) then
+        return 'dead'
+    end
+    return nil
+end
+

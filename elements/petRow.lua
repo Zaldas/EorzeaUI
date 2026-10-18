@@ -58,6 +58,13 @@ local function buildArt(self, host, spec, fonts)
         portraitSpec.inset, self.partyStyle.classIcon)
     iconFrame:SetFrameLevel(self.power.overlay:GetFrameLevel() + 1)
 
+    -- The target pointer, drawn over the portrait as on the member rows.
+    local pointer = CreateFrame('Frame', nil, art)
+    pointer:SetAllPoints(art)
+    pointer:SetFrameLevel(iconFrame:GetFrameLevel() + 1)
+    self.cursor = Style.Image(pointer, 'OVERLAY', spec.cursor)
+    self.cursor:Hide()
+
     self.happiness = art:CreateTexture(nil, 'OVERLAY')
     self.happiness:SetSize(spec.happiness.size[1], spec.happiness.size[2])
     Style.Place(self.happiness, art, spec.happiness.pos)
@@ -122,7 +129,7 @@ local function setHappiness(self, happiness)
     end
 end
 
--- pet = { name, icon, hp, hpMax, power, powerMax, powerType, happiness, cast, auras }
+-- pet = { name, icon, hp, hpMax, power, powerMax, powerType, happiness, cast, auras, targeted, far }
 function Pet:ShowDemo(pet)
     self.host:SetShown(pet ~= nil)
     if not pet then
@@ -130,6 +137,8 @@ function Pet:ShowDemo(pet)
     end
     self:UpdateGradient()
     self.name:SetText(pet.name)
+    self.cursor:SetShown(pet.targeted == true)
+    self.art:SetAlpha(pet.far and self.partyStyle.range.farAlpha or 1)
     self.portrait:SetTexture(pet.icon)
     self.portrait:SetTexCoord(ICON_INSET, 1 - ICON_INSET, ICON_INSET, 1 - ICON_INSET)
 
@@ -176,7 +185,26 @@ function Pet:Refresh()
     self:UpdatePower(false)
     self:UpdateHappiness()
     self:UpdateCast()
+    self:UpdateRange()
+    self:UpdateCursor()
     self.auras:Refresh()
+end
+
+-- Your own pet counts as near, as your own row does; a pet fades with an owner who is phased or
+-- in another group.
+function Pet:UpdateRange()
+    local range = self.partyStyle.range
+    if not self.unit or self.isOwn then
+        self.art:SetAlpha(1)
+    elseif self.owner.notPresent then
+        self.art:SetAlpha(range.notPresentAlpha)
+    else
+        UnitVisual.ShowRange(self.art, self.unit, range.farAlpha)
+    end
+end
+
+function Pet:UpdateCursor()
+    self.cursor:SetShown(UnitVisual.IsTarget(self.unit))
 end
 
 -- The name may be secret: SetText accepts it.
