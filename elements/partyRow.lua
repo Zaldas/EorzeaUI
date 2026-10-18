@@ -45,11 +45,12 @@ local function buildArt(self, host, style, fonts)
 
     if style.cast then
         self.cast = AV.CastBar.Create(art, nil, style.cast, fonts, style.cast.pos)
-        -- The cast bar takes the name row. Alpha, not Hide, so marker updates mid-cast stick.
+        -- The cast bar takes the name row. Alpha, not Hide, so marker and flag updates mid-cast stick.
         self.cast.onVisibility = function(casting)
             local alpha = casting and 0 or 1
             self.name:SetAlpha(alpha)
             self.indicators.raidMarker:SetAlpha(alpha)
+            self.indicators.flag:SetAlpha(alpha)
         end
     end
 
