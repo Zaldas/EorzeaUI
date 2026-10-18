@@ -367,9 +367,9 @@ function Row:Refresh()
     self.debuffs:Refresh()
 end
 
+-- Row 1 is bound to 'player' in party and raid.
 function Row:IsPlayer()
-    local guid = self.unit and EUI.SafeValue(UnitGUID, self.unit)
-    return guid ~= nil and guid == EUI.SafeValue(UnitGUID, 'player')
+    return self.unit == 'player'
 end
 
 local function readState(unit)

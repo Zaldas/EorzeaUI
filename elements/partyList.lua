@@ -123,12 +123,10 @@ local function rowUnits(subgroup)
         return PARTY_UNITS, PARTY_PETS
     end
     local units, pets = { 'player' }, { 'pet' }
-    local playerGuid = EUI.SafeValue(UnitGUID, 'player')
+    local playerIndex = UnitInRaid('player')
     for i = 1, GetNumGroupMembers() do
-        local unit = 'raid' .. i
-        if #units < MAX_ROWS and select(3, GetRaidRosterInfo(i)) == subgroup
-            and EUI.SafeValue(UnitGUID, unit) ~= playerGuid then
-            units[#units + 1] = unit
+        if #units < MAX_ROWS and i ~= playerIndex and select(3, GetRaidRosterInfo(i)) == subgroup then
+            units[#units + 1] = 'raid' .. i
             pets[#pets + 1] = 'raidpet' .. i
         end
     end

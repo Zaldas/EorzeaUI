@@ -240,12 +240,12 @@ local function runAction(frame, action, route, event, arg3, arg4, arg5)
         action(frame, event, arg3, arg4, arg5)
         return
     end
-    for _, method in ipairs(type(action) == 'table' and action or { action }) do
-        if route.smooth == nil then
-            frame[method](frame)
-        else
-            frame[method](frame, route.smooth)
-        end
+    if type(action) == 'string' then
+        frame[action](frame, route.smooth)
+        return
+    end
+    for _, method in ipairs(action) do
+        frame[method](frame, route.smooth)
     end
 end
 

@@ -77,6 +77,9 @@ function EUI.Read(label, fn, ...)
     return value
 end
 
+-- WoW's xpcall forwards extra arguments to the function; stock Lua 5.1's does not.
+local XPCALL_ARGS = select(2, xpcall(function(value) return value end, function() end, true)) == true
+
 -- Wraps fn so a Lua error is logged with its stack and handed to the normal error handler,
 -- both from inside the handler while the failing stack is live.
 function EUI.Guard(label, fn)
@@ -87,6 +90,11 @@ function EUI.Guard(label, fn)
             geterrorhandler()(err)
         end
         return err
+    end
+    if XPCALL_ARGS then
+        return function(...)
+            xpcall(fn, report, ...)
+        end
     end
     return function(...)
         local args, count = { ... }, select('#', ...)

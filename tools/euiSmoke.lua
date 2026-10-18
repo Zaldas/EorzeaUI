@@ -1,6 +1,15 @@
 -- Loads EorzeaUI against permissive WoW stubs and fires its startup events.
 local root = ADDON_ROOT
 
+-- WoW's xpcall forwards extra arguments to the function; stock Lua 5.1's does not.
+do
+    local stockXpcall = xpcall
+    xpcall = function(fn, handler, ...)
+        local args, count = { ... }, select('#', ...)
+        return stockXpcall(function() return fn(unpack(args, 1, count)) end, handler)
+    end
+end
+
 local methodOverrides = {
     GetHeight = 768, GetWidth = 1366, GetFrameLevel = 1, IsShown = true, IsVisible = true, IsProtected = false,
     GetName = 'mock', GetScale = 1,
