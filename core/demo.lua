@@ -96,7 +96,7 @@ end
 
 local function target()
     return {
-        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
+        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'hostile', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
         debuffs = TARGET_DEBUFFS, buffs = TARGET_BUFFS,
         castName = 'Fireball', castProgress = 0.6, castNotInterruptible = true,
         totName = EUI.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,
@@ -106,7 +106,7 @@ end
 -- A crowd-controlled caster: the usual focus target.
 local function focus()
     return {
-        name = 'Defias Conjurer', level = 17, colorKey = 'claimed', leader = true, raidMarker = 5, portraitUnit = 'player', hpPercent = 78,
+        name = 'Defias Conjurer', level = 17, colorKey = 'hostile', leader = true, raidMarker = 5, portraitUnit = 'player', hpPercent = 78,
         debuffs = { { ICON .. 'Spell_Nature_Polymorph', '41', dispel = 'Magic' }, TARGET_DEBUFFS[1] },
         buffs = { { ICON .. 'Spell_Frost_FrostArmor02', '9m', stealable = true } },
         castName = 'Frostbolt', castProgress = 0.3,

@@ -1,7 +1,7 @@
 local addonName, EUI = ...
 
 local DEFAULTS = {
-    style = 'ffxiExpanded',
+    style = 'vanadiel',
     scale = 1,
     positions = {},
 }

@@ -106,7 +106,7 @@ Kit.HP_THRESHOLDS = {
     { below = 0.75, color = '#F3F37CFF' },
 }
 
--- Spell name for the cast bars. text = { color, size, font, baseline }; baseline is the
+-- Spell name for the cast bars. text = { color, size, font, baseline, stroke }; baseline is the
 -- text's bottom edge in bar pixels, shared so every name sits at the same height on its bar.
 -- width (optional) truncates the name; yOffset (optional) shifts it from the shared baseline.
 function Kit.castName(text, width, yOffset)
@@ -115,17 +115,17 @@ function Kit.castName(text, width, yOffset)
         width = width,
         size = text.size,
         color = text.color,
-        stroke = Kit.STROKE_BLUE,
+        stroke = text.stroke,
         font = text.font,
     }
 end
 
--- cast = { frame, fill, text } for the unit's cast bar; text as in Kit.castName.
+-- p: the palette (styles/palettes.lua); castText as in Kit.castName.
 -- size = { bar, icon, name, hpp, cast, tot, totName, height, perLine, debuffs, buffs, label,
 --         castHidesName }: widths of the HP, cast and mini bars, the icon's side, text sizes, the
 -- anchor height, the aura row's line length and maxes, an optional header label, and whether the
 -- name line hides while the unit casts. Everything else is placed from these.
-function Kit.target(cast, size)
+function Kit.target(p, castText, size)
     local barWidth, iconSize = size.bar, size.icon
     -- The icon is centred on y 28 (the name's top to the bar line's bottom), its right edge 5px
     -- before the fill.
@@ -135,18 +135,23 @@ function Kit.target(cast, size)
     return {
         width = totX + size.tot,
         height = size.height,
-        bar = Kit.wideBar(barWidth, '#FF9597FF', '#FF9597FF'),
-        -- VanaVista's target name colours: FFXI's entity and claim colours, with WoW tapping
-        -- standing in for claim.
-        nameColors = {
-            npc = '#66FF66FF',
-            party = '#00FFFFFF',
-            player = '#FFFFFFFF',
-            unclaimed = '#FFFF66FF',
-            claimed = '#FF6666FF',
-            otherClaim = '#FF66FFFF',
-            hostilePlayer = '#FF6666FF',
-        },
+        bar = Kit.wideBar(barWidth, p.hp, p.hp),
+        -- Keyed by the unit's reaction as Blizzard's target frame tracks it (targetBar.lua
+        -- reactionKey). They tint the separator and nameBg; the name too unless nameColor is set.
+        reactionColors = p.reaction,
+        nameColor = p.targetName,
+        -- From under the icon, the icon art's height, fading like the separator to pad past the
+        -- name's end (width is the cap). color, when set, replaces the reaction tint.
+        nameBg = p.nameBg and {
+            pos = { iconX + iconSize / 8, iconY + iconSize / 8 },
+            width = barWidth - 64 - iconX - iconSize / 8,
+            height = iconSize * 3 / 4,
+            pad = 0,
+            fadeMin = 40,
+            color = p.nameBg.color,
+            alpha = p.nameBg.alpha,
+            leftAlpha = p.nameBg.leftAlpha,
+        } or nil,
         -- Non-attackable NPCs: this line replaces the HP bar, over its fill area (x 13..width-13)
         -- at the line's centre, in the name colour at `alpha` mid-line, fading to `leftAlpha`
         -- at the icon end and to 0 at the right.
@@ -177,7 +182,7 @@ function Kit.target(cast, size)
         -- on the icon, filling upward from pip 1 at the bottom. Steps keep dx == dy so facing
         -- 45-degree edges line up; the diamonds' ink is 14px, so |dx| + |dy| = 14 makes them touch.
         comboPoints = size.combo and {
-            pos = { iconX - 32, iconY + iconSize / 2 - 22 },
+            pos = { iconX - 30, iconY + iconSize / 2 - 22 },
             size = { 16, 16 },
             offsets = { { 7, 28 }, { 0, 21 }, { 7, 14 }, { 0, 7 }, { 7, 0 } },
             fill = 'pips/diamondFill-16',
@@ -193,66 +198,68 @@ function Kit.target(cast, size)
         -- level badge, tinted with Blizzard's threat colours, and the percent under HP% (raw, or
         -- lead while tanking).
         threat = { path = 'pips/diamondFill-16', pos = { 1.5, iconY + iconSize - 8.5 }, size = { 15, 15 } },
-        txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
+        txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         lowHealth = { below = 0.2, color = '#FF0000FF' },
         -- right: the name truncates there, clear of the HP% text.
-        txtName = { pos = { 20, nameY }, size = size.name, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE, right = barWidth - 64 },
+        txtName = { pos = { 20, nameY }, size = size.name, color = p.targetText, stroke = p.stroke, right = barWidth - 64 },
         -- Before the name, which shifts right while it shows; as on the party rows.
         raidMarker = { pos = { 20, nameY + 1 }, size = { 16, 16 } },
         -- AFK/DND on players, after any raid marker.
         flag = { pos = { 20, nameY + 1 }, size = { 38, 15 } },
         healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
-        txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
+        txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
         auras = {
             pos = { 25, 44 }, size = 22, spacing = 3, perLine = size.perLine, lineSpacing = 16, timers = true, border = Kit.AURA_BORDER,
             groups = {
-                HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = Kit.DISPEL_COLORS },
-                HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = Kit.STEALABLE_COLOR } },
+                HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = p.dispel },
+                HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
             },
         },
         -- Above the HP bar, its right end 70px before the bar's.
         cast = {
             pos = { barWidth - 70 - size.cast, -15 },
-            bar = Kit.wideBar(size.cast, cast.frame, cast.fill),
-            txtName = Kit.castName(cast.text),
+            bar = Kit.wideBar(size.cast, p.cast, p.cast),
+            channelColor = p.channel,
+            txtName = Kit.castName(castText),
             hidesName = size.castHidesName,
             -- Interrupted or failed: the bar holds full in `color` for `hold` seconds.
-            failure = { color = '#FF6666FF', hold = 1 },
+            failure = { color = p.castFailure, hold = 1 },
             -- Casts that cannot be interrupted tint the whole bar and show VanaVista's lock left of it.
             uninterruptible = {
-                color = '#B4B4B4FF',
+                color = p.uninterruptible,
                 lock = { path = 'ffxi/lock', pos = { -2, 25 }, size = { 14, 14 }, color = '#FFFFFFFF' },
             },
         },
         attention = { path = 'ffxi/attention', pos = { barWidth + 8, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
-        -- Optional label centred over the whole frame (icon to mini bar), its box ending 2px above
-        -- the leader crown (top at iconY - 8), with header lines.
+        -- Optional label centred from the icon to a third into the mini bar, its box ending 2px
+        -- above the leader crown (top at iconY - 8), with header lines.
         header = size.label and {
             label = size.label,
             pos = { iconX, iconY - 24 },
-            width = totX + size.tot - iconX,
+            width = totX + size.tot / 3 - iconX,
             height = 14,
-            txtLabel = { size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_BLUE },
+            txtLabel = { size = 14, color = p.targetText, stroke = p.stroke },
             line = Kit.HEADER_LINE,
         } or nil,
         -- The unit's target.
         tot = {
             pos = { totX, 0 },
-            bar = Kit.wideBar(size.tot, '#FF9597FF', '#FF9597FF'),
-            txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, right = size.tot - 14 },
+            bar = Kit.wideBar(size.tot, p.hp, p.hp),
+            txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = p.targetText, stroke = p.strokeAlt, right = size.tot - 14 },
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
             click = { pos = { 0, 10 }, size = { size.tot, 34 } },
         },
     }
 end
 
-function Kit.castBar(frameColor, fillColor, text)
+function Kit.castBar(p, castText)
     return {
         width = 467,
         height = 64,
-        bar = Kit.wideBar(467, frameColor, fillColor),
-        txtName = Kit.castName(text),
+        bar = Kit.wideBar(467, p.cast, p.cast),
+        channelColor = p.channel,
+        txtName = Kit.castName(castText),
     }
 end

@@ -166,29 +166,32 @@ function PartyList.UpdateFormRows()
 end
 
 -- The list's background behind rows stacked from anchor's top-left. Size it with bg.mid:SetHeight
--- (the rows' total height); bg.top and bg.bottom are its first and last pieces.
+-- (the rows' total height); bg.top and bg.bottom pad it above and below. One fade spans all three.
 function PartyList.CreateBackground(anchor)
     local bgSpec = PartyList.style.background
     local bg = CreateFrame('Frame', nil, anchor)
     bg:SetAllPoints(anchor)
     bg:SetFrameLevel(anchor:GetFrameLevel())
-    local r, g, b, a = EUI.Style.Color(bgSpec.color)
-    local function bgPiece(path, height)
+    local function bgPiece(height)
         local texture = bg:CreateTexture(nil, 'BACKGROUND')
-        texture:SetTexture(EUI.Style.AssetPath(path))
-        texture:SetVertexColor(r, g, b, a)
+        texture:SetColorTexture(0, 0, 0, 0)
         texture:SetWidth(bgSpec.width)
         if height then
             texture:SetHeight(height)
         end
         return texture
     end
-    local top = bgPiece(bgSpec.top.path, bgSpec.top.height)
-    local mid = bgPiece(bgSpec.mid.path)
-    local bottom = bgPiece(bgSpec.bottom.path, bgSpec.bottom.height)
+    local top = bgPiece(bgSpec.top.height)
+    local mid = bgPiece()
+    local bottom = bgPiece(bgSpec.bottom.height)
     EUI.Style.Place(top, anchor, bgSpec.pos)
     mid:SetPoint('TOPLEFT', top, 'BOTTOMLEFT', 0, 0)
     bottom:SetPoint('TOPLEFT', mid, 'BOTTOMLEFT', 0, 0)
+    local fade = EUI.Style.Fade(bg, { width = bgSpec.width }, 'BACKGROUND')
+    fade:SetPoint('TOPLEFT', top, 'TOPLEFT', 0, 0)
+    fade:SetPoint('BOTTOMRIGHT', bottom, 'BOTTOMRIGHT', 0, 0)
+    EUI.Style.ColorFade(fade, bgSpec.color, bgSpec)
+    fade:Show()
     bg.top, bg.mid, bg.bottom = top, mid, bottom
     return bg
 end

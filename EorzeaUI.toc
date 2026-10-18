@@ -17,7 +17,8 @@ core\blizzard.lua
 core\editMode.lua
 core\demo.lua
 styles\shared.lua
-styles\ffxiExpanded.lua
+styles\layout.lua
+styles\palettes.lua
 elements\bar.lua
 elements\auraRow.lua
 elements\staticIcons.lua

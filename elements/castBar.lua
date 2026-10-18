@@ -7,8 +7,9 @@ EUI.CastBar = {}
 local CastBar = {}
 CastBar.__index = CastBar
 
--- spec = { bar, txtName = { ..., width }, failure = { color, hold },
+-- spec = { bar, txtName = { ..., width }, channelColor, failure = { color, hold },
 -- uninterruptible = { color, lock = { path, pos, size, color } } }.
+-- channelColor (optional) tints the bar while the unit channels.
 -- unit may be nil until SetUnit.
 -- onVisibility(shown), when set, is called whenever the bar shows or hides.
 function EUI.CastBar.Create(parent, unit, spec, fonts, pos)
@@ -39,6 +40,11 @@ local function setVisible(self, shown)
     end
 end
 
+-- The bar's colour for the current spell: channelColor while channeling, else the bar's own.
+local function baseColor(self)
+    return self.channeling and self.spec.channelColor or self.spec.bar.fill.color
+end
+
 -- notInterruptible is secret for other units' casts; EvaluateColorFromBoolean picks the colour
 -- engine-side, and SetAlphaFromBoolean shows the lock (default alphas: 255 true, 0 false).
 local function applyInterruptible(self, notInterruptible)
@@ -56,7 +62,7 @@ local function applyInterruptible(self, notInterruptible)
         return
     end
     local ok, color = pcall(C_CurveUtil.EvaluateColorFromBoolean, notInterruptible,
-        CreateColor(EUI.Style.Color(spec.color)), CreateColor(EUI.Style.Color(self.spec.bar.fill.color)))
+        CreateColor(EUI.Style.Color(spec.color)), CreateColor(EUI.Style.Color(baseColor(self))))
     if not ok or not color then
         EUI.LogOnce('cast:interruptible', 'EvaluateColorFromBoolean failed: %s', tostring(color))
         return
@@ -72,8 +78,9 @@ end
 
 local function resetColors(self)
     local bar = self.bar
-    bar:SetFillColor(self.spec.bar.fill.color)
-    bar:SetFrameColor(self.spec.bar.bg.color)
+    local channel = self.channeling and self.spec.channelColor
+    bar:SetFillColor(channel or self.spec.bar.fill.color)
+    bar:SetFrameColor(channel or self.spec.bar.bg.color)
     if self.lock then
         self.lock:SetAlpha(0)
     end
@@ -101,6 +108,8 @@ local function tryStart(self, durationFn, infoFn, remaining, interruptIndex, cas
         return false
     end
     pcall(self.name.SetText, self.name, name)
+    self.channeling = remaining
+    resetColors(self)
     applyInterruptible(self, info[interruptIndex])
     self.castBarID = info[castBarIndex]
     return true
@@ -145,6 +154,7 @@ function CastBar:ShowFailure(label, castBarID, failed)
     -- Each hold gets its own token, so an earlier hold's timer cannot end a later one.
     local token = {}
     self.failing = token
+    self.channeling = false
     resetColors(self)
     self.bar:SetRange(1)
     self.bar:SetValue(1)
@@ -168,9 +178,10 @@ function CastBar:EndFailure()
 end
 
 -- Demo: a static bar at progress (0..1) showing spellName, tinted as uninterruptible when
--- notInterruptible; nil spellName restores live updates.
-function CastBar:SetPreview(spellName, progress, notInterruptible)
+-- notInterruptible and as a channel when channel; nil spellName restores live updates.
+function CastBar:SetPreview(spellName, progress, notInterruptible, channel)
     self.preview = spellName ~= nil
+    self.channeling = self.preview and channel == true
     resetColors(self)
     if self.preview then
         self.bar:SetRange(1)

@@ -1,6 +1,6 @@
 local _, EUI = ...
 
--- Target bar: HP bar with heal prediction, raid marker and name coloured by unit kind and claim,
+-- Target bar: HP bar with heal prediction, raid marker and name coloured by reaction,
 -- HP% and your threat, a class icon or portrait with the level badge, your combo points on the
 -- target bar, debuff/buff rows with
 -- dispel and stealable borders, the unit's cast bar, and a mini bar for the unit's target.
@@ -24,37 +24,6 @@ local CLASS_ICONS = 'Interface\\TargetingFrame\\UI-Classes-Circles'
 -- job frame.
 local CIRCLE_INSET = 0.146
 local NPC_GRADIENT = '#808080FF'
-
-local function createSeparator(parent, spec)
-    local frame = CreateFrame('Frame', nil, parent)
-    frame:SetSize(spec.width, spec.height)
-    Style.Place(frame, parent, spec.pos)
-    local half = spec.width / 2
-    local left = frame:CreateTexture(nil, 'ARTWORK')
-    left:SetColorTexture(1, 1, 1, 1)
-    left:SetSize(half, spec.height)
-    left:SetPoint('TOPLEFT', frame, 'TOPLEFT', 0, 0)
-    local right = frame:CreateTexture(nil, 'ARTWORK')
-    right:SetColorTexture(1, 1, 1, 1)
-    right:SetSize(half, spec.height)
-    right:SetPoint('TOPRIGHT', frame, 'TOPRIGHT', 0, 0)
-    frame.left, frame.right = left, right
-    frame:Hide()
-    return frame
-end
-
--- SetGradient sets vertex colours, so the colour goes into the gradient itself.
-local function colorSeparator(separator, hex, spec)
-    local r, g, b = Style.Color(hex)
-    local alpha = spec.alpha
-    local edge, centre = CreateColor(r, g, b, 0), CreateColor(r, g, b, alpha)
-    local ok = pcall(separator.left.SetGradient, separator.left, 'HORIZONTAL', CreateColor(r, g, b, spec.leftAlpha), centre)
-        and pcall(separator.right.SetGradient, separator.right, 'HORIZONTAL', centre, edge)
-    if not ok then
-        separator.left:SetVertexColor(r, g, b, alpha)
-        separator.right:SetVertexColor(r, g, b, alpha)
-    end
-end
 
 local function createIcon(self, parent, spec, fonts, frameLevel)
     local iconSpec = spec.icon
@@ -127,6 +96,12 @@ function TargetBar.New(anchor, spec, fonts, unit)
     local content = CreateFrame('Frame', nil, anchor)
     content:SetAllPoints(anchor)
     self.content = content
+    -- Created before the bar, at the content's level, so it draws behind the bar art.
+    if spec.nameBg then
+        self.nameBg = Style.Fade(content, spec.nameBg)
+        self.nameBg:SetFrameLevel(content:GetFrameLevel())
+        self.nameBg:Show()
+    end
 
     self.bar = EUI.Bar.Create(content, spec.bar, { 0, 0 }, { prediction = spec.healPrediction })
     -- Text lives above the bar rather than on it, so the bar can hide for NPCs. The bar sits
@@ -144,7 +119,9 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.flag:Hide()
     self.hpp =Style.Text(top, spec.txtHpp, fonts)
     self.threatText = Style.Text(top, spec.txtThreat, fonts)
-    self.separator = createSeparator(top, spec.separator)
+    -- A child frame draws over its parent's regions; one level below keeps the name over the line.
+    self.separator = Style.Fade(top, spec.separator)
+    self.separator:SetFrameLevel(top:GetFrameLevel() - 1)
     createIcon(self, content, spec, fonts, top:GetFrameLevel() + 1)
     self.lowHealthCurve = EUI.Curves.Step({ spec.lowHealth }, '#FFFFFFFF')
 
@@ -229,7 +206,7 @@ local function isLive(self)
 end
 
 -- Shows raid marker index, then the optional AFK/DND flag, before text, shifting the text right
--- while they show. textSpec.right truncates the text at that x.
+-- while they show. textSpec.right truncates the text at that x. Returns the shift.
 local function setMarkedName(text, textSpec, marker, markerSpec, index, flag, flagSpec, flagKind)
     local shift = EUI.Indicators.SetRaidMarkerIcon(marker, index) and (markerSpec.size[1] + 3) or 0
     if flag and EUI.Indicators.SetFlagIcon(flag, flagKind) then
@@ -242,6 +219,26 @@ local function setMarkedName(text, textSpec, marker, markerSpec, index, flag, fl
         text:SetWidth(textSpec.right - textSpec.pos[1] - shift)
         text:SetWordWrap(false)
     end
+    return shift
+end
+
+-- The fade peaks where the name starts and falls to 0 at spec.nameBg.pad past its end, over at
+-- least spec.nameBg.fadeMin.
+local function fitNameBg(self)
+    local fade = self.nameBg
+    if not fade then
+        return
+    end
+    local textSpec, bgSpec = self.spec.txtName, self.spec.nameBg
+    local left = textSpec.pos[1] + (self.nameShift or 0)
+    local limit = textSpec.right - left
+    local width = self.name:GetStringWidth()
+    if type(width) ~= 'number' or not EUI.CanAccess(width) or width > limit then
+        width = limit
+    end
+    local total = left + width + bgSpec.pad - bgSpec.pos[1]
+    local peak = math.max(1, math.min(left - bgSpec.pos[1], total - bgSpec.fadeMin))
+    Style.SetFadeWidth(fade, total, peak)
 end
 
 function Bar:UpdateRaidMarker()
@@ -249,8 +246,9 @@ function Bar:UpdateRaidMarker()
         return
     end
     local spec = self.spec
-    setMarkedName(self.name, spec.txtName, self.marker, spec.raidMarker, EUI.Indicators.ReadRaidMarker(self.unit),
-        self.flag, spec.flag, self.flagKind)
+    self.nameShift = setMarkedName(self.name, spec.txtName, self.marker, spec.raidMarker,
+        EUI.Indicators.ReadRaidMarker(self.unit), self.flag, spec.flag, self.flagKind)
+    fitNameBg(self)
 end
 
 -- AFK/DND flag; players only.
@@ -275,35 +273,44 @@ local function inGroup(unit)
     return EUI.Read('UnitInParty', UnitInParty, unit) == true or EUI.Read('UnitInRaid', UnitInRaid, unit) ~= nil
 end
 
--- Returns the spec.nameColors key for unit.
-local function nameColorKey(unit)
+-- Returns the spec.reactionColors key for unit, and whether it is an NPC you cannot attack.
+-- Follows Blizzard's target frame (CheckFaction): tap-denied NPCs first, then UnitReaction;
+-- players and their pets split by group and attackability.
+local function reactionKey(unit)
     local canAttack = EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) == true
-    if EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) then
-        if EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'player') or inGroup(unit) then
-            return 'party'
-        end
-        return canAttack and 'hostilePlayer' or 'player'
-    end
     if EUI.Read('UnitPlayerControlled', UnitPlayerControlled, unit) then
         if canAttack then
-            return 'hostilePlayer'
+            return 'hostilePlayer', false
         end
-        return EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'pet') and 'party' or 'player'
-    end
-    if not canAttack then
-        return 'npc'
+        local own = EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'player') or EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'pet')
+        if own or (EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) and inGroup(unit)) then
+            return 'party', false
+        end
+        return 'player', false
     end
     if EUI.Read('UnitIsTapDenied', UnitIsTapDenied, unit) then
-        return 'otherClaim'
+        return 'tapped', false
     end
-    if EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit) then
-        return 'claimed'
+    local npc = not canAttack
+    local reaction = EUI.Read('UnitReaction', UnitReaction, unit, 'player')
+    if type(reaction) ~= 'number' then
+        return 'neutral', npc
+    elseif reaction <= 2 then
+        return 'hostile', npc
+    elseif reaction == 3 then
+        return 'unfriendly', npc
+    elseif reaction == 4 then
+        return 'neutral', npc
     end
-    return 'unclaimed'
+    return 'friendly', npc
 end
 
--- nameColorKey results for units you can attack; only these get a difficulty-coloured level.
-local ATTACKABLE = { unclaimed = true, claimed = true, otherClaim = true, hostilePlayer = true }
+-- reactionKey results for units you can attack; only these get a difficulty-coloured level.
+local ATTACKABLE = { hostile = true, unfriendly = true, neutral = true, tapped = true, hostilePlayer = true }
+
+local function nameHex(spec, key)
+    return spec.nameColor or spec.reactionColors[key]
+end
 
 local function setNpcMode(self, npc)
     if self.npcMode == npc then
@@ -316,9 +323,13 @@ local function setNpcMode(self, npc)
 end
 
 local function applyNameColor(self, key)
-    local hex = self.spec.nameColors[key]
-    self.name:SetTextColor(Style.Color(hex))
-    colorSeparator(self.separator, hex, self.spec.separator)
+    local spec = self.spec
+    local reaction = spec.reactionColors[key]
+    self.name:SetTextColor(Style.Color(nameHex(spec, key)))
+    Style.ColorFade(self.separator, reaction, spec.separator)
+    if self.nameBg then
+        Style.ColorFade(self.nameBg, spec.nameBg.color or reaction, spec.nameBg)
+    end
 end
 
 -- kind: 'FFA' | 'Alliance' | 'Horde' | nil
@@ -493,20 +504,20 @@ function Bar:UpdateCombo()
     self.combo:SetCount(count)
 end
 
--- Name colour, NPC mode, PvP badge and leader crown; claim and combat state change without a dedicated
--- event, so the main ticker calls this too.
+-- Name colour, NPC mode, PvP badge and leader crown; tapping and combat state change without a
+-- dedicated event, so the main ticker calls this too.
 function Bar:UpdateIdentity()
     if not isLive(self) then
         return
     end
     local unit = self.unit
-    local key = nameColorKey(unit)
+    local key, npc = reactionKey(unit)
     if key ~= self.colorKey then
         self.colorKey = key
         applyNameColor(self, key)
     end
     -- An NPC in combat (escorts, guards) shows its HP.
-    setNpcMode(self, key == 'npc' and not EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit))
+    setNpcMode(self, npc and not EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit))
     setPvP(self, readPvP(unit))
     -- UnitLeadsAnyGroup also covers players outside your group.
     local leads
@@ -523,6 +534,7 @@ function Bar:UpdateName()
         return
     end
     pcall(self.name.SetText, self.name, EUI.UnitDisplayName(self.unit))
+    fitNameBg(self)
 end
 
 function Bar:UpdateTier()
@@ -614,7 +626,7 @@ function Bar:UpdateTargetOfTarget()
     self.totBar:SetRange(UnitHealthMax(totUnit))
     self.totBar:SetValue(UnitHealth(totUnit), true)
     pcall(self.totName.SetText, self.totName, EUI.UnitDisplayName(totUnit))
-    self.totName:SetTextColor(Style.Color(self.spec.nameColors[nameColorKey(totUnit)]))
+    self.totName:SetTextColor(Style.Color(nameHex(self.spec, (reactionKey(totUnit)))))
     setMarkedName(self.totName, self.spec.tot.txtName, self.totMarker, self.spec.tot.raidMarker,
         EUI.Indicators.ReadRaidMarker(totUnit))
 end
@@ -644,7 +656,7 @@ end
 -- Demo and Edit Mode: fixed sample data in place of the unit, or nil to restore live updates.
 -- data = { name, level, classification, colorKey, npc, pvp, leader, raidMarker, tag, threat,
 --          threatPercent, class | portrait | portraitUnit, hpPercent, dead, incoming, debuffs,
---          buffs, castName, castProgress, castNotInterruptible, totName, totColorKey, totPercent,
+--          buffs, castName, castProgress, castNotInterruptible, castChannel, totName, totColorKey, totPercent,
 --          combo }
 -- npc: the separator line replaces the HP bar. class: a class token's icon; portrait: a texture
 -- path; portraitUnit: that unit's portrait. threat, totName and combo are optional; nil hides them.
@@ -666,7 +678,9 @@ function Bar:SetPreview(data)
     setLiveAurasShown(self, false)
     self.content:Show()
     self.name:SetText(data.name)
-    setMarkedName(self.name, spec.txtName, self.marker, spec.raidMarker, data.raidMarker, self.flag, spec.flag, data.tag)
+    self.nameShift = setMarkedName(self.name, spec.txtName, self.marker, spec.raidMarker, data.raidMarker,
+        self.flag, spec.flag, data.tag)
+    fitNameBg(self)
     applyNameColor(self, data.colorKey)
     self.colorKey = nil
     setNpcMode(self, data.npc == true)
@@ -712,7 +726,7 @@ function Bar:SetPreview(data)
         self.totBar:SetValue(data.totPercent)
         self.totName:SetText(data.totName)
         setMarkedName(self.totName, spec.tot.txtName, self.totMarker, spec.tot.raidMarker, nil)
-        self.totName:SetTextColor(Style.Color(spec.nameColors[data.totColorKey]))
+        self.totName:SetTextColor(Style.Color(nameHex(spec, data.totColorKey)))
     end
-    self.cast:SetPreview(data.castName, data.castProgress, data.castNotInterruptible)
+    self.cast:SetPreview(data.castName, data.castProgress, data.castNotInterruptible, data.castChannel)
 end

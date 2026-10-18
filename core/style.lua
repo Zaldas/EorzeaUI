@@ -191,6 +191,53 @@ function Style.Header(parent, spec, fonts)
     return frame
 end
 
+-- A horizontal fade in two halves, coloured by Style.ColorFade; hidden until shown.
+-- spec = { pos, width, height }; pos and height are optional, for a caller that anchors the frame.
+-- The halves follow the frame's height.
+function Style.Fade(parent, spec, layer)
+    local frame = CreateFrame('Frame', nil, parent)
+    frame:SetWidth(spec.width)
+    if spec.height then
+        frame:SetHeight(spec.height)
+    end
+    if spec.pos then
+        Style.Place(frame, parent, spec.pos)
+    end
+    local function half(side)
+        local texture = frame:CreateTexture(nil, layer or 'ARTWORK')
+        texture:SetColorTexture(1, 1, 1, 1)
+        texture:SetWidth(spec.width / 2)
+        texture:SetPoint('TOP' .. side, frame, 'TOP' .. side, 0, 0)
+        texture:SetPoint('BOTTOM' .. side, frame, 'BOTTOM' .. side, 0, 0)
+        return texture
+    end
+    frame.left, frame.right = half('LEFT'), half('RIGHT')
+    frame:Hide()
+    return frame
+end
+
+-- leftWidth (optional, default half): where the fade peaks at spec.alpha before falling to 0.
+function Style.SetFadeWidth(fade, width, leftWidth)
+    leftWidth = leftWidth or width / 2
+    fade:SetWidth(width)
+    fade.left:SetWidth(leftWidth)
+    fade.right:SetWidth(width - leftWidth)
+end
+
+-- hex at spec.leftAlpha on the left edge, spec.alpha at the middle, 0 on the right edge.
+-- SetGradient sets vertex colours, so the colour goes into the gradient itself.
+function Style.ColorFade(fade, hex, spec)
+    local r, g, b = Style.Color(hex)
+    local alpha = spec.alpha
+    local edge, centre = CreateColor(r, g, b, 0), CreateColor(r, g, b, alpha)
+    local ok = pcall(fade.left.SetGradient, fade.left, 'HORIZONTAL', CreateColor(r, g, b, spec.leftAlpha), centre)
+        and pcall(fade.right.SetGradient, fade.right, 'HORIZONTAL', centre, edge)
+    if not ok then
+        fade.left:SetVertexColor(r, g, b, alpha)
+        fade.right:SetVertexColor(r, g, b, alpha)
+    end
+end
+
 -- Scale that maps one style pixel to one screen pixel at 1440p, for a frame parented to UIParent.
 function Style.RootScale()
     local height = UIParent:GetHeight()

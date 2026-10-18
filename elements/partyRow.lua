@@ -117,14 +117,22 @@ local function setThreat(self, status)
     self.threat:Show()
 end
 
--- Recolours a power bar when its power type changes (druid forms, unit swaps).
+-- Stands in for a power type while the member is offline.
+local OFFLINE = 'offline'
+
+-- Recolours a power bar when its power type changes (druid forms, unit swaps, going offline).
 local function tintPower(self, bar, powerType)
     if powerType == bar.powerType then
         return
     end
     bar.powerType = powerType
     local spec = self.style.power
-    local color = spec.colors and spec.colors[powerType] or spec.bar.fill.color
+    local color
+    if powerType == OFFLINE then
+        color = self.style.hp.offlineColor
+    else
+        color = spec.colors and spec.colors[powerType] or spec.bar.fill.color
+    end
     bar:SetFrameColor(color)
     bar:SetFillColor(color)
 end
@@ -135,9 +143,22 @@ local STATE_LABELS = {
     offline = PLAYER_OFFLINE and PLAYER_OFFLINE:upper() or 'OFFLINE',
 }
 
+-- Offline members get a full HP bar in style.hp.offlineColor, as on Blizzard's frames.
+local function greyHealth(self, offline)
+    if offline == self.greyed then
+        return
+    end
+    self.greyed = offline
+    local bar = self.style.hp.bar
+    self.hp:SetFillColor(offline and self.style.hp.offlineColor or bar.fill.color)
+    self.hp:SetFrameColor(offline and self.style.hp.offlineColor or bar.bg.color)
+end
+
 -- state: 'dead' | 'ghost' | 'offline' | nil. Returns true when a label replaced the HP value.
-local function applyState(self, state)
+-- maxHealth fills the bar while offline; it may be secret.
+local function applyState(self, state, maxHealth)
     self.state = state
+    greyHealth(self, state == 'offline')
     self.classIcon:SetDesaturated(state ~= nil)
     if state then
         self.classIcon:SetVertexColor(1, 1, 1, 1)
@@ -145,7 +166,7 @@ local function applyState(self, state)
     if not state then
         return false
     end
-    self.hp:SetValue(0)
+    self.hp:SetValue(state == 'offline' and maxHealth or 0)
     self.hp:SetIncoming(0)
     self.hpText:SetText(STATE_LABELS[state])
     self.hpText:SetTextColor(Style.Color(self.style.indicators.stateColor))
@@ -243,7 +264,7 @@ function Row:ShowDemo(member)
     self.levelBadge:Set(member.level)
 
     self.hp:SetRange(member.hpMax)
-    if not applyState(self, member.state) then
+    if not applyState(self, member.state, member.hpMax) then
         self.hp:SetValue(member.hp)
         self.hp:SetIncoming(member.incoming or 0, member.hpMax, member.absorb or 0)
         self.hpText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.hp) or tostring(member.hp))
@@ -270,9 +291,10 @@ function Row:ShowDemo(member)
     end
     indicators:LayoutNameLine(self.name)
 
-    tintPower(self, self.power, member.powerType)
+    local offline = member.state == 'offline'
+    tintPower(self, self.power, offline and OFFLINE or member.powerType)
     self.power:SetRange(member.powerMax)
-    self.power:SetValue(member.power)
+    self.power:SetValue(offline and member.powerMax or member.power)
     local form = member.form
     self.formBar.frame:SetShown(form ~= nil)
     if form then
@@ -281,7 +303,11 @@ function Row:ShowDemo(member)
         self.formBar:SetValue(form.power)
         self.formText:SetText(tostring(form.power))
     end
-    self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.power) or tostring(member.power))
+    if offline then
+        self.powerText:SetText('')
+    else
+        self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.power) or tostring(member.power))
+    end
 
     indicators:SetLeader(member.leader == true)
     indicators:SetAssistant(member.assistant == true)
@@ -370,7 +396,7 @@ function Row:UpdateHealth(smooth)
     local unit = self.unit
     local maxHealth = UnitHealthMax(unit)
     self.hp:SetRange(maxHealth)
-    if applyState(self, readState(unit)) then
+    if applyState(self, readState(unit), maxHealth) then
         return
     end
     local health = UnitHealth(unit)
@@ -390,6 +416,7 @@ end
 -- Death and connection changes: the HP slot and the offline dimming.
 function Row:UpdateState()
     self:UpdateHealth(false)
+    self:UpdatePower(false)
     self:UpdateRange()
 end
 
@@ -504,6 +531,14 @@ function Row:UpdatePower(smooth)
         return
     end
     self.formBar.frame:Hide()
+    -- Offline: a full bar in the offline grey, as the HP bar.
+    if self.state == 'offline' then
+        tintPower(self, self.power, OFFLINE)
+        self.power:SetRange(1)
+        self.power:SetValue(1)
+        self.powerText:SetText('')
+        return
+    end
     tintPower(self, self.power, EUI.Read('UnitPowerType', UnitPowerType, unit))
     self.power:SetRange(UnitPowerMax(unit))
     local power = UnitPower(unit)
