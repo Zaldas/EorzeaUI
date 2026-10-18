@@ -76,8 +76,9 @@ function Kit.BuildLayout(p)
             },
             -- notPresentAlpha: phased or in another group, as Blizzard's party frames fade them.
             range = { farAlpha = 0.5, notPresentAlpha = 0.6 },
-            -- Tinted with Blizzard's threat colours; hidden without threat.
-            threat = { path = 'pips/diamondFill-16', pos = { 29, 29 }, size = { 12, 12 } },
+            -- On the icon's bottom-right corner right of the level badge, as on the target, scaled to
+            -- the 40px icon. Tinted with Blizzard's threat colours; hidden without threat.
+            threat = { path = 'pips/diamondFill-16', pos = { 23.5, 28.5 }, size = { 13, 13 } },
             hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
             cursor = { path = 'ffxi/Cursor', pos = { -47, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
             txtName = { pos = { 38, 3 }, width = 242, size = 17, color = p.name, stroke = p.stroke },

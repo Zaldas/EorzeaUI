@@ -66,9 +66,6 @@ local function buildArt(self, host, style, fonts)
     top:SetAllPoints(art)
     top:SetFrameLevel(self.power.overlay:GetFrameLevel() + 1)
 
-    self.threat = Style.Image(top, 'OVERLAY', style.threat)
-    self.threat:Hide()
-
     -- Cut off with an ellipsis before the aura icons.
     self.name = Style.Text(top, style.txtName, fonts)
     self.name:SetWidth(style.txtName.width)
@@ -81,6 +78,8 @@ local function buildArt(self, host, style, fonts)
     markers:SetAllPoints(art)
     markers:SetFrameLevel(iconFrame:GetFrameLevel() + 3)
     self.indicators = EUI.Indicators.Create(markers, top, style)
+    self.threat = Style.Image(markers, 'OVERLAY', style.threat)
+    self.threat:Hide()
 
     -- cursor.onTop: a pointer drawn over the indicators rather than a highlight behind the row.
     if style.cursor.onTop then
