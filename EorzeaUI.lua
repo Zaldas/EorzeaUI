@@ -97,140 +97,231 @@ local function initialize()
     end)
 end
 
--- Unit events route to the party row, pet sub-row and target-style bar showing that unit.
-local function onUnitEvent(event, unit, arg3, arg4, arg5)
-    local row = EUI.PartyList.RowForUnit(unit)
-    local pet = EUI.PartyList.PetForUnit(unit)
-    local bar = EUI.TargetBar.ForUnit(unit)
-    if event == 'UNIT_HEALTH' or event == 'UNIT_MAXHEALTH' then
-        if row then row:UpdateHealth(event == 'UNIT_HEALTH') end
-        if pet then pet:UpdateHealth(event == 'UNIT_HEALTH') end
-        if bar then bar:UpdateHealth(event == 'UNIT_HEALTH') end
-    elseif event == 'UNIT_POWER_UPDATE' or event == 'UNIT_MAXPOWER' or event == 'UNIT_DISPLAYPOWER' then
-        if row then
-            row:UpdatePower(event == 'UNIT_POWER_UPDATE')
-        end
-        if unit == 'player' then EUI.TargetBar.target:UpdateCombo() end
-        if pet then pet:UpdatePower(event == 'UNIT_POWER_UPDATE') end
-    elseif event == 'UNIT_PET' then
-        -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
-        EUI.PartyList.ForEachVisiblePet(function(visiblePet)
-            visiblePet:Refresh()
-        end)
-    elseif event == 'UNIT_PORTRAIT_UPDATE' then
-        if pet then pet:UpdatePortrait() end
-        if bar then bar:UpdateIcon() end
-    elseif event == 'UNIT_HAPPINESS' then
-        if pet then pet:UpdateHappiness() end
-    elseif event == 'UNIT_NAME_UPDATE' or event == 'UNIT_LEVEL' then
-        if row then row:UpdateName() end
-        if pet then pet:UpdateName() end
-        if bar then
-            bar:UpdateName()
-            bar:UpdateLevel()
-        end
-    elseif event == 'UNIT_TARGET' then
-        if bar then bar:UpdateTargetOfTarget() end
-    elseif event == 'UNIT_HEAL_PREDICTION' or event == 'UNIT_ABSORB_AMOUNT_CHANGED' then
-        if row then row:UpdateHealPrediction() end
-        if bar then bar:UpdateHealPrediction() end
-    elseif event == 'UNIT_CONNECTION' then
-        if row then
-            row:UpdateState()
-            row:UpdateStatusIcon()
-        end
-    elseif event == 'UNIT_FLAGS' or event == 'PLAYER_FLAGS_CHANGED' then
-        if row then
-            row:UpdateFlags()
-            row:UpdateState()
-            row:UpdatePvP()
-            row:UpdateStatusIcon()
-        end
-        if bar then
-            bar:UpdateIdentity()
-        end
-        -- PLAYER_FLAGS_CHANGED may name the unit by another token (party1, raid3).
-        if event == 'PLAYER_FLAGS_CHANGED' then
-            EUI.TargetBar.ForEach(function(each)
-                each:UpdateFlags()
-            end)
-        elseif bar then
-            bar:UpdateFlags()
-        end
-    elseif event == 'UNIT_FACTION' then
-        if row then row:UpdatePvP() end
-        if bar then
-            bar:UpdateIdentity()
-            bar:UpdateLevel()
-        end
-        -- Whether you can attack a unit also follows your own faction and PvP state.
-        if unit == 'player' then
-            EUI.TargetBar.ForEach(function(each)
-                each:UpdateLevel()
-            end)
-        end
-    elseif event == 'UNIT_CLASSIFICATION_CHANGED' then
-        if bar then bar:UpdateTier() end
-    elseif event == 'UNIT_THREAT_SITUATION_UPDATE' then
-        if row then row:UpdateThreat() end
-    elseif event == 'INCOMING_SUMMON_CHANGED' or event == 'INCOMING_RESURRECT_CHANGED' or event == 'UNIT_PHASE' then
-        if row then row:UpdateStatusIcon() end
-    elseif event:find('^UNIT_SPELLCAST_') then
-        if unit == 'player' then EUI.playerCast:Update() end
-        if row then
-            row:UpdateCast()
-            row:UpdateCostPreview(event, arg3)
-        end
-        if pet then pet:UpdateCast() end
-        if bar then
-            if event == 'UNIT_SPELLCAST_INTERRUPTED' then
-                bar.cast:ShowFailure(INTERRUPTED or 'Interrupted', arg5)
-            elseif event == 'UNIT_SPELLCAST_FAILED' then
-                bar.cast:ShowFailure(FAILED or 'Failed', arg4, true)
-            else
-                bar.cast:Update()
-            end
-        end
-    end
-end
-
-local UNIT_EVENTS = {
-    'UNIT_HEALTH', 'UNIT_MAXHEALTH', 'UNIT_POWER_UPDATE', 'UNIT_MAXPOWER', 'UNIT_DISPLAYPOWER',
-    'UNIT_NAME_UPDATE', 'UNIT_LEVEL', 'UNIT_TARGET',
-    'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP', 'UNIT_SPELLCAST_FAILED', 'UNIT_SPELLCAST_INTERRUPTED',
-    'UNIT_SPELLCAST_DELAYED', 'UNIT_SPELLCAST_CHANNEL_START', 'UNIT_SPELLCAST_CHANNEL_STOP',
-    'UNIT_SPELLCAST_CHANNEL_UPDATE', 'UNIT_SPELLCAST_SUCCEEDED', 'UNIT_SPELLCAST_INTERRUPTIBLE',
-    'UNIT_SPELLCAST_NOT_INTERRUPTIBLE',
-    'UNIT_HEAL_PREDICTION', 'UNIT_ABSORB_AMOUNT_CHANGED', 'UNIT_CONNECTION', 'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED',
-    'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED', 'UNIT_PHASE', 'UNIT_FACTION',
-    'UNIT_THREAT_SITUATION_UPDATE', 'UNIT_PET', 'UNIT_PORTRAIT_UPDATE', 'UNIT_HAPPINESS',
-    'UNIT_CLASSIFICATION_CHANGED',
-}
-
-local GLOBAL_EVENTS = {
-    'ADDON_LOADED', 'PLAYER_ENTERING_WORLD', 'PLAYER_REGEN_ENABLED', 'PLAYER_REGEN_DISABLED',
-    'PLAYER_TARGET_CHANGED', 'GROUP_ROSTER_UPDATE', 'PARTY_LEADER_CHANGED', 'UI_SCALE_CHANGED',
-    'DISPLAY_SIZE_CHANGED', 'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST',
-    'READY_CHECK', 'READY_CHECK_CONFIRM', 'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE',
-    'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
-    'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE', 'PLAYER_FOCUS_CHANGED',
-    'COMBO_TARGET_CHANGED',
-}
-
 local function forEachRow(method)
     EUI.PartyList.ForEachVisibleRow(function(row)
         row[method](row)
     end)
 end
 
+local function forEachBar(method)
+    EUI.TargetBar.ForEach(function(bar)
+        bar[method](bar)
+    end)
+end
+
+-- Unit events, by the frames showing the event's unit: row (party row), pet (pet sub-row), bar
+-- (target or focus bar). Each is a method name, a list of them, or fn(frame, event, arg3, arg4,
+-- arg5). smooth, when set, is passed to named methods (UpdateHealth/UpdatePower ease the change).
+-- also(unit) runs once per event, for frames not tied to the unit.
+local UNIT_ROUTES = {
+    UNIT_HEALTH = { row = 'UpdateHealth', pet = 'UpdateHealth', bar = 'UpdateHealth', smooth = true },
+    UNIT_MAXHEALTH = { row = 'UpdateHealth', pet = 'UpdateHealth', bar = 'UpdateHealth', smooth = false },
+    UNIT_NAME_UPDATE = { row = 'UpdateName', pet = 'UpdateName', bar = { 'UpdateName', 'UpdateLevel' } },
+    UNIT_LEVEL = { row = 'UpdateName', pet = 'UpdateName', bar = { 'UpdateName', 'UpdateLevel' } },
+    UNIT_TARGET = { bar = 'UpdateTargetOfTarget' },
+    UNIT_HEAL_PREDICTION = { row = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
+    UNIT_ABSORB_AMOUNT_CHANGED = { row = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
+    UNIT_CONNECTION = { row = { 'UpdateState', 'UpdateStatusIcon' } },
+    UNIT_FLAGS = {
+        row = { 'UpdateFlags', 'UpdateState', 'UpdatePvP', 'UpdateStatusIcon' },
+        bar = { 'UpdateIdentity', 'UpdateFlags' },
+    },
+    -- May name the unit by another token (party1, raid3), so every bar rechecks its flags.
+    PLAYER_FLAGS_CHANGED = {
+        row = { 'UpdateFlags', 'UpdateState', 'UpdatePvP', 'UpdateStatusIcon' },
+        bar = 'UpdateIdentity',
+        also = function()
+            forEachBar('UpdateFlags')
+        end,
+    },
+    -- Whether you can attack a unit also follows your own faction and PvP state.
+    UNIT_FACTION = {
+        row = 'UpdatePvP',
+        bar = { 'UpdateIdentity', 'UpdateLevel' },
+        also = function(unit)
+            if unit == 'player' then
+                forEachBar('UpdateLevel')
+            end
+        end,
+    },
+    UNIT_CLASSIFICATION_CHANGED = { bar = 'UpdateTier' },
+    UNIT_THREAT_SITUATION_UPDATE = { row = 'UpdateThreat' },
+    INCOMING_SUMMON_CHANGED = { row = 'UpdateStatusIcon' },
+    INCOMING_RESURRECT_CHANGED = { row = 'UpdateStatusIcon' },
+    UNIT_PHASE = { row = 'UpdateStatusIcon' },
+    -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
+    UNIT_PET = {
+        also = function()
+            EUI.PartyList.ForEachVisiblePet(function(pet)
+                pet:Refresh()
+            end)
+        end,
+    },
+    UNIT_PORTRAIT_UPDATE = { pet = 'UpdatePortrait', bar = 'UpdateIcon' },
+    UNIT_HAPPINESS = { pet = 'UpdateHappiness' },
+}
+
+local function playerPowerChanged(unit)
+    if unit == 'player' then
+        EUI.TargetBar.target:UpdateCombo()
+    end
+end
+UNIT_ROUTES.UNIT_POWER_UPDATE = { row = 'UpdatePower', pet = 'UpdatePower', smooth = true, also = playerPowerChanged }
+UNIT_ROUTES.UNIT_MAXPOWER = { row = 'UpdatePower', pet = 'UpdatePower', smooth = false, also = playerPowerChanged }
+UNIT_ROUTES.UNIT_DISPLAYPOWER = UNIT_ROUTES.UNIT_MAXPOWER
+
+-- arg3..arg5 of UNIT_SPELLCAST_*: castGUID, spellID, and castBarID where the event has one.
+local CAST_ROUTE = {
+    row = function(row, event, castGUID)
+        row:UpdateCast()
+        row:UpdateCostPreview(event, castGUID)
+    end,
+    pet = 'UpdateCast',
+    bar = function(bar, event, _, spellID, castBarID)
+        if event == 'UNIT_SPELLCAST_INTERRUPTED' then
+            bar.cast:ShowFailure(INTERRUPTED or 'Interrupted', castBarID)
+        elseif event == 'UNIT_SPELLCAST_FAILED' then
+            bar.cast:ShowFailure(FAILED or 'Failed', spellID, true)
+        else
+            bar.cast:Update()
+        end
+    end,
+    also = function(unit)
+        if unit == 'player' then
+            EUI.playerCast:Update()
+        end
+    end,
+}
+for _, name in ipairs({
+    'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP', 'UNIT_SPELLCAST_FAILED', 'UNIT_SPELLCAST_INTERRUPTED',
+    'UNIT_SPELLCAST_DELAYED', 'UNIT_SPELLCAST_CHANNEL_START', 'UNIT_SPELLCAST_CHANNEL_STOP',
+    'UNIT_SPELLCAST_CHANNEL_UPDATE', 'UNIT_SPELLCAST_SUCCEEDED', 'UNIT_SPELLCAST_INTERRUPTIBLE',
+    'UNIT_SPELLCAST_NOT_INTERRUPTIBLE',
+}) do
+    UNIT_ROUTES[name] = CAST_ROUTE
+end
+
+local function runAction(frame, action, route, event, arg3, arg4, arg5)
+    if not frame or not action then
+        return
+    end
+    if type(action) == 'function' then
+        action(frame, event, arg3, arg4, arg5)
+        return
+    end
+    for _, method in ipairs(type(action) == 'table' and action or { action }) do
+        if route.smooth == nil then
+            frame[method](frame)
+        else
+            frame[method](frame, route.smooth)
+        end
+    end
+end
+
+local function onUnitEvent(route, event, unit, arg3, arg4, arg5)
+    runAction(route.row and EUI.PartyList.RowForUnit(unit), route.row, route, event, arg3, arg4, arg5)
+    runAction(route.pet and EUI.PartyList.PetForUnit(unit), route.pet, route, event, arg3, arg4, arg5)
+    runAction(route.bar and EUI.TargetBar.ForUnit(unit), route.bar, route, event, arg3, arg4, arg5)
+    if route.also then
+        route.also(unit)
+    end
+end
+
+local function refreshRoster()
+    EUI.PartyList.OnRosterChanged()
+    EUI.PartyList.RefreshAll()
+    EUI.PartyList.UpdateFormRows()
+end
+
+local function updateRowStates()
+    forEachRow('UpdateState')
+end
+
+local function updateRoles()
+    forEachRow('UpdateRole')
+end
+
+local function readyCheck(event)
+    EUI.PartyList.OnReadyCheck(event)
+end
+
+-- Events with no unit, run once EUI.ready; fn(event).
+local GLOBAL_ROUTES = {
+    PLAYER_ENTERING_WORLD = function()
+        applyScale()
+        EUI.Blizzard.HideReplaced()
+        refreshRoster()
+        forEachBar('Refresh')
+        EUI.playerCast:Update()
+    end,
+    PLAYER_TARGET_CHANGED = function()
+        EUI.TargetBar.target:Refresh()
+        forEachRow('UpdateCursor')
+    end,
+    COMBO_TARGET_CHANGED = function()
+        EUI.TargetBar.target:UpdateCombo()
+    end,
+    PLAYER_FOCUS_CHANGED = function()
+        EUI.TargetBar.focus:Refresh()
+    end,
+    GROUP_ROSTER_UPDATE = refreshRoster,
+    PARTY_LEADER_CHANGED = function()
+        EUI.PartyList.ForEachVisibleRow(function(row)
+            row:UpdateLeader()
+            row:UpdateGroupRoles()
+        end)
+    end,
+    PARTY_LOOT_METHOD_CHANGED = function()
+        forEachRow('UpdateGroupRoles')
+    end,
+    UPDATE_SHAPESHIFT_FORM = function()
+        forEachRow('UpdatePower')
+        EUI.TargetBar.target:UpdateCombo()
+        EUI.PartyList.UpdateBackground()
+    end,
+    UI_SCALE_CHANGED = applyScale,
+    DISPLAY_SIZE_CHANGED = applyScale,
+    PLAYER_UPDATE_RESTING = function()
+        forEachRow('UpdatePlayerState')
+    end,
+    PLAYER_DEAD = updateRowStates,
+    PLAYER_ALIVE = updateRowStates,
+    PLAYER_UNGHOST = updateRowStates,
+    READY_CHECK = readyCheck,
+    READY_CHECK_CONFIRM = readyCheck,
+    READY_CHECK_FINISHED = readyCheck,
+    RAID_TARGET_UPDATE = function()
+        forEachRow('UpdateRaidMarker')
+        forEachBar('UpdateRaidMarker')
+    end,
+    PLAYER_ROLES_ASSIGNED = updateRoles,
+    ROLE_CHANGED_INFORM = updateRoles,
+    PET_UI_UPDATE = function()
+        EUI.PartyList.ForEachVisiblePet(function(pet)
+            pet:UpdateHappiness()
+        end)
+    end,
+}
+
+-- Handled in OnEvent before EUI.ready.
+local STARTUP_EVENTS = {
+    'ADDON_LOADED', 'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_REGEN_ENABLED', 'PLAYER_REGEN_DISABLED',
+}
+
 local events = CreateFrame('Frame')
 -- Registering an event the client does not know raises an error.
-for _, list in ipairs({ GLOBAL_EVENTS, UNIT_EVENTS }) do
-    for _, name in ipairs(list) do
-        local ok, err = pcall(events.RegisterEvent, events, name)
-        if not ok then
-            EUI.LogOnce('event:' .. name, 'event %s not registered: %s', name, tostring(err))
-        end
+local function register(name)
+    local ok, err = pcall(events.RegisterEvent, events, name)
+    if not ok then
+        EUI.LogOnce('event:' .. name, 'event %s not registered: %s', name, tostring(err))
+    end
+end
+for _, name in ipairs(STARTUP_EVENTS) do
+    register(name)
+end
+for _, routes in ipairs({ GLOBAL_ROUTES, UNIT_ROUTES }) do
+    for name in pairs(routes) do
+        register(name)
     end
 end
 
@@ -266,62 +357,14 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
     if not EUI.ready then
         return
     end
-
-    if event == 'PLAYER_ENTERING_WORLD' then
-        applyScale()
-        EUI.Blizzard.HideReplaced()
-        EUI.PartyList.OnRosterChanged()
-        EUI.PartyList.RefreshAll()
-        EUI.PartyList.UpdateFormRows()
-        EUI.TargetBar.ForEach(function(bar)
-            bar:Refresh()
-        end)
-        EUI.playerCast:Update()
-    elseif event == 'PLAYER_TARGET_CHANGED' then
-        EUI.TargetBar.target:Refresh()
-        EUI.PartyList.ForEachVisibleRow(function(row)
-            row:UpdateCursor()
-        end)
-    elseif event == 'COMBO_TARGET_CHANGED' then
-        EUI.TargetBar.target:UpdateCombo()
-    elseif event == 'PLAYER_FOCUS_CHANGED' then
-        EUI.TargetBar.focus:Refresh()
-    elseif event == 'GROUP_ROSTER_UPDATE' then
-        EUI.PartyList.OnRosterChanged()
-        EUI.PartyList.RefreshAll()
-        EUI.PartyList.UpdateFormRows()
-    elseif event == 'PARTY_LEADER_CHANGED' then
-        EUI.PartyList.ForEachVisibleRow(function(row)
-            row:UpdateLeader()
-            row:UpdateGroupRoles()
-        end)
-    elseif event == 'PARTY_LOOT_METHOD_CHANGED' then
-        forEachRow('UpdateGroupRoles')
-    elseif event == 'UPDATE_SHAPESHIFT_FORM' then
-        forEachRow('UpdatePower')
-        EUI.TargetBar.target:UpdateCombo()
-        EUI.PartyList.UpdateBackground()
-    elseif event == 'UI_SCALE_CHANGED' or event == 'DISPLAY_SIZE_CHANGED' then
-        applyScale()
-    elseif event == 'PLAYER_UPDATE_RESTING' then
-        forEachRow('UpdatePlayerState')
-    elseif event == 'PLAYER_DEAD' or event == 'PLAYER_ALIVE' or event == 'PLAYER_UNGHOST' then
-        forEachRow('UpdateState')
-    elseif event:find('^READY_CHECK') then
-        EUI.PartyList.OnReadyCheck(event)
-    elseif event == 'RAID_TARGET_UPDATE' then
-        forEachRow('UpdateRaidMarker')
-        EUI.TargetBar.ForEach(function(bar)
-            bar:UpdateRaidMarker()
-        end)
-    elseif event == 'PLAYER_ROLES_ASSIGNED' or event == 'ROLE_CHANGED_INFORM' then
-        forEachRow('UpdateRole')
-    elseif event == 'PET_UI_UPDATE' then
-        EUI.PartyList.ForEachVisiblePet(function(pet)
-            pet:UpdateHappiness()
-        end)
-    else
-        onUnitEvent(event, arg1, arg3, arg4, arg5)
+    local global = GLOBAL_ROUTES[event]
+    if global then
+        global(event)
+        return
+    end
+    local route = UNIT_ROUTES[event]
+    if route then
+        onUnitEvent(route, event, arg1, arg3, arg4, arg5)
     end
 end))
 
