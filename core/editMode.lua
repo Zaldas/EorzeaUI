@@ -27,19 +27,75 @@ local function savePosition(key, frame)
     end
 end
 
--- frame: the root to move. label: text on the handle.
-function EditMode.Register(key, frame, label)
+-- Blizzard's Edit Mode selection box (EditModeSystemSelectionLayout, local to its file), recoloured
+-- so our frames read apart from Blizzard's. Vertex colour only darkens the blue art, so the
+-- pieces are desaturated first.
+local SELECTION_KIT = 'editmode-actionbar-highlight'
+local SELECTION_TINT = '#9C94E8FF'
+local SELECTION_LAYOUT = {
+    TopRightCorner = { atlas = '%s-NineSlice-Corner', mirrorLayout = true, x = 8, y = 8 },
+    TopLeftCorner = { atlas = '%s-NineSlice-Corner', mirrorLayout = true, x = -8, y = 8 },
+    BottomLeftCorner = { atlas = '%s-NineSlice-Corner', mirrorLayout = true, x = -8, y = -8 },
+    BottomRightCorner = { atlas = '%s-NineSlice-Corner', mirrorLayout = true, x = 8, y = -8 },
+    TopEdge = { atlas = '_%s-NineSlice-EdgeTop' },
+    BottomEdge = { atlas = '_%s-NineSlice-EdgeBottom' },
+    LeftEdge = { atlas = '!%s-NineSlice-EdgeLeft' },
+    RightEdge = { atlas = '!%s-NineSlice-EdgeRight' },
+    Center = { atlas = '%s-NineSlice-Center', x = -8, y = 8, x1 = 8, y1 = -8 },
+}
+
+-- Applies the selection art to frame. Returns false when the client lacks it.
+local function applySelectionArt(frame, blendMode)
+    if not (NineSliceUtil and AV.Style.HasAtlas(SELECTION_KIT .. '-NineSlice-Center')) then
+        return false
+    end
+    if not pcall(NineSliceUtil.ApplyLayout, frame, SELECTION_LAYOUT, SELECTION_KIT) then
+        return false
+    end
+    local r, g, b, a = AV.Style.Color(SELECTION_TINT)
+    for pieceName in pairs(SELECTION_LAYOUT) do
+        local piece = frame[pieceName]
+        if piece then
+            piece:SetDesaturated(true)
+            piece:SetVertexColor(r, g, b, a)
+            if blendMode then
+                piece:SetBlendMode(blendMode)
+            end
+        end
+    end
+    return true
+end
+
+-- frame: the root to move. label: text on the handle. bounds: optional { topLeft, bottomRight }
+-- regions whose corners the handle spans, for content that outgrows frame.
+function EditMode.Register(key, frame, label, bounds)
     local mover = CreateFrame('Frame', nil, frame)
-    mover:SetAllPoints(frame)
+    if bounds then
+        mover:SetPoint('TOPLEFT', bounds[1], 'TOPLEFT')
+        mover:SetPoint('BOTTOMRIGHT', bounds[2], 'BOTTOMRIGHT')
+    else
+        mover:SetAllPoints(frame)
+    end
     mover:SetFrameStrata('DIALOG')
     mover:EnableMouse(true)
     mover:RegisterForDrag('LeftButton')
     mover:Hide()
 
-    local bg = mover:CreateTexture(nil, 'BACKGROUND')
-    bg:SetAllPoints()
-    bg:SetColorTexture(0.2, 0.6, 1, 0.25)
-    local text = mover:CreateFontString(nil, 'OVERLAY', 'GameFontNormalLarge')
+    if applySelectionArt(mover) then
+        -- As Blizzard's: the same art added over itself at 40% while hovered.
+        local hover = CreateFrame('Frame', nil, mover)
+        hover:SetAllPoints()
+        hover:SetAlpha(0.4)
+        hover:Hide()
+        applySelectionArt(hover, 'ADD')
+        mover:SetScript('OnEnter', function() hover:Show() end)
+        mover:SetScript('OnLeave', function() hover:Hide() end)
+    else
+        local bg = mover:CreateTexture(nil, 'BACKGROUND')
+        bg:SetAllPoints()
+        bg:SetColorTexture(0.2, 0.6, 1, 0.25)
+    end
+    local text = mover:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightLarge')
     text:SetPoint('CENTER')
     text:SetText(label)
 

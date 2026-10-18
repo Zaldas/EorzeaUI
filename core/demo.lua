@@ -24,7 +24,8 @@ local DEBUFFS = {
 }
 
 -- Target auras cover every edge the target rows draw: one debuff per dispel type plus an
--- untyped one, and a stealable buff beside an ordinary one.
+-- untyped ones, and a stealable buff beside ordinary ones. More than one line's worth, so the
+-- buffs wrap.
 local TARGET_DEBUFFS = {
     { ICON .. 'Spell_Shadow_ShadowWordPain', '14', dispel = 'Magic' },
     { ICON .. 'Spell_Shadow_CurseOfSargeras', '21', dispel = 'Curse' },
@@ -32,10 +33,21 @@ local TARGET_DEBUFFS = {
     { ICON .. 'Spell_Shadow_CallofBone', '2m', dispel = 'Disease' },
     { ICON .. 'Ability_Gouge', '6', dispel = 'Bleed' },
     { ICON .. 'Ability_Warrior_Sunder', '24' },
+    { ICON .. 'Spell_Frost_FrostNova', '6' },
+    { ICON .. 'Spell_Nature_CorrosiveBreath', '2m' },
+    { ICON .. 'Spell_Shadow_AbominationExplosion', '9' },
 }
 local TARGET_BUFFS = {
     { ICON .. 'Spell_Holy_PowerWordShield', '22', stealable = true },
     { ICON .. 'Ability_Warrior_BattleShout', '1m' },
+    { ICON .. 'Spell_Holy_WordFortitude', '28m' },
+    { ICON .. 'Spell_Nature_Regeneration', '24m' },
+    { ICON .. 'Spell_Holy_MagicalSentry', '19m' },
+    { ICON .. 'Spell_Holy_Renew', '11' },
+    { ICON .. 'Spell_Nature_Thorns', '8m' },
+    { ICON .. 'Spell_Holy_GreaterBlessingofKings', '14m' },
+    { ICON .. 'Spell_Nature_LightningShield', '7m' },
+    { ICON .. 'Spell_Holy_DevotionAura', '3m' },
 }
 
 local function pick(list, count)

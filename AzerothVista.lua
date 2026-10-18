@@ -25,6 +25,9 @@ local function applyScale()
         AV.TargetBar.target.anchor:SetScale(scale)
         AV.castAnchor:SetScale(scale)
     end, 'scale')
+    if AzerothVistaGallery and AzerothVistaGallery.ApplyScale then
+        AzerothVistaGallery.ApplyScale()
+    end
 end
 
 local function createPlayerCastBar(style, fonts)
@@ -77,7 +80,8 @@ local function initialize()
     AV.TargetBar.Create(style, fonts)
     createPlayerCastBar(style, fonts)
 
-    AV.EditMode.Register('party', AV.PartyList.anchor, 'Party')
+    local partyBg = AV.PartyList.background
+    AV.EditMode.Register('party', AV.PartyList.anchor, 'Party', { partyBg.top, partyBg.bottom })
     AV.EditMode.Register('target', AV.TargetBar.target.anchor, 'Target')
     AV.EditMode.Register('cast', AV.castAnchor, 'Cast bar')
     AV.EditMode.Initialize()

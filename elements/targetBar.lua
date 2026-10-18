@@ -81,6 +81,10 @@ local function createIcon(self, parent, spec, fonts, frameLevel)
     self.pvp:SetSize(spec.pvp.size[1], spec.pvp.size[2])
     Style.Place(self.pvp, markers, spec.pvp.pos)
     self.pvp:Hide()
+    self.tier = markers:CreateTexture(nil, 'OVERLAY')
+    self.tier:SetSize(spec.tier.size, spec.tier.size)
+    Style.Place(self.tier, markers, spec.tier.pos)
+    self.tier:Hide()
     self.threat = Style.Image(markers, 'OVERLAY', spec.threat)
     self.threat:Hide()
     self.leader = markers:CreateTexture(nil, 'OVERLAY')
@@ -150,8 +154,7 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.lowHealthCurve = AV.Curves.Step({ spec.lowHealth }, '#FFFFFFFF')
 
     if unit then
-        self.debuffs = AV.AuraRow.Create(content, unit, 'HARMFUL', spec.debuffs, fonts)
-        self.buffs = AV.AuraRow.Create(content, unit, 'HELPFUL', spec.buffs, fonts)
+        self.auras = AV.AuraRow.Create(content, unit, { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
     end
 
     self.cast = AV.CastBar.Create(content, unit, spec.cast, fonts, spec.cast.pos)
@@ -375,6 +378,14 @@ local function setIcon(self, classToken, drawPortrait)
     end
 end
 
+local function setTier(self, classification)
+    local path = classification and self.spec.tier.paths[classification]
+    if path then
+        self.tier:SetTexture(Style.AssetPath(path))
+    end
+    self.tier:SetShown(path ~= nil)
+end
+
 -- Class icon for players, the engine-rendered portrait for everything else.
 function Bar:UpdateIcon()
     if not isLive(self) then
@@ -475,6 +486,7 @@ function Bar:Refresh()
     self:UpdateIdentity()
     self:UpdateIcon()
     self:UpdateFlags()
+    setTier(self, AV.Read('UnitClassification', UnitClassification, unit))
     local level = AV.SafeValue(UnitLevel, unit)
     if level and AV.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
         setLevel(self, level, difficultyColor(unit, level))
@@ -483,8 +495,7 @@ function Bar:Refresh()
     end
     self:UpdateHealth(false)
     self:UpdateThreat()
-    self.debuffs:Refresh()
-    self.buffs:Refresh()
+    self.auras:Refresh()
     self.cast:EndFailure()
     self.cast:Update()
     self:UpdateTargetOfTarget()
@@ -537,15 +548,29 @@ function Bar:UpdateTargetOfTarget()
 end
 
 local function setLiveAurasShown(self, shown)
-    for _, row in ipairs({ self.debuffs or {}, self.buffs or {} }) do
-        if row.container then
-            row.container:SetShown(shown)
-        end
+    if self.auras and self.auras.container then
+        self.auras.container:SetShown(shown)
     end
 end
 
+-- Demo debuffs then buffs, each capped at its group's max as the live row is and tagged with its
+-- group's filter for the dispel edge.
+local function demoAuras(spec, debuffs, buffs)
+    local out = {}
+    for _, group in ipairs({ { 'HARMFUL', debuffs }, { 'HELPFUL', buffs } }) do
+        local max = AV.AuraRow.GroupSpec(spec, group[1]).max
+        for i, entry in ipairs(group[2] or {}) do
+            if i > max then
+                break
+            end
+            out[#out + 1] = { entry[1], entry[2], dispel = entry.dispel, stealable = entry.stealable, group = group[1] }
+        end
+    end
+    return out
+end
+
 -- Demo and Edit Mode: fixed sample data in place of the unit, or nil to restore live updates.
--- data = { name, level, colorKey, npc, pvp, leader, raidMarker, tag, threat,
+-- data = { name, level, classification, colorKey, npc, pvp, leader, raidMarker, tag, threat,
 --          threatPercent, class | portrait | portraitUnit, hpPercent, dead, incoming, debuffs,
 --          buffs, castName, castProgress, castNotInterruptible, totName, totColorKey, totPercent }
 -- npc: the separator line replaces the HP bar. class: a class token's icon; portrait: a texture
@@ -553,9 +578,8 @@ end
 function Bar:SetPreview(data)
     self.preview = data ~= nil
     if not data then
-        if self.demoDebuffs then
-            self.demoDebuffs:Set(nil)
-            self.demoBuffs:Set(nil)
+        if self.demoAuras then
+            self.demoAuras:Set(nil)
         end
         setLiveAurasShown(self, true)
         self.cast:SetPreview(nil)
@@ -563,9 +587,8 @@ function Bar:SetPreview(data)
         return
     end
     local spec = self.spec
-    if not self.demoDebuffs then
-        self.demoDebuffs = AV.StaticIcons.Create(self.content, spec.debuffs, self.fonts)
-        self.demoBuffs = AV.StaticIcons.Create(self.content, spec.buffs, self.fonts)
+    if not self.demoAuras then
+        self.demoAuras = AV.StaticIcons.Create(self.content, spec.auras, self.fonts)
     end
     setLiveAurasShown(self, false)
     self.content:Show()
@@ -576,6 +599,7 @@ function Bar:SetPreview(data)
     setNpcMode(self, data.npc == true)
     setPvP(self, data.pvp)
     self.leader:SetShown(data.leader == true)
+    setTier(self, data.classification)
     self.hpp:SetText(string.format('%d%%', data.hpPercent))
     self.threat:SetShown(data.threat ~= nil)
     self.threatText:SetShown(data.threat ~= nil)
@@ -602,8 +626,7 @@ function Bar:SetPreview(data)
     self.bar:SetRange(100)
     self.bar:SetValue(data.hpPercent)
     self.bar:SetIncoming(data.incoming or 0, 100)
-    self.demoDebuffs:Set(data.debuffs)
-    self.demoBuffs:Set(data.buffs)
+    self.demoAuras:Set(demoAuras(spec.auras, data.debuffs, data.buffs))
     local hasTot = data.totName ~= nil
     self.tot:SetShown(hasTot)
     self.attention:SetShown(hasTot)

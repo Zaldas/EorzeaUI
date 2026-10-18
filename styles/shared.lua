@@ -149,6 +149,15 @@ function Kit.target(cast)
             gradient = 'jobIcons/gradient',
             frame = 'jobIcons/frame',
         },
+        -- Corner bracket by UnitClassification on the icon's top-right, offset 4px up and right so
+        -- its inner outline sits on the frame's outer edge. Unlisted classifications show none.
+        -- The art is 56px in the canvas's top-right; drawn at the texture's 64px so both arms
+        -- rasterise alike.
+        tier = {
+            pos = { -52, 1 },
+            size = 64,
+            paths = { worldboss = 'tiers/boss', elite = 'tiers/elite', rareelite = 'tiers/rareElite', rare = 'tiers/rare' },
+        },
         levelBadge = Kit.levelBadge,
         -- Straddles the icon's left edge in its lower half, as on the party rows.
         pvp = { pos = { -49, 27 }, size = { 22, 22 } },
@@ -170,17 +179,27 @@ function Kit.target(cast)
         flag = { pos = { 20, 16 }, size = { 38, 15 } },
         healPrediction = { color = '#7CFC8C80', absorbColor = '#DDEEFFB3' },
         txtHpp = { pos = { 523, 20 }, size = 14, color = '#C8C8C8FF', stroke = Kit.STROKE_RED, font = 'number', alignRight = true },
+        -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
+        -- Maxes match Blizzard's target frame (16 debuffs, 32 buffs): at most 3 lines.
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
-        debuffs = { pos = { 25, 44 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'dispel', dispelColors = Kit.DISPEL_COLORS },
-        buffs = { pos = { 25, 82 }, size = 22, spacing = 3, max = 12, timers = true, border = Kit.AURA_BORDER, dispelBorder = 'stealable', dispelColors = { Magic = Kit.STEALABLE_COLOR } },
+        auras = {
+            pos = { 25, 44 }, size = 22, spacing = 3, perLine = 16, lineSpacing = 16, timers = true, border = Kit.AURA_BORDER,
+            groups = {
+                HARMFUL = { max = 16, dispelBorder = 'dispel', dispelColors = Kit.DISPEL_COLORS },
+                HELPFUL = { max = 32, dispelBorder = 'stealable', dispelColors = { Magic = Kit.STEALABLE_COLOR } },
+            },
+        },
         cast = {
             pos = { 233, -15 },
             bar = Kit.wideBar(234, cast.frame, cast.fill),
             txtName = Kit.castName(cast.text),
             -- Interrupted or failed: the bar holds full in `color` for `hold` seconds.
             failure = { color = '#FF6666FF', hold = 1 },
-            -- Casts that cannot be interrupted tint the whole bar.
-            uninterruptible = { color = '#B4B4B4FF' },
+            -- Casts that cannot be interrupted tint the whole bar and show VanaVista's lock left of it.
+            uninterruptible = {
+                color = '#B4B4B4FF',
+                lock = { path = 'ffxi/lock', pos = { -2, 25 }, size = { 14, 14 }, color = '#FFFFFFFF' },
+            },
         },
         attention = { path = 'ffxi/attention', pos = { 545, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
         tot = {

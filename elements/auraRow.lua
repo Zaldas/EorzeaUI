@@ -120,10 +120,36 @@ local function makeInitializer(spec, fonts)
     end
 end
 
+-- The spec for one filter's group: spec.groups[filter] fields override spec's.
+function AV.AuraRow.GroupSpec(spec, filter)
+    local overrides = spec.groups and spec.groups[filter]
+    if not overrides then
+        return spec
+    end
+    local merged = {}
+    for key, value in pairs(spec) do
+        merged[key] = value
+    end
+    for key, value in pairs(overrides) do
+        merged[key] = value
+    end
+    return merged
+end
+
+-- Width of a line holding spec.perLine icons, or nil when the row does not wrap.
+function AV.AuraRow.LineWidth(spec)
+    if not spec.perLine then
+        return nil
+    end
+    return spec.perLine * spec.size + (spec.perLine - 1) * spec.spacing
+end
+
 -- spec = { pos, size, spacing, max, timers, border = '#RRGGBBAA' edge colour,
--- dispelBorder = 'dispel' | 'stealable' | nil, dispelColors = { [dispel type] = '#RRGGBBAA' } }
+-- dispelBorder = 'dispel' | 'stealable' | nil, dispelColors = { [dispel type] = '#RRGGBBAA' },
+-- perLine = icons per line before wrapping (nil: one line), lineSpacing = gap between lines,
+-- groups = { [filter] = per-group overrides of max, dispelBorder, dispelColors, ... } }
 -- filter: an aura filter, or a list of filters laid out one after another in the row, each
--- showing up to spec.max auras.
+-- showing up to its group's max auras.
 function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
     ensureLoaded()
     local self = setmetatable({ unit = unit }, AuraRow)
@@ -134,7 +160,8 @@ function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
         AV.Print('AuraContainer unavailable (%s)', tostring(container))
         return self
     end
-    container:SetSize((spec.size + spec.spacing) * spec.max * #filters, spec.size)
+    local lineWidth = AV.AuraRow.LineWidth(spec)
+    container:SetSize(lineWidth or (spec.size + spec.spacing) * spec.max * #filters, spec.size)
     AV.Style.Place(container, parent, spec.pos)
 
     local sortMethod = AuraContainerSortMethod and (AuraContainerSortMethod.Expiration or AuraContainerSortMethod.ExpirationOnly) or 4
@@ -148,14 +175,23 @@ function AV.AuraRow.Create(parent, unit, filter, spec, fonts)
         if container.SetFlowLayoutAnchorPoint then
             container:SetFlowLayoutAnchorPoint('TOPLEFT')
         end
+        if lineWidth then
+            container:SetFlowLayoutMaximumLineSize(lineWidth)
+        end
         -- Groups flow in registration order; trailing element spacing separates them.
         for index, groupFilter in ipairs(filters) do
+            local groupSpec = AV.AuraRow.GroupSpec(spec, groupFilter)
             container:AddAuraGroup('row' .. index, groupFilter, {
-                maxFrameCount = spec.max,
+                maxFrameCount = groupSpec.max,
                 sortMethod = sortMethod,
                 sortDirection = sortDirection,
-                initializeFrame = makeInitializer(spec, fonts),
-                layout = { elementWidth = spec.size, elementHeight = spec.size, elementSpacing = spec.spacing },
+                initializeFrame = makeInitializer(groupSpec, fonts),
+                layout = {
+                    elementWidth = spec.size,
+                    elementHeight = spec.size,
+                    elementSpacing = spec.spacing,
+                    lineSpacing = spec.lineSpacing,
+                },
             })
         end
         container:SetEnabled(true)

@@ -7,7 +7,8 @@ AV.CastBar = {}
 local CastBar = {}
 CastBar.__index = CastBar
 
--- spec = { bar, txtName = { ..., width }, failure = { color, hold }, uninterruptible = { color } }.
+-- spec = { bar, txtName = { ..., width }, failure = { color, hold },
+-- uninterruptible = { color, lock = { path, pos, size, color } } }.
 -- unit may be nil until SetUnit.
 -- onVisibility(shown), when set, is called whenever the bar shows or hides.
 function AV.CastBar.Create(parent, unit, spec, fonts, pos)
@@ -17,6 +18,11 @@ function AV.CastBar.Create(parent, unit, spec, fonts, pos)
     if spec.txtName.width then
         self.name:SetWidth(spec.txtName.width)
         self.name:SetWordWrap(false)
+    end
+    local lockSpec = spec.uninterruptible and spec.uninterruptible.lock
+    if lockSpec then
+        self.lock = AV.Style.Image(self.bar.overlay, 'OVERLAY', lockSpec)
+        self.lock:SetAlpha(0)
     end
     self.bar.frame:Hide()
     return self
@@ -34,14 +40,20 @@ local function setVisible(self, shown)
 end
 
 -- notInterruptible is secret for other units' casts; EvaluateColorFromBoolean picks the colour
--- engine-side.
+-- engine-side, and SetAlphaFromBoolean shows the lock (default alphas: 255 true, 0 false).
 local function applyInterruptible(self, notInterruptible)
     local spec = self.spec.uninterruptible
-    if not (spec and C_CurveUtil and C_CurveUtil.EvaluateColorFromBoolean) then
-        return
-    end
     if type(notInterruptible) == 'nil' then
         notInterruptible = false
+    end
+    if self.lock and self.lock.SetAlphaFromBoolean then
+        local ok, err = pcall(self.lock.SetAlphaFromBoolean, self.lock, notInterruptible)
+        if not ok then
+            AV.LogOnce('cast:lock', 'SetAlphaFromBoolean failed: %s', tostring(err))
+        end
+    end
+    if not (spec and C_CurveUtil and C_CurveUtil.EvaluateColorFromBoolean) then
+        return
     end
     local ok, color = pcall(C_CurveUtil.EvaluateColorFromBoolean, notInterruptible,
         CreateColor(AV.Style.Color(spec.color)), CreateColor(AV.Style.Color(self.spec.bar.fill.color)))
@@ -62,6 +74,9 @@ local function resetColors(self)
     local bar = self.bar
     bar:SetFillColor(self.spec.bar.fill.color)
     bar:SetFrameColor(self.spec.bar.bg.color)
+    if self.lock then
+        self.lock:SetAlpha(0)
+    end
 end
 
 -- interruptIndex: notInterruptible's position among infoFn's returns.

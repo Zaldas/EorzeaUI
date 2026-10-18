@@ -7,19 +7,35 @@ AV.StaticIcons = {}
 local StaticIcons = {}
 StaticIcons.__index = StaticIcons
 
--- spec = { pos, size, spacing, max, timers, border, dispelBorder, dispelColors } as in AuraRow.
+-- The total of each group's max when spec.groups sets them, else spec.max.
+local function slotCount(spec)
+    if not spec.groups then
+        return spec.max
+    end
+    local count = 0
+    for filter in pairs(spec.groups) do
+        count = count + AV.AuraRow.GroupSpec(spec, filter).max
+    end
+    return count
+end
+
+-- spec = { pos, size, spacing, max, timers, border, dispelBorder, dispelColors, perLine,
+-- lineSpacing, groups } as in AuraRow.
 function AV.StaticIcons.Create(parent, spec, fonts)
     local self = setmetatable({ slots = {} }, StaticIcons)
+    local count = slotCount(spec)
+    local perLine = spec.perLine or count
     local frame = CreateFrame('Frame', nil, parent)
-    frame:SetSize((spec.size + spec.spacing) * spec.max, spec.size)
+    frame:SetSize(AV.AuraRow.LineWidth(spec) or (spec.size + spec.spacing) * count, spec.size)
     AV.Style.Place(frame, parent, spec.pos)
     self.frame = frame
     self.spec = spec
 
-    for i = 1, spec.max do
+    for i = 1, count do
         local slot = CreateFrame('Frame', nil, frame)
         slot:SetSize(spec.size, spec.size)
-        slot:SetPoint('TOPLEFT', frame, 'TOPLEFT', (i - 1) * (spec.size + spec.spacing), 0)
+        local column, line = (i - 1) % perLine, math.floor((i - 1) / perLine)
+        slot:SetPoint('TOPLEFT', frame, 'TOPLEFT', column * (spec.size + spec.spacing), -line * (spec.size + (spec.lineSpacing or 0)))
         local border = slot:CreateTexture(nil, 'BACKGROUND')
         border:SetAllPoints()
         border:SetColorTexture(AV.Style.Color(spec.border or '#000000D9'))
@@ -43,6 +59,9 @@ end
 
 -- The edge colour a live AuraRow with the same spec would give entry, or nil.
 local function dispelColor(spec, entry)
+    if entry.group then
+        spec = AV.AuraRow.GroupSpec(spec, entry.group)
+    end
     local colors = spec.dispelColors
     if not colors then
         return nil
@@ -53,7 +72,8 @@ local function dispelColor(spec, entry)
     return entry.dispel and colors[entry.dispel]
 end
 
--- icons = { { texture, timer, dispel = dispel type name, stealable = bool }, ... }
+-- icons = { { texture, timer, dispel = dispel type name, stealable = bool,
+-- group = filter whose spec.groups entry styles it }, ... }
 function StaticIcons:Set(icons)
     for i, slot in ipairs(self.slots) do
         local entry = icons and icons[i]

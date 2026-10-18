@@ -144,7 +144,7 @@ function PartyList.UpdateFormRows()
 end
 
 -- The list's background behind rows stacked from anchor's top-left. Size it with bg.mid:SetHeight
--- (the rows' total height).
+-- (the rows' total height); bg.top and bg.bottom are its first and last pieces.
 function PartyList.CreateBackground(anchor)
     local bgSpec = PartyList.style.background
     local bg = CreateFrame('Frame', nil, anchor)
@@ -167,7 +167,7 @@ function PartyList.CreateBackground(anchor)
     AV.Style.Place(top, anchor, bgSpec.pos)
     mid:SetPoint('TOPLEFT', top, 'BOTTOMLEFT', 0, 0)
     bottom:SetPoint('TOPLEFT', mid, 'BOTTOMLEFT', 0, 0)
-    bg.mid = mid
+    bg.top, bg.mid, bg.bottom = top, mid, bottom
     return bg
 end
 
@@ -183,6 +183,7 @@ function PartyList.Create(style, fonts)
     PartyList.anchor = anchor
 
     local bg = PartyList.CreateBackground(anchor)
+    PartyList.background = bg
     PartyList.bgMid = bg.mid
     PartyList.groupText = AV.Style.Text(bg, partyStyle.groupNumber, fonts)
 
