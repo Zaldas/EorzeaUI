@@ -16,7 +16,7 @@ local DEFAULT_POSITIONS = {
 }
 
 function EditMode.RestorePosition(key, frame)
-    local saved = EUI.db.positions[key] or DEFAULT_POSITIONS[key]
+    local saved = EUI.Settings.Get('positions.' .. key) or DEFAULT_POSITIONS[key]
     frame:ClearAllPoints()
     frame:SetPoint(saved[1], UIParent, saved[2], saved[3], saved[4])
 end
@@ -24,7 +24,7 @@ end
 local function savePosition(key, frame)
     local point, _, relativePoint, x, y = frame:GetPoint(1)
     if point then
-        EUI.db.positions[key] = { point, relativePoint, x, y }
+        EUI.Settings.Set('positions.' .. key, { point, relativePoint, x, y })
     end
 end
 

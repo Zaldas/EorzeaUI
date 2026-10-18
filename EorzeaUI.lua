@@ -1,22 +1,8 @@
 local addonName, EUI = ...
 
-local DEFAULTS = {
-    style = 'vanadiel',
-    scale = 1,
-    positions = {},
-}
+local Settings = EUI.Settings
 
 local RANGE_TICK = 0.25
-
-local function loadSettings()
-    EorzeaUIDB = EorzeaUIDB or {}
-    for key, value in pairs(DEFAULTS) do
-        if EorzeaUIDB[key] == nil then
-            EorzeaUIDB[key] = type(value) == 'table' and {} or value
-        end
-    end
-    EUI.db = EorzeaUIDB
-end
 
 local function applyScale()
     EUI.RunOutOfCombat(function()
@@ -63,10 +49,11 @@ local function logCapabilities()
 end
 
 local function initialize()
-    if not EUI.styles[EUI.db.style] then
-        EUI.db.style = DEFAULTS.style
+    if not EUI.styles[Settings.Get('style')] then
+        Settings.Reset('style')
     end
-    local style = EUI.styles[EUI.db.style]
+    local styleName = Settings.Get('style')
+    local style = EUI.StyleKit.BuildStyle(styleName, Settings.Get('colors.' .. styleName))
     local fonts = style.fonts
     EUI.LogSession()
     logCapabilities()
@@ -90,6 +77,7 @@ local function initialize()
 
     EUI.Blizzard.HideReplaced()
     applyScale()
+    Settings.OnChange('scale', applyScale)
 
     C_Timer.NewTicker(RANGE_TICK, EUI.Guard('range ticker', function()
         EUI.PartyList.ForEachVisibleRow(function(row)
@@ -250,7 +238,7 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
     if event == 'ADDON_LOADED' then
         if arg1 == addonName then
             EUI.BindLog()
-            loadSettings()
+            Settings.Load()
             -- Secure frames cannot be created in combat (e.g. a /reload mid-fight).
             EUI.RunOutOfCombat(initialize)
             events:UnregisterEvent('ADDON_LOADED')
@@ -347,10 +335,9 @@ SlashCmdList.EORZEAUI = function(msg)
     elseif msg:match('^scale') then
         local value = tonumber(msg:match('^scale%s+([%d%.]+)'))
         if value and value > 0.2 and value < 4 then
-            EUI.db.scale = value
-            applyScale()
+            Settings.Set('scale', value)
         end
-        EUI.Print('scale %.2f', EUI.db.scale)
+        EUI.Print('scale %.2f', Settings.Get('scale'))
     elseif msg == 'demo' then
         EUI.Demo.Toggle()
     elseif msg == 'gallery' or msg == 'gallery target' then
@@ -368,7 +355,7 @@ SlashCmdList.EORZEAUI = function(msg)
             end
         end
         if match then
-            EUI.db.style = match
+            Settings.Set('style', match)
             ReloadUI()
         else
             local names = {}
@@ -376,11 +363,11 @@ SlashCmdList.EORZEAUI = function(msg)
                 names[#names + 1] = name
             end
             table.sort(names)
-            EUI.Print('style is %s; available: %s', EUI.db.style, table.concat(names, ', '))
+            EUI.Print('style is %s; available: %s', Settings.Get('style'), table.concat(names, ', '))
         end
     elseif msg == 'reset' then
         EUI.RunOutOfCombat(function()
-            EUI.db.positions = {}
+            Settings.Reset('positions')
             EUI.EditMode.RestorePosition('party', EUI.PartyList.anchor)
             EUI.EditMode.RestorePosition('target', EUI.TargetBar.target.anchor)
             EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)

@@ -141,7 +141,10 @@ CHAT = {}
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) CHAT[#CHAT + 1] = msg end }
 SlashCmdList = {}
 ReloadUI = function() RELOADED = true end
-EorzeaUIDB = { style = STYLE }
+EorzeaUIDB = {
+    style = STYLE,
+    colors = { [STYLE] = { hp = '#123456FF', reaction = { hostile = '#654321FF' } }, other = { hp = '#ABCDEFFF' } },
+}
 print = function(...) io.write(table.concat({ ... }, ' '), '\n') end
 
 -- Load order comes from the .toc; XML files are skipped (templates only exist in the real client).
@@ -181,7 +184,25 @@ assert(onEvent, 'no OnEvent captured')
 onEvent(nil, 'ADDON_LOADED', 'EorzeaUI')
 assert(EUI.ready, 'initialize did not complete')
 -- Settings: missing keys take their defaults; saved ones are kept.
-assert(EUI.db.style == STYLE and EUI.db.scale == 1 and type(EUI.db.positions) == 'table', 'settings defaults not applied')
+local Settings = EUI.Settings
+assert(Settings.Get('style') == STYLE and Settings.Get('scale') == 1 and type(Settings.Get('positions')) == 'table',
+    'settings defaults not applied')
+-- The style's colour overrides reach the built frames and merge into nested palette tables by key;
+-- another style's overrides are ignored.
+local builtTarget = EUI.TargetBar.target.spec
+assert(EUI.PartyList.style.hp.bar.fill.color == '#123456FF', 'hp colour override not applied')
+assert(builtTarget.reactionColors.hostile == '#654321FF', 'nested colour override not applied')
+assert(builtTarget.reactionColors.friendly == EUI.styles[STYLE].target.reactionColors.friendly, 'override dropped a sibling')
+assert(EUI.styles[STYLE].party.hp.bar.fill.color ~= '#123456FF', 'override leaked into the registered style')
+local heard
+Settings.OnChange('positions.test', function(value) heard = value end)
+Settings.Set('positions.test', 5)
+assert(heard == 5 and Settings.Get('positions.test') == 5, 'settings set or listener failed')
+assert(Settings.Get('missing.deep.path') == nil, 'missing path not nil')
+Settings.Set('scale', 1.5)
+assert(Settings.Get('scale') == 1.5, 'scale not set')
+Settings.Reset('scale')
+assert(Settings.Get('scale') == 1 and Settings.Default('positions') ~= Settings.Get('positions'), 'reset or default copy failed')
 onEvent(nil, 'PLAYER_ENTERING_WORLD')
 onEvent(nil, 'PLAYER_TARGET_CHANGED')
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
@@ -336,9 +357,9 @@ assert(#columns == 1 and stackHeight == 46 + 68 + 75 + 2 * 13, 'one column heigh
 columns, stackWidth, stackHeight = EorzeaUI.StackDemoRows(stackRows, stackMembers, UIParent, 130)
 assert(#columns == 2 and columns[2].x == 487 and stackWidth == 487 + 410, 'wrap columns: ' .. #columns)
 assert(columns[1].height == 46 + 68 + 13 and columns[2].height == 75, 'wrap heights')
-assert(EUI.db.style == STYLE, 'style not applied: ' .. tostring(EUI.db.style))
+assert(Settings.Get('style') == STYLE, 'style not applied: ' .. tostring(Settings.Get('style')))
 SlashCmdList.EORZEAUI('style azeroth')
-assert(RELOADED and EUI.db.style == 'azeroth', 'style switch failed')
+assert(RELOADED and Settings.Get('style') == 'azeroth', 'style switch failed')
 SlashCmdList.EORZEAUI('scale 1.2')
 SlashCmdList.EORZEAUI('reset')
 SlashCmdList.EORZEAUI('log')

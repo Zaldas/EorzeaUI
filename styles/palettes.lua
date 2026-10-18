@@ -85,5 +85,26 @@ local azeroth = {
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
 }
 
-EUI.styles.vanadiel = Kit.BuildLayout(vanadiel)
-EUI.styles.azeroth = Kit.BuildLayout(azeroth)
+Kit.PALETTES = { vanadiel = vanadiel, azeroth = azeroth }
+
+-- base with overrides over it; nested tables (reaction, powerColors) merge by key.
+local function overlay(base, overrides)
+    local out = EUI.Settings.Copy(base)
+    for key, value in pairs(overrides) do
+        if type(value) == 'table' and type(out[key]) == 'table' then
+            out[key] = overlay(out[key], value)
+        else
+            out[key] = value
+        end
+    end
+    return out
+end
+
+-- The named style with overrides (palette keys) over its palette.
+function Kit.BuildStyle(name, overrides)
+    return Kit.BuildLayout(overlay(Kit.PALETTES[name], overrides or {}))
+end
+
+for name, palette in pairs(Kit.PALETTES) do
+    EUI.styles[name] = Kit.BuildLayout(palette)
+end

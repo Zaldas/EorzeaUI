@@ -244,5 +244,5 @@ function Style.RootScale()
     if not height or height <= 0 then
         return 1
     end
-    return height / 1440 * ((EUI.db and EUI.db.scale) or 1)
+    return height / 1440 * EUI.Settings.Get('scale')
 end

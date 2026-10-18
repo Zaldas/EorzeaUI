@@ -96,7 +96,7 @@ function EUI.LogSession()
     end
     local addonVersion = C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(addonName, 'Version')
     EUI.Log('session: client %s (%s) interface %s, EorzeaUI %s, style %s',
-        tostring(version), tostring(build), tostring(interface), tostring(addonVersion), tostring(EUI.db and EUI.db.style))
+        tostring(version), tostring(build), tostring(interface), tostring(addonVersion), tostring(EUI.Settings.Get('style')))
 end
 
 -- Prints the newest `count` entries to chat.

@@ -8,6 +8,7 @@
 
 core\secret.lua
 core\combat.lua
+core\settings.lua
 core\log.lua
 core\style.lua
 core\curves.lua
