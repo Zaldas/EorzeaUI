@@ -421,6 +421,7 @@ local STARTUP_EVENTS = {
 }
 
 local events = CreateFrame('Frame')
+local warnedActions = {}
 -- Registering an event the client does not know raises an error.
 local function register(name)
     local ok, err = pcall(events.RegisterEvent, events, name)
@@ -451,6 +452,11 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
     if event == 'ADDON_ACTION_BLOCKED' or event == 'ADDON_ACTION_FORBIDDEN' then
         if arg1 == addonName then
             EUI.Log('%s: %s', event, tostring(arg2))
+            -- Once per function: a tainted path can repeat it every frame.
+            if not warnedActions[arg2] then
+                warnedActions[arg2] = true
+                EUI.Print('|cffff5050Blizzard blocked %s and blamed EorzeaUI (taint).|r Please report it with /eui log.', tostring(arg2))
+            end
         end
         return
     end

@@ -69,51 +69,55 @@ function EUI.Blizzard.HideReplaced()
     end
 end
 
--- Blizzard's totem timers are a child of PlayerFrame, so hiding it hides them. They move under
--- anchor instead; ignoreFramePositionManager keeps the player frame's managed layout from
--- reparenting them back when they show.
-function EUI.Blizzard.KeepTotems(anchor)
-    local totems = TotemFrame
-    if not totems then
-        return
-    end
-    totems.ignoreFramePositionManager = true
+-- Never write fields into Blizzard's frames or tables, nor drive their layout code: Blizzard code
+-- reading an addon-written value runs tainted, and its protected calls are then refused, even
+-- unrelated ones such as the gamepad bar's SetPreferredGamepadInteractTarget. Only move,
+-- reparent or hide their frames, from hooksecurefunc post-hooks.
+
+local function placeTotems(totems, anchor)
     totems:SetParent(UIParent)
     totems:ClearAllPoints()
     totems:SetPoint('TOP', anchor, 'BOTTOM', 0, 0)
 end
 
+-- Blizzard's totem timers are a child of PlayerFrame, so hiding it hides them. They move under
+-- anchor instead, and back there each time the player frame's managed layout reparents them.
+function EUI.Blizzard.KeepTotems(anchor)
+    local totems = TotemFrame
+    if not totems then
+        return
+    end
+    hooksecurefunc(totems, 'SetParent', EUI.Guard('keep totems', function(self, parent)
+        if parent ~= UIParent then
+            placeTotems(self, anchor)
+        end
+    end))
+    placeTotems(totems, anchor)
+end
+
 -- The raid manager's group/role filters, Edit and Hide buttons act on Blizzard's raid frames,
--- which are hidden; they come out of its options flow each time it lays them out. None of its
+-- which are hidden. They hide after each layout of its options; their space stays. None of its
 -- buttons are secure, so this is safe in combat.
 local MANAGER_HIDDEN = { 'filterOptions', 'editMode', 'hiddenModeToggle' }
 
-local function trimRaidManager(manager)
-    local display = manager.displayFrame
-    local container = display and display.optionsFlowContainer
-    if not container then
+local function hideManagerButtons()
+    local display = CompactRaidFrameManager and CompactRaidFrameManager.displayFrame
+    if not display then
         return
     end
-    FlowContainer_PauseUpdates(container)
     for _, key in ipairs(MANAGER_HIDDEN) do
         local object = display[key]
         if object then
-            FlowContainer_RemoveObject(container, object)
             object:Hide()
         end
     end
-    FlowContainer_ResumeUpdates(container)
-    local _, usedY = FlowContainer_GetUsedBounds(container)
-    manager:SetHeight(usedY + 40)
 end
 
 function EUI.Blizzard.TrimRaidManager()
-    if not (CompactRaidFrameManager_UpdateOptionsFlowContainer and FlowContainer_RemoveObject) then
-        EUI.LogOnce('raidManager:api', 'raid manager options flow missing; its filter buttons stay')
+    if not CompactRaidFrameManager_UpdateOptionsFlowContainer then
+        EUI.LogOnce('raidManager:api', 'raid manager options layout missing; its filter buttons stay')
         return
     end
-    hooksecurefunc('CompactRaidFrameManager_UpdateOptionsFlowContainer', EUI.Guard('trim raid manager', trimRaidManager))
-    if CompactRaidFrameManager then
-        EUI.Guard('trim raid manager', trimRaidManager)(CompactRaidFrameManager)
-    end
+    hooksecurefunc('CompactRaidFrameManager_UpdateOptionsFlowContainer', EUI.Guard('trim raid manager', hideManagerButtons))
+    hideManagerButtons()
 end
