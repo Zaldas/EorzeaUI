@@ -7,11 +7,19 @@ EUI.CastBar = {}
 local CastBar = {}
 CastBar.__index = CastBar
 
+-- Blizzard's cast bar fades over 0.3s, 0.2s after a cast ends and straight after a failure hold.
+local FADE_TIME = 0.3
+local FADE_DELAY = 0.2
+local SPARK_ATLAS = 'ui-castingbar-pip'
+local SPARK_FALLBACK = { path = 'Interface\\CastingBar\\UI-CastingBar-Spark' }
+local SPARK_SIZE = { 6, 14 }
+
 -- spec = { bar, txtName = { ..., width }, channelColor, failure = { color, hold },
 -- uninterruptible = { color, lock = { path, pos, size, color } } }.
--- channelColor (optional) tints the bar while the unit channels.
+-- channelColor (optional) tints the bar while the unit channels; sparkColor (optional) tints the
+-- spark.
 -- unit may be nil until SetUnit.
--- onVisibility(shown), when set, is called whenever the bar shows or hides.
+-- onVisibility(shown), when set, is called whenever the bar shows or hides (after the fade).
 function EUI.CastBar.Create(parent, unit, spec, fonts, pos)
     local self = setmetatable({ unit = unit, spec = spec }, CastBar)
     self.bar = EUI.Bar.Create(parent, spec.bar, pos)
@@ -25,7 +33,36 @@ function EUI.CastBar.Create(parent, unit, spec, fonts, pos)
         self.lock = EUI.Style.Image(self.bar.overlay, 'OVERLAY', lockSpec)
         self.lock:SetAlpha(0)
     end
-    self.bar.frame:Hide()
+
+    -- The spark rides the fill's right edge, which the engine moves; the timing stays secret.
+    local spark = self.bar.overlay:CreateTexture(nil, 'OVERLAY')
+    EUI.Style.SetAtlas(spark, SPARK_ATLAS, SPARK_FALLBACK)
+    spark:SetSize(SPARK_SIZE[1], SPARK_SIZE[2])
+    -- The pip art is yellow; desaturated, it takes the tint.
+    if spec.sparkColor then
+        spark:SetDesaturated(true)
+        spark:SetVertexColor(EUI.Style.Color(spec.sparkColor))
+    end
+    spark:SetPoint('CENTER', self.bar.status:GetStatusBarTexture(), 'RIGHT', 0, 0)
+    spark:Hide()
+    self.spark = spark
+
+    local frame = self.bar.frame
+    local fade = frame:CreateAnimationGroup()
+    local alpha = fade:CreateAnimation('Alpha')
+    alpha:SetFromAlpha(1)
+    alpha:SetToAlpha(0)
+    alpha:SetDuration(FADE_TIME)
+    fade:SetScript('OnFinished', function()
+        frame:Hide()
+        frame:SetAlpha(1)
+        if self.onVisibility then
+            self.onVisibility(false)
+        end
+    end)
+    self.fade, self.fadeAlpha = fade, alpha
+
+    frame:Hide()
     return self
 end
 
@@ -33,8 +70,20 @@ function CastBar:SetUnit(unit)
     self.unit = unit
 end
 
-local function setVisible(self, shown)
-    self.bar.frame:SetShown(shown)
+-- Shows the bar at once; hides it through the fade, after delay (default FADE_DELAY).
+local function setVisible(self, shown, delay)
+    local frame = self.bar.frame
+    if shown then
+        self.fade:Stop()
+        frame:SetAlpha(1)
+        frame:Show()
+    elseif frame:IsShown() then
+        if not self.fade:IsPlaying() then
+            self.fadeAlpha:SetStartDelay(delay or FADE_DELAY)
+            self.fade:Play()
+        end
+        return
+    end
     if self.onVisibility then
         self.onVisibility(shown)
     end
@@ -115,13 +164,15 @@ local function tryStart(self, durationFn, infoFn, remaining, interruptIndex, cas
     pcall(self.name.SetText, self.name, name)
     self.channeling = remaining
     resetColors(self)
+    self.spark:Show()
     applyInterruptible(self, info[interruptIndex])
     self.castBarID = info[castBarIndex]
     return true
 end
 
+-- The info functions return nothing at all when idle; the parentheses make that one nil.
 local function isCasting(unit)
-    return type(UnitCastingInfo(unit)) ~= 'nil' or type(UnitChannelInfo(unit)) ~= 'nil'
+    return type((UnitCastingInfo(unit))) ~= 'nil' or type((UnitChannelInfo(unit))) ~= 'nil'
 end
 
 function CastBar:Update()
@@ -165,6 +216,7 @@ function CastBar:ShowFailure(label, castBarID, failed)
     self.bar:SetRange(1)
     self.bar:SetValue(1)
     self.bar:SetFillColor(failure.color)
+    self.spark:Hide()
     self.name:SetText(label)
     C_Timer.After(failure.hold, function()
         if self.failing == token then
@@ -174,13 +226,24 @@ function CastBar:ShowFailure(label, castBarID, failed)
     end)
 end
 
+-- Ends a failure hold, fading the bar out in the failure colour; the next cast resets colours.
 function CastBar:EndFailure()
     if not self.failing then
         return
     end
     self.failing = nil
-    resetColors(self)
-    setVisible(self, false)
+    setVisible(self, false, 0)
+end
+
+-- Hides the bar at once, without the fade (the unit changed).
+function CastBar:Clear()
+    self.failing = nil
+    self.fade:Stop()
+    self.bar.frame:Hide()
+    self.bar.frame:SetAlpha(1)
+    if self.onVisibility then
+        self.onVisibility(false)
+    end
 end
 
 -- Demo: a static bar at progress (0..1) showing spellName, tinted as uninterruptible when
@@ -196,6 +259,7 @@ function CastBar:SetPreview(spellName, progress, notInterruptible, channel)
         self.bar:SetValue(progress or 0.5)
         self.name:SetText(spellName)
         applyInterruptible(self, notInterruptible == true)
+        self.spark:Show()
         setVisible(self, true)
     elseif self.preview then
         setVisible(self, false)

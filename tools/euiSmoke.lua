@@ -90,8 +90,9 @@ UnitGUID = function(u) return 'GUID-' .. tostring(u) end
 UnitIsGroupLeader = function() return true end
 CheckInteractDistance = function() return true end
 UnitHealthPercent = function() return nil end
-UnitCastingInfo = function() return nil end
-UnitChannelInfo = function() return nil end
+-- Idle cast info returns no values at all, as in the client.
+UnitCastingInfo = function() end
+UnitChannelInfo = function() end
 IsInRaid = function() return false end
 IsInGroup = function() return true end
 UnitAffectingCombat = function() return false end
@@ -549,8 +550,8 @@ do
     end
     onEvent(nil, 'UNIT_SPELLCAST_CHANNEL_START', 'target', 'guid', 689)
     assert(cast.castBarID == 9, 'channel castBarID: ' .. tostring(cast.castBarID))
-    UnitCastingInfo = function() return nil end
-    UnitChannelInfo = function() return nil end
+    UnitCastingInfo = function() end
+    UnitChannelInfo = function() end
     UnitCastingDuration, UnitChannelDuration, C_CurveUtil.EvaluateColorFromBoolean = nil, nil, nil
     C_Timer.After = after
     rawset(status, 'SetStatusBarColor', nil)

@@ -142,6 +142,10 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.totMarker:SetSize(spec.tot.raidMarker.size[1], spec.tot.raidMarker.size[2])
     Style.Place(self.totMarker, self.totBar.overlay, spec.tot.raidMarker.pos)
     self.totMarker:Hide()
+    if unit then
+        -- The unit's target fires no UNIT_AURA; UpdateTargetOfTarget refreshes the row.
+        self.totAuras = EUI.AuraRow.Create(tot, self.totUnit, 'HARMFUL', spec.tot.auras, fonts)
+    end
 
     if unit then
         createClickArea(self, unit, spec.click, { 0, 0 })
@@ -493,7 +497,7 @@ function TargetBarClass:Refresh()
     self:UpdateThreat()
     self:UpdateCombo()
     self.auras:Refresh()
-    self.cast:EndFailure()
+    self.cast:Clear()
     self.cast:Update()
     self:UpdateTargetOfTarget()
 end
@@ -552,11 +556,14 @@ function TargetBarClass:UpdateTargetOfTarget()
     self.totName:SetTextColor(Style.Color(nameHex(self.spec, (UnitInfo.ReactionKey(totUnit)))))
     setMarkedName(self.totName, self.spec.tot.txtName, self.totMarker, self.spec.tot.raidMarker,
         EUI.Indicators.ReadRaidMarker(totUnit))
+    self.totAuras:Refresh()
 end
 
 local function setLiveAurasShown(self, shown)
-    if self.auras and self.auras.container then
-        self.auras.container:SetShown(shown)
+    for _, row in pairs({ self.auras, self.totAuras }) do
+        if row.container then
+            row.container:SetShown(shown)
+        end
     end
 end
 
@@ -580,7 +587,7 @@ end
 -- data = { name, level, classification, colorKey, npc, pvp, leader, raidMarker, tag, threat,
 --          threatPercent, class | portrait | portraitUnit, hpPercent, dead, incoming, debuffs,
 --          buffs, castName, castProgress, castNotInterruptible, castChannel, totName, totColorKey, totPercent,
---          combo }
+--          totDebuffs, combo }
 -- npc: the separator line replaces the HP bar. class: a class token's icon; portrait: a texture
 -- path; portraitUnit: that unit's portrait. threat, totName and combo are optional; nil hides them.
 function TargetBarClass:SetPreview(data)
@@ -588,6 +595,7 @@ function TargetBarClass:SetPreview(data)
     if not data then
         if self.demoAuras then
             self.demoAuras:Set(nil)
+            self.totDemoAuras:Set(nil)
         end
         setLiveAurasShown(self, true)
         self.cast:SetPreview(nil)
@@ -597,6 +605,7 @@ function TargetBarClass:SetPreview(data)
     local spec = self.spec
     if not self.demoAuras then
         self.demoAuras = EUI.StaticIcons.Create(self.content, spec.auras, self.fonts)
+        self.totDemoAuras = EUI.StaticIcons.Create(self.tot, spec.tot.auras, self.fonts)
     end
     setLiveAurasShown(self, false)
     self.content:Show()
@@ -658,6 +667,14 @@ function TargetBarClass:SetPreview(data)
         self.totName:SetText(data.totName)
         setMarkedName(self.totName, spec.tot.txtName, self.totMarker, spec.tot.raidMarker, nil)
         self.totName:SetTextColor(Style.Color(nameHex(spec, data.totColorKey)))
+        local totDebuffs = {}
+        for i, entry in ipairs(data.totDebuffs or {}) do
+            if i > spec.tot.auras.max then
+                break
+            end
+            totDebuffs[i] = { entry[1], nil, dispel = entry.dispel }
+        end
+        self.totDemoAuras:Set(totDebuffs)
     end
     self.cast:SetPreview(data.castName or false, data.castProgress, data.castNotInterruptible, data.castChannel)
 end

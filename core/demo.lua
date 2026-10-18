@@ -109,6 +109,7 @@ local function target()
         debuffs = TARGET_DEBUFFS, buffs = TARGET_BUFFS,
         castName = 'Fireball', castProgress = 0.6, castNotInterruptible = true,
         totName = playerDisplayName(), totColorKey = 'party', totPercent = 92,
+        totDebuffs = { TARGET_DEBUFFS[1], TARGET_DEBUFFS[3], TARGET_DEBUFFS[6] },
     }
 end
 

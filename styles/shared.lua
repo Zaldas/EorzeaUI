@@ -232,6 +232,7 @@ function Kit.target(p, castText, size)
             pos = { barWidth - 70 - size.cast, -15 },
             bar = Kit.wideBar(size.cast, p.cast, p.cast),
             channelColor = p.channel,
+            sparkColor = p.spark,
             txtName = Kit.castName(castText),
             hidesName = size.castHidesName,
             -- Interrupted or failed: the bar holds full in `color` for `hold` seconds.
@@ -260,6 +261,11 @@ function Kit.target(p, castText, size)
             txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = p.targetText, stroke = p.strokeAlt, right = size.tot - 14 },
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
             click = { pos = { 0, 10 }, size = { size.tot, aurasY - 10 } },
+            -- Up to 4 debuffs under the bar, as Blizzard's target-of-target frame shows.
+            auras = {
+                pos = { 20, aurasY }, size = 16, spacing = 2, max = 4, border = Kit.AURA_BORDER,
+                dispelBorder = 'dispel', dispelColors = p.dispel,
+            },
         },
     }
 end
@@ -271,6 +277,7 @@ function Kit.castBar(p, castText)
         height = 64,
         bar = Kit.wideBar(width, p.cast, p.cast),
         channelColor = p.channel,
+        sparkColor = p.spark,
         failure = { color = p.castFailure, hold = 1 },
         txtName = Kit.castName(castText),
     }

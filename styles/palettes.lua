@@ -2,7 +2,8 @@ local _, EUI = ...
 
 -- Each style is the layout (styles/layout.lua) in one of these palettes.
 -- stroke: text shadow; strokeAlt: shadow on target HP%, threat % and the ToT name.
--- channel (optional): cast bar colour while channeling; casts otherwise.
+-- channel (optional): cast bar colour while channeling; casts otherwise. spark (optional): tints
+-- the cast bar spark.
 -- offline: party HP bar colour while the member is offline.
 -- heals / absorbs: incoming-heal and absorb segments on HP bars. combo: combo point pips.
 -- reaction: keyed as targetBar.lua reactionKey returns. targetName (optional): one colour for
@@ -27,6 +28,7 @@ local vanadiel = {
     power = '#FFFF9CFF',
     powerColors = { [0] = '#8FB8FFFF', [1] = '#FF7A5CFF', [2] = '#FFB870FF', [3] = '#FFFF9CFF' },
     cast = '#6AB4F8FF',
+    spark = '#E0F2FFFF',
     castFailure = '#FF6666FF',
     uninterruptible = '#B4B4B4FF',
     dispel = Kit.DISPEL_COLORS,
