@@ -178,10 +178,13 @@ function EUI.PartyRow.Attach(button, style, fonts, hooks)
     local art = self.art
 
     -- AuraContainers are created at login (out of combat) with the button's initial unit.
+    local initialUnit = button:GetAttribute('unit') or 'player'
     if style.buffs then
-        local initialUnit = button:GetAttribute('unit') or 'player'
         self.buffs = EUI.AuraRow.Create(art, initialUnit, 'HELPFUL', style.buffs, fonts)
         self.debuffs = EUI.AuraRow.Create(art, initialUnit, 'HARMFUL', style.debuffs, fonts)
+    end
+    if style.auras then
+        self.auras = EUI.AuraRow.Create(art, initialUnit, style.auras.order, style.auras, fonts)
     end
 
     UnitVisual.AttachButton(self, button)
@@ -326,6 +329,9 @@ function Row:SetUnit(unit)
             self.buffs:SetUnit(unit)
             self.debuffs:SetUnit(unit)
         end
+        if self.auras then
+            self.auras:SetUnit(unit)
+        end
         if self.cast then
             self.cast:SetUnit(unit)
         end
@@ -356,6 +362,9 @@ function Row:Refresh()
     if self.buffs then
         self.buffs:Refresh()
         self.debuffs:Refresh()
+    end
+    if self.auras then
+        self.auras:Refresh()
     end
 end
 
@@ -451,8 +460,17 @@ function Row:UpdateFlags()
     self.indicators:LayoutNameLine(self.name)
 end
 
+-- The raid role (main tank or assist) wins over the assigned role, as on Blizzard's frames.
 function Row:UpdateRole()
-    self.indicators:SetRole(EUI.Read('UnitGroupRolesAssigned', UnitGroupRolesAssigned, self.unit))
+    local unit = self.unit
+    local raidIndex = EUI.Read('UnitInRaid', UnitInRaid, unit)
+    local role = raidIndex and EUI.Read('GetRaidRosterInfo', function()
+        return select(10, GetRaidRosterInfo(raidIndex))
+    end)
+    if role ~= 'MAINTANK' and role ~= 'MAINASSIST' then
+        role = EUI.Read('UnitGroupRolesAssigned', UnitGroupRolesAssigned, unit)
+    end
+    self.indicators:SetRole(role)
 end
 
 function Row:UpdatePvP()
@@ -500,7 +518,7 @@ end
 -- Enum.SummonStatus: 1 pending, 2 accepted, 3 declined.
 local SUMMON_ICONS = { 'summonPending', 'summonAccepted', 'summonDeclined' }
 
--- One centre icon, by priority: ready check, summon, resurrect, phased.
+-- One centre icon, by priority: ready check, summon, resurrect, phased, in another group.
 function Row:UpdateStatusIcon()
     local unit = self.unit
     local kind = self.readyStatus
@@ -514,6 +532,9 @@ function Row:UpdateStatusIcon()
     if not kind and EUI.Read('UnitIsConnected', UnitIsConnected, unit)
         and EUI.Read('UnitPhaseReason', UnitPhaseReason, unit) ~= nil then
         kind = 'phased'
+    end
+    if not kind and EUI.Read('UnitInOtherParty', UnitInOtherParty, unit) then
+        kind = 'otherGroup'
     end
     self.indicators:SetStatus(kind)
 end

@@ -1,7 +1,8 @@
 local _, EUI = ...
 
 -- Lua cannot read auras in combat on Forever. Blizzard's AuraContainer reads them engine-side;
--- we only supply button art. Creation, unit changes and layout must happen out of combat.
+-- we only supply button art. Creation and layout must happen out of combat; a unit change in
+-- combat is tried at once and otherwise waits for combat to end.
 
 EUI.AuraRow = {}
 local AuraRow = {}
@@ -147,9 +148,13 @@ end
 -- spec = { pos, size, spacing, max, timers, border = '#RRGGBBAA' edge colour,
 -- dispelBorder = 'dispel' | 'stealable' | nil, dispelColors = { [dispel type] = '#RRGGBBAA' },
 -- perLine = icons per line before wrapping (nil: one line), lineSpacing = gap between lines,
--- groups = { [filter] = per-group overrides of max, dispelBorder, dispelColors, ... } }
--- filter: an aura filter, or a list of filters laid out one after another in the row, each
--- showing up to its group's max auras.
+-- groups = { [name] = per-group overrides of max, dispelBorder, dispelColors, ... },
+-- processAuras = classify auras with AuraUtil.ProcessAura, as Blizzard's raid frames do }
+-- A group may also set filter (the aura filter, default its name), auraType ('Debuff', 'Dispel'
+-- or 'Buff': ProcessAura's class, with processAuras) and sort (an AuraContainerSortMethod key,
+-- default Expiration).
+-- filter: an aura filter or group name, or a list of them laid out one after another in the row,
+-- each showing up to its group's max auras.
 function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
     ensureLoaded()
     local self = setmetatable({ unit = unit }, AuraRow)
@@ -164,14 +169,18 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
     for _, groupFilter in ipairs(filters) do
         count = count + EUI.AuraRow.GroupSpec(spec, groupFilter).max
     end
-    container:SetSize(EUI.AuraRow.LineWidth(spec) or (spec.size + spec.spacing) * count, spec.size)
+    local lineWidth = EUI.AuraRow.LineWidth(spec)
+    container:SetSize(lineWidth or (spec.size + spec.spacing) * count, spec.size)
     EUI.Style.Place(container, parent, spec.pos)
 
-    local sortMethod = AuraContainerSortMethod and (AuraContainerSortMethod.Expiration or AuraContainerSortMethod.ExpirationOnly) or 4
+    local defaultSort = AuraContainerSortMethod and (AuraContainerSortMethod.Expiration or AuraContainerSortMethod.ExpirationOnly) or 4
     local sortDirection = AuraContainerSortDirection and AuraContainerSortDirection.Normal or 0
 
     local setupOk, err = pcall(function()
         container:SetUnit(unit)
+        if spec.processAuras then
+            container:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, {})
+        end
         if container.SetFlowLayoutAxis and AnchorUtil and AnchorUtil.FlowLayoutAxis then
             container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal or 0)
         end
@@ -182,12 +191,17 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
             container:SetFlowLayoutMaximumLineSize(lineWidth)
         end
         -- Groups flow in registration order; trailing element spacing separates them.
-        for index, groupFilter in ipairs(filters) do
-            local groupSpec = EUI.AuraRow.GroupSpec(spec, groupFilter)
-            container:AddAuraGroup('row' .. index, groupFilter, {
+        for index, groupName in ipairs(filters) do
+            local groupSpec = EUI.AuraRow.GroupSpec(spec, groupName)
+            local candidateFilters
+            if groupSpec.auraType then
+                candidateFilters = { processedAuraType = AuraUtil.AuraUpdateChangedType[groupSpec.auraType] }
+            end
+            container:AddAuraGroup('row' .. index, groupSpec.filter or groupName, {
                 maxFrameCount = groupSpec.max,
-                sortMethod = sortMethod,
+                sortMethod = groupSpec.sort and AuraContainerSortMethod[groupSpec.sort] or defaultSort,
                 sortDirection = sortDirection,
+                candidateFilters = candidateFilters,
                 initializeFrame = makeInitializer(groupSpec, fonts),
                 layout = {
                     elementWidth = spec.size,
@@ -215,10 +229,18 @@ function AuraRow:SetUnit(unit)
         return
     end
     self.unit = unit
+    if InCombatLockdown() then
+        local ok, err = pcall(self.container.SetUnit, self.container, unit)
+        if ok then
+            self:Refresh()
+            return
+        end
+        EUI.LogOnce('aura:setUnitCombat', 'AuraContainer:SetUnit in combat failed, deferred: %s', tostring(err))
+    end
     EUI.RunOutOfCombat(function()
         pcall(self.container.SetUnit, self.container, self.unit)
         self:Refresh()
-    end)
+    end, self)
 end
 
 function AuraRow:Refresh()

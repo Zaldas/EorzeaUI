@@ -2,11 +2,15 @@ local _, EUI = ...
 
 -- Raid list: one SecureGroupHeader per subgroup, each a block of up to 5 cells, shown in a raid
 -- as Blizzard's raid frames with separate groups. The headers assign the raidN units and lay out
--- the cells, in combat too. Each group keeps the slot its number gives it; an empty group hides
--- its background and label.
+-- the cells, in combat too. Out of combat, occupied groups take the first slots in group order
+-- and empty ones the rest, so a group filled in combat appears in a free slot. A separate Assists
+-- block lists the main tanks and assists, each followed by their target and that unit's target;
+-- they also stay in their own group.
 
 EUI.RaidList = {}
 local RaidList = EUI.RaidList
+
+local Style = EUI.Style
 
 local NUM_GROUPS = 8
 local GROUP_SIZE = 5
@@ -14,7 +18,9 @@ local VISIBILITY = '[group:raid] show; hide'
 
 local groups = {}
 local cells = {}
+-- unit -> set of cells showing it; a main tank shows in its group and in Assists.
 local cellsByUnit = {}
+local targetCells = {}
 
 local function cellsHeight(style, count)
     return count * style.rowHeight + (count - 1) * style.rowSpacing
@@ -45,11 +51,21 @@ local function gridSize(style)
         rows * rowStep - style.groupSpacing[2]
 end
 
--- The group's background and "Group N" label, on parent's top-left (the first cell's).
-local function createChrome(parent, g, style, fonts)
-    local bg = EUI.PartyList.CreateBackground(parent, style.background)
-    local label = EUI.Style.Header(bg, style.groupNumber, fonts)
-    label.label:SetFormattedText(GROUP_NUMBER or 'Group %d', g)
+-- A block's first cell from its anchor's top-left, and the anchor's size for rows cells.
+local function blockOffset(style, labelSpec)
+    return -style.cursor.pos[1], -labelSpec.pos[2]
+end
+
+local function blockSize(style, bgSpec, labelSpec, rows)
+    return -style.cursor.pos[1] + bgSpec.pos[1] + bgSpec.width,
+        -labelSpec.pos[2] + cellsHeight(style, rows) + bgSpec.bottom.height
+end
+
+-- A block's background and label, on parent's top-left (the first cell's).
+local function createChrome(parent, label, bgSpec, labelSpec, fonts)
+    local bg = EUI.PartyList.CreateBackground(parent, bgSpec)
+    local header = Style.Header(bg, labelSpec, fonts)
+    header.label:SetText(label)
     return bg
 end
 
@@ -60,6 +76,36 @@ local function sizeChrome(bg, count, style)
     end
 end
 
+local slotOrder
+
+-- Moves the group headers into slots by occupancy; waits for combat to end.
+local function layoutGroups()
+    EUI.RunOutOfCombat(function()
+        local order = {}
+        for g, group in ipairs(groups) do
+            if group.count > 0 then
+                order[#order + 1] = g
+            end
+        end
+        for g, group in ipairs(groups) do
+            if group.count == 0 then
+                order[#order + 1] = g
+            end
+        end
+        local key = table.concat(order, ',')
+        if key == slotOrder then
+            return
+        end
+        slotOrder = key
+        for slot, g in ipairs(order) do
+            local x, y = slotOffset(RaidList.style, slot)
+            local header = groups[g].header
+            header:ClearAllPoints()
+            header:SetPoint('TOPLEFT', RaidList.anchor, 'TOPLEFT', x, -y)
+        end
+    end, 'raidLayout')
+end
+
 local function updateGroup(group)
     local count = 0
     for _, cell in ipairs(group.cells) do
@@ -67,16 +113,21 @@ local function updateGroup(group)
             count = count + 1
         end
     end
+    group.count = count
     sizeChrome(group.bg, count, RaidList.style)
+    if group.slotted and #groups == NUM_GROUPS then
+        layoutGroups()
+    end
 end
 
 local CELL_HOOKS = {
     unitChanged = function(cell, previous, unit)
-        if previous and cellsByUnit[previous] == cell then
-            cellsByUnit[previous] = nil
+        if previous and cellsByUnit[previous] then
+            cellsByUnit[previous][cell] = nil
         end
         if unit then
-            cellsByUnit[unit] = cell
+            cellsByUnit[unit] = cellsByUnit[unit] or {}
+            cellsByUnit[unit][cell] = true
         end
     end,
     readyCheckPhase = function()
@@ -85,13 +136,145 @@ local CELL_HOOKS = {
 }
 
 -- Click-casting addons (Clique and others) bind every frame in ClickCastFrames.
-local function attachCell(group, button)
+local function registerClickCast(button)
+    ClickCastFrames = ClickCastFrames or {}
+    ClickCastFrames[button] = true
+end
+
+-- A flagged member's target or that unit's target: a name line and HP bar, with no HP value;
+-- the value slot shows only Dead. These units fire no events; the main ticker refreshes them
+-- through UpdateTargets.
+local TargetCell = {}
+TargetCell.__index = TargetCell
+
+local function buildTargetArt(self, host, spec, fonts)
+    -- Art lives on a child frame so a secure host keeps all mouse input.
+    local art = CreateFrame('Frame', nil, host)
+    art:SetAllPoints(host)
+    art:EnableMouse(false)
+    self.hover = Style.Image(art, 'BACKGROUND', spec.hover, 1)
+    self.hover:Hide()
+    Style.Image(art, 'ARTWORK', spec.attention)
+    self.hp = EUI.Bar.Create(art, spec.hp.bar, spec.hp.pos)
+    self.hpText = Style.Text(self.hp.overlay, spec.hp.txtValue, fonts)
+    local top = CreateFrame('Frame', nil, art)
+    top:SetAllPoints(art)
+    top:SetFrameLevel(self.hp.overlay:GetFrameLevel() + 1)
+    self.top = top
+    self.name = Style.Text(top, spec.txtName, fonts)
+    self.name:SetWordWrap(false)
+    self.marker = top:CreateTexture(nil, 'OVERLAY')
+    self.marker:SetSize(spec.raidMarker.size[1], spec.raidMarker.size[2])
+    Style.Place(self.marker, top, spec.raidMarker.pos)
+    self.marker:Hide()
+end
+
+-- name: plain or secret. colorKey: a reaction key. marker: a raid marker index or nil.
+function TargetCell:SetIdentity(name, colorKey, marker)
+    local spec = self.spec
+    pcall(self.name.SetText, self.name, name)
+    self.name:SetTextColor(Style.Color(spec.nameColor or spec.reactionColors[colorKey] or spec.txtName.color))
+    EUI.Indicators.SetRaidMarkerIcon(self.marker, marker)
+    local shift = EUI.UnitVisual.NameLineShift(self.top, self.marker, spec.raidMarker)
+    self.name:ClearAllPoints()
+    self.name:SetPoint('TOPLEFT', self.top, 'TOPLEFT', spec.txtName.pos[1] + shift, -spec.txtName.pos[2])
+    self.name:SetWidth(spec.txtName.width - shift)
+end
+
+-- state: a UnitInfo.STATE_LABELS key, or nil to clear.
+function TargetCell:SetStateText(state)
+    self.hpText:SetText(state and EUI.UnitInfo.STATE_LABELS[state] or '')
+end
+
+function TargetCell:Unit()
+    local unit = self.owner.unit
+    return unit and unit .. self.suffix
+end
+
+function TargetCell:Refresh()
+    local unit = self:Unit()
+    if not unit or not UnitExists(unit) then
+        return
+    end
+    self:SetIdentity(EUI.UnitDisplayName(unit), (EUI.UnitInfo.ReactionKey(unit)), EUI.Indicators.ReadRaidMarker(unit))
+    -- Eases only while the same unit stays behind the token.
+    local guid = EUI.SafeValue(UnitGUID, unit)
+    self.hp:SetRange(UnitHealthMax(unit))
+    self.hp:SetValue(UnitHealth(unit), guid ~= nil and guid == self.guid)
+    self.guid = guid
+    self:SetStateText(EUI.UnitInfo.DeadState(unit))
+end
+
+-- data = { name, colorKey, hpPercent, raidMarker, state }
+function TargetCell:ShowDemo(data)
+    self.host:SetShown(data ~= nil)
+    if not data then
+        return
+    end
+    self:SetIdentity(data.name, data.colorKey, data.raidMarker)
+    self.hp:SetRange(100)
+    self.hp:SetValue(data.state and 0 or data.hpPercent)
+    self:SetStateText(data.state)
+end
+
+-- The n-th target cell's left edge, from its owner cell's.
+local function targetX(n)
+    return RaidList.style.assists.target.x[n]
+end
+
+-- Secure button on the owner's button: useparent-unit plus unitsuffix make it click, and its
+-- unit watch show it, for the owner's current unit + suffix, in combat too.
+local function createTargetCell(owner, n, suffix)
+    local style = RaidList.style
+    local spec = style.assists.target
+    local button = CreateFrame('Button', nil, owner.button, 'SecureUnitButtonTemplate')
+    button:SetSize(spec.width, style.rowHeight)
+    button:SetPoint('TOPLEFT', owner.button, 'TOPLEFT', targetX(n), 0)
+    button:SetAttribute('useparent-unit', true)
+    button:SetAttribute('unitsuffix', suffix)
+    button:SetAttribute('type1', 'target')
+    button:SetAttribute('type2', 'togglemenu')
+    button:RegisterForClicks('AnyUp')
+    registerClickCast(button)
+    if RegisterUnitWatch then
+        RegisterUnitWatch(button)
+    end
+    local self = setmetatable({ button = button, owner = owner, suffix = suffix, spec = spec }, TargetCell)
+    buildTargetArt(self, button, spec, RaidList.fonts)
+    button:HookScript('OnEnter', function()
+        self.hover:Show()
+    end)
+    button:HookScript('OnLeave', function()
+        self.hover:Hide()
+    end)
+    EUI.AttachUnitTooltip(button, function() return self:Unit() end)
+    button:HookScript('OnShow', function()
+        self:Refresh()
+    end)
+    targetCells[#targetCells + 1] = self
+    return self
+end
+
+local function createDemoTargetCell(owner, n)
+    local spec = RaidList.style.assists.target
+    local host = CreateFrame('Frame', nil, owner.host)
+    host:SetSize(spec.width, RaidList.style.rowHeight)
+    host:SetPoint('TOPLEFT', owner.host, 'TOPLEFT', targetX(n), 0)
+    local self = setmetatable({ host = host, spec = spec }, TargetCell)
+    buildTargetArt(self, host, spec, RaidList.fonts)
+    return self
+end
+
+local function attachCell(group, button, withTargets)
     local style = RaidList.style
     button:SetSize(style.width, style.rowHeight)
     button:RegisterForClicks('AnyUp')
-    ClickCastFrames = ClickCastFrames or {}
-    ClickCastFrames[button] = true
+    registerClickCast(button)
     local cell = EUI.PartyRow.Attach(button, style, RaidList.fonts, CELL_HOOKS)
+    if withTargets then
+        createTargetCell(cell, 1, 'target')
+        createTargetCell(cell, 2, 'targettarget')
+    end
     group.cells[#group.cells + 1] = cell
     cells[#cells + 1] = cell
     button:HookScript('OnShow', function()
@@ -102,36 +285,39 @@ local function attachCell(group, button)
     end)
 end
 
-local function createGroup(g, parent, style, fonts)
-    local header = CreateFrame('Frame', 'EorzeaUIRaidGroup' .. g, parent, 'SecureGroupHeaderTemplate')
+-- def = { name, parent, anchor, x, y, attributes, size, label, background, labelSpec, targets }
+local function createBlock(def)
+    local style = RaidList.style
+    local header = CreateFrame('Frame', def.name, def.parent, 'SecureGroupHeaderTemplate')
     -- Hidden while configured, so each attribute does not relayout the header.
     header:Hide()
-    local x, y = slotOffset(style, g)
-    header:SetPoint('TOPLEFT', RaidList.anchor, 'TOPLEFT', x, -y)
+    header:SetPoint('TOPLEFT', def.anchor, 'TOPLEFT', def.x, -def.y)
     header:SetAttribute('template', 'EorzeaUIRaidButtonTemplate')
     header:SetAttribute('templateType', 'Button')
     header:SetAttribute('showRaid', true)
-    header:SetAttribute('groupFilter', tostring(g))
     header:SetAttribute('sortMethod', 'INDEX')
     header:SetAttribute('point', 'TOP')
     header:SetAttribute('yOffset', -style.rowSpacing)
-    header:SetAttribute('unitsPerColumn', GROUP_SIZE)
+    header:SetAttribute('unitsPerColumn', def.size)
     header:SetAttribute('maxColumns', 1)
+    for name, value in pairs(def.attributes) do
+        header:SetAttribute(name, value)
+    end
 
     local group = { header = header, cells = {} }
-    group.bg = createChrome(header, g, style, fonts)
+    group.bg = createChrome(header, def.label, def.background, def.labelSpec, RaidList.fonts)
 
     -- A negative startingIndex makes the header build every button now, out of combat; the
     -- header keeps them as header[1..n].
     header:Show()
-    header:SetAttribute('startingIndex', 1 - GROUP_SIZE)
+    header:SetAttribute('startingIndex', 1 - def.size)
     header:SetAttribute('startingIndex', 1)
-    for i = 1, GROUP_SIZE do
+    for i = 1, def.size do
         local button = header[i]
         if button then
-            attachCell(group, button)
+            attachCell(group, button, def.targets)
         else
-            EUI.LogOnce('raid:button', 'raid group header built %d of %d buttons', i - 1, GROUP_SIZE)
+            EUI.LogOnce('raid:button:' .. def.name, '%s built %d of %d buttons', def.name, i - 1, def.size)
             break
         end
     end
@@ -140,6 +326,31 @@ local function createGroup(g, parent, style, fonts)
     end
     updateGroup(group)
     return group
+end
+
+local function createAssists()
+    local style = RaidList.style
+    local spec = style.assists
+    local anchor = CreateFrame('Frame', 'EorzeaUIAssistsAnchor', UIParent)
+    anchor:SetSize(blockSize(style, spec.background, spec.groupNumber, spec.max))
+    anchor:SetMovable(true)
+    anchor:SetClampedToScreen(true)
+    RaidList.assistsAnchor = anchor
+    local headersFrame = CreateFrame('Frame', nil, anchor)
+    headersFrame:SetAllPoints(anchor)
+    headersFrame:SetFrameLevel(anchor:GetFrameLevel() + 2)
+    RaidList.assistsFrame = headersFrame
+    local x, y = blockOffset(style, spec.groupNumber)
+    RaidList.assistsBlock = createBlock({
+        name = 'EorzeaUIRaidAssists', parent = headersFrame, anchor = anchor, x = x, y = y,
+        size = spec.max, label = spec.label, background = spec.background, labelSpec = spec.groupNumber,
+        targets = true,
+        attributes = {
+            roleFilter = 'MAINTANK,MAINASSIST',
+            groupBy = 'ROLE',
+            groupingOrder = 'MAINTANK,MAINASSIST',
+        },
+    })
 end
 
 function RaidList.Create(style, fonts)
@@ -160,30 +371,43 @@ function RaidList.Create(style, fonts)
     RaidList.groupsFrame = groupsFrame
 
     for g = 1, NUM_GROUPS do
-        groups[g] = createGroup(g, groupsFrame, raidStyle, fonts)
+        local x, y = slotOffset(raidStyle, g)
+        groups[g] = createBlock({
+            name = 'EorzeaUIRaidGroup' .. g, parent = groupsFrame, anchor = anchor, x = x, y = y,
+            size = GROUP_SIZE, label = string.format(GROUP_NUMBER or 'Group %d', g),
+            background = raidStyle.background, labelSpec = raidStyle.groupNumber,
+            attributes = { groupFilter = tostring(g) },
+        })
+        groups[g].slotted = true
     end
+    layoutGroups()
+    createAssists()
 end
 
--- Events for you arrive as 'player' and go to your cell; events by its raidN token are dropped,
--- so it updates once.
-function RaidList.CellForUnit(unit)
+-- Calls fn on each shown cell for unit. Events for you arrive as 'player' and go to your cells;
+-- events by their raidN token are dropped, so they update once.
+function RaidList.ForEachCellForUnit(unit, fn)
     if unit == 'player' then
         for _, cell in ipairs(cells) do
             if cell.isSelf and cell.button:IsVisible() then
-                return cell
+                fn(cell)
             end
         end
-        return nil
+        return
     end
-    local cell = cellsByUnit[unit]
-    if not cell or not cell.button:IsVisible() then
-        return nil
+    local set = cellsByUnit[unit]
+    if not set then
+        return
     end
-    if cell.isSelf then
-        EUI.LogOnce('raid:selfToken', 'raid: events for you also arrive as %s', tostring(unit))
-        return nil
+    for cell in pairs(set) do
+        if cell.button:IsVisible() then
+            if cell.isSelf then
+                EUI.LogOnce('raid:selfToken', 'raid: events for you also arrive as %s', tostring(unit))
+            else
+                fn(cell)
+            end
+        end
     end
-    return cell
 end
 
 function RaidList.ForEachVisibleCell(fn)
@@ -194,13 +418,24 @@ function RaidList.ForEachVisibleCell(fn)
     end
 end
 
+-- Main tanks' and assists' targets and their targets.
+function RaidList.UpdateTargets()
+    for _, target in ipairs(targetCells) do
+        if target.button:IsVisible() then
+            target:Refresh()
+        end
+    end
+end
+
 function RaidList.RefreshAll()
     RaidList.ForEachVisibleCell(function(cell)
         cell:Refresh()
     end)
+    RaidList.UpdateTargets()
     for _, group in ipairs(groups) do
         updateGroup(group)
     end
+    updateGroup(RaidList.assistsBlock)
 end
 
 -- A roster change can put someone else behind a cell's token without changing it.
@@ -208,9 +443,48 @@ function RaidList.OnRosterChanged()
     RaidList.RefreshAll()
 end
 
--- members: one list of demo member tables per group (PartyRow ShowDemo), or nil to restore the
--- live groups. The headers are protected, so this runs out of combat only.
-function RaidList.SetDemo(members)
+local function createDemoRows(slot, count, withTargets)
+    local style = RaidList.style
+    local rows = {}
+    for i = 1, count do
+        local row = EUI.PartyRow.CreateDemo(slot, style, RaidList.fonts)
+        row.host:SetPoint('TOPLEFT', slot, 'TOPLEFT', 0, -(i - 1) * (style.rowHeight + style.rowSpacing))
+        if withTargets then
+            row.targets = { createDemoTargetCell(row, 1), createDemoTargetCell(row, 2) }
+        end
+        rows[i] = row
+    end
+    return rows
+end
+
+-- A demo block's slot frame on anchor at (x, y), its rows and chrome.
+local function createDemoBlock(parent, anchor, x, y, count, label, bgSpec, labelSpec, withTargets)
+    local slot = CreateFrame('Frame', nil, parent)
+    slot:SetSize(RaidList.style.width, RaidList.style.rowHeight)
+    slot:SetPoint('TOPLEFT', anchor, 'TOPLEFT', x, -y)
+    return {
+        rows = createDemoRows(slot, count, withTargets),
+        bg = createChrome(slot, label, bgSpec, labelSpec, RaidList.fonts),
+    }
+end
+
+local function showDemoBlock(block, list)
+    list = list or {}
+    for i, row in ipairs(block.rows) do
+        local entry = list[i]
+        row:ShowDemo(entry and (entry.member or entry))
+        if row.targets then
+            row.targets[1]:ShowDemo(entry and entry.target)
+            row.targets[2]:ShowDemo(entry and entry.tot)
+        end
+    end
+    sizeChrome(block.bg, math.min(#list, #block.rows), RaidList.style)
+end
+
+-- groups: one list of demo member tables per group (PartyRow ShowDemo); assists: a list of
+-- { member, target, tot } (TargetCell ShowDemo for the last two). nil restores the live blocks.
+-- The headers are protected, so this runs out of combat only.
+function RaidList.SetDemo(groupMembers, assists)
     local style = RaidList.style
     if not RaidList.demoFrame then
         local frame = CreateFrame('Frame', nil, RaidList.anchor)
@@ -219,28 +493,28 @@ function RaidList.SetDemo(members)
         RaidList.demoFrame = frame
         RaidList.demoGroups = {}
         for g = 1, NUM_GROUPS do
-            local slot = CreateFrame('Frame', nil, frame)
-            slot:SetSize(style.width, style.rowHeight)
             local x, y = slotOffset(style, g)
-            slot:SetPoint('TOPLEFT', RaidList.anchor, 'TOPLEFT', x, -y)
-            local rows = {}
-            for i = 1, GROUP_SIZE do
-                local row = EUI.PartyRow.CreateDemo(slot, style, RaidList.fonts)
-                row.host:SetPoint('TOPLEFT', slot, 'TOPLEFT', 0, -(i - 1) * (style.rowHeight + style.rowSpacing))
-                rows[i] = row
-            end
-            RaidList.demoGroups[g] = { bg = createChrome(slot, g, style, RaidList.fonts), rows = rows }
+            RaidList.demoGroups[g] = createDemoBlock(frame, RaidList.anchor, x, y, GROUP_SIZE,
+                string.format(GROUP_NUMBER or 'Group %d', g), style.background, style.groupNumber)
         end
+        local spec = style.assists
+        local assistsFrame = CreateFrame('Frame', nil, RaidList.assistsAnchor)
+        assistsFrame:SetAllPoints(RaidList.assistsAnchor)
+        assistsFrame:SetFrameLevel(RaidList.assistsFrame:GetFrameLevel() + 5)
+        RaidList.demoAssistsFrame = assistsFrame
+        local x, y = blockOffset(style, spec.groupNumber)
+        RaidList.demoAssists = createDemoBlock(assistsFrame, RaidList.assistsAnchor, x, y, spec.max,
+            spec.label, spec.background, spec.groupNumber, true)
     end
-    if members then
-        for g, group in ipairs(RaidList.demoGroups) do
-            local list = members[g] or {}
-            for i, row in ipairs(group.rows) do
-                row:ShowDemo(list[i])
-            end
-            sizeChrome(group.bg, #list, style)
+    local active = groupMembers ~= nil
+    if active then
+        for g, block in ipairs(RaidList.demoGroups) do
+            showDemoBlock(block, groupMembers[g])
         end
+        showDemoBlock(RaidList.demoAssists, assists)
     end
-    RaidList.demoFrame:SetShown(members ~= nil)
-    RaidList.groupsFrame:SetShown(members == nil)
+    RaidList.demoFrame:SetShown(active)
+    RaidList.groupsFrame:SetShown(not active)
+    RaidList.demoAssistsFrame:SetShown(active)
+    RaidList.assistsFrame:SetShown(not active)
 end

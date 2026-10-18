@@ -11,6 +11,30 @@ function Kit.BuildLayout(p)
     }
     local smallValueText = { pos = { 100, 34 }, size = 10, color = p.text, stroke = p.stroke, font = 'number', alignRight = true }
     local castText = { color = p.text, size = 14, font = 'number', baseline = 34, stroke = p.stroke }
+    -- A raid block's fade, from x 7 to 7 + width, with 7px over the first cell and 6 under the last.
+    local function raidBackground(width)
+        return {
+            color = p.partyBg.color,
+            alpha = p.partyBg.alpha,
+            leftAlpha = p.partyBg.leftAlpha,
+            pos = { 7, -7 },
+            width = width,
+            top = { height = 7 },
+            bottom = { height = 6 },
+        }
+    end
+    -- A raid block's label, centred on its background with header lines in the text's gold, its box
+    -- ending 3px above the background. Gold with a black shadow and no outline in Friz Quadrata:
+    -- WoW's GameFontNormal look.
+    local function raidLabel(width)
+        return {
+            pos = { 7, -24 },
+            width = width,
+            height = 14,
+            txtLabel = { size = 14, color = '#FFD200FF', stroke = '#000000FF', outline = '', font = 'standard' },
+            line = { color = '#FFD200FF', alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
+        }
+    end
 
     return {
         fonts = Kit.FONTS,
@@ -148,24 +172,40 @@ function Kit.BuildLayout(p)
             -- Between blocks: x from one background's right edge (or the cursor's overhang) to the
             -- next, y from one block's bottom padding to the next header.
             groupSpacing = { 8, 14 },
-            background = {
-                color = p.partyBg.color,
-                alpha = p.partyBg.alpha,
-                leftAlpha = p.partyBg.leftAlpha,
-                pos = { 7, -7 },
-                width = 165,
-                top = { height = 7 },
-                bottom = { height = 6 },
-            },
-            -- "Group N", centred on the background with header lines in the text's gold, its box
-            -- ending 3px above the background. Gold with a black shadow and no outline in Friz
-            -- Quadrata: WoW's GameFontNormal look.
-            groupNumber = {
-                pos = { 7, -24 },
-                width = 165,
-                height = 14,
-                txtLabel = { size = 14, color = '#FFD200FF', stroke = '#000000FF', outline = '', font = 'standard' },
-                line = { color = '#FFD200FF', alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
+            background = raidBackground(165),
+            -- "Group N".
+            groupNumber = raidLabel(165),
+            -- Main tanks then main assists (raid roles), each cell followed by its target and that
+            -- unit's target, as Blizzard's raid frames list them above the groups. Own mover.
+            assists = {
+                label = 'Assists',
+                max = 8,
+                -- Over the cell and both target cells (x 7..396).
+                background = raidBackground(389),
+                groupNumber = raidLabel(389),
+                target = {
+                    width = 120,
+                    -- Each target cell's left edge from the member cell's. Each bar's line starts 4px
+                    -- after the attention arrow, which starts 4px after the previous bar's line
+                    -- (the cell's HP line ends at x 147).
+                    x = { 155, 272 },
+                    -- The target bar's arrow toward the ToT, before this cell's bar line (x 11),
+                    -- centred on it.
+                    attention = { path = 'ffxi/attention', pos = { -4, 9 }, size = { 11, 12 }, color = '#FFFFFFFF' },
+                    hp = {
+                        pos = { 0, -17 },
+                        bar = Kit.wideBar(120, p.hp, p.hp),
+                        -- Dead only.
+                        txtValue = { pos = { 106, 22 }, size = 10, color = '#A0A0A0FF', stroke = p.stroke, font = 'number', alignRight = true },
+                    },
+                    -- Starts over the HP bar's line, as on the cells.
+                    txtName = { pos = { 11, 0 }, width = 95, size = 12, color = p.text, stroke = p.stroke },
+                    raidMarker = { pos = { 11, 0 }, size = { 12, 12 } },
+                    hover = { path = 'ffxi/Hover', pos = { 0, -6 }, size = { 120, 57 }, color = '#9C94E8AA' },
+                    -- Names by reaction, as the target bar's; nameColor (optional) overrides them all.
+                    reactionColors = p.reaction,
+                    nameColor = p.targetName,
+                },
             },
             lowHealth = Kit.LOW_HEALTH,
             -- The bar's line starts under the name (x 27) and keeps VanaVista's right end.
@@ -177,9 +217,10 @@ function Kit.BuildLayout(p)
                 thresholds = p.hpThresholds,
                 offlineColor = p.offline,
             },
+            -- Its line ends 10px before the HP bar's (x 137 vs 147). No value, as on Blizzard's raid
+            -- frames.
             power = {
-                pos = { 56, -8 },
-                -- No value, as on Blizzard's raid frames.
+                pos = { 35, -8 },
                 bar = Kit.allyBar(p.power, p.power),
                 colors = p.powerColors,
             },
@@ -199,9 +240,22 @@ function Kit.BuildLayout(p)
             -- Ends before the HP value on the same line.
             txtName = { pos = { 27, 0 }, width = 73, size = 12, color = p.name, stroke = p.stroke },
             indicators = Kit.raidIndicators(p, 27, 0),
-            -- Under the bars, from the threat diamond's right edge. Demo rows fill it; live cells
-            -- build no auras yet.
-            auras = { pos = { 31, 31 }, size = 12, spacing = 1, max = 11, border = Kit.AURA_BORDER },
+            -- One line under the bars, from the threat diamond's right edge. Blizzard's raid frame
+            -- classes (AuraUtil.ProcessAura): debuffs with boss and role auras first, then debuffs
+            -- you can dispel, then buffs you cast that others can have. Blizzard shows 5, 3 and 6;
+            -- buffs are cut to fit the line. max: the demo's total.
+            auras = {
+                pos = { 31, 31 }, size = 12, spacing = 1, max = 11, border = Kit.AURA_BORDER,
+                -- Debuffs only; buffs keep the plain edge.
+                dispelBorder = 'dispel', dispelColors = p.dispel,
+                processAuras = true,
+                order = { 'debuffs', 'dispel', 'buffs' },
+                groups = {
+                    debuffs = { filter = 'HARMFUL', auraType = 'Debuff', max = 5, sort = 'UnitFrameDebuff' },
+                    dispel = { filter = 'HARMFUL', auraType = 'Dispel', max = 3, sort = 'UnitFrameDebuff' },
+                    buffs = { filter = 'HELPFUL', auraType = 'Buff', max = 3 },
+                },
+            },
         },
 
         -- Maxes match Blizzard's target frame (16 debuffs, 32 buffs): at most 3 lines.

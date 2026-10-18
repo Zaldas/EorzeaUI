@@ -26,6 +26,8 @@ local STATUS_ICONS = {
     summonDeclined = { atlas = 'Raid-Icon-SummonDeclined', summon = true },
     resurrect = { atlas = 'RaidFrame-Icon-Rez' },
     phased = { path = 'Interface\\TargetingFrame\\UI-PhasingIcon', coords = { 0.15625, 0.84375, 0.15625, 0.84375 } },
+    -- In a cross-faction or public group (UnitInOtherParty).
+    otherGroup = { atlas = 'RaidFrame-Icon-LFR' },
 }
 
 -- Fallback coords are the small circles on the LFG role sheet.
@@ -34,6 +36,9 @@ local ROLE_ICONS = {
     TANK = { atlas = 'roleicon-tiny-tank', coords = { 0, 19 / 64, 22 / 64, 41 / 64 } },
     HEALER = { atlas = 'roleicon-tiny-healer', coords = { 20 / 64, 39 / 64, 1 / 64, 20 / 64 } },
     DAMAGER = { atlas = 'roleicon-tiny-dps', coords = { 20 / 64, 39 / 64, 22 / 64, 41 / 64 } },
+    -- Raid roles, which Blizzard's raid frames show in place of the assigned role.
+    MAINTANK = { atlas = 'RaidFrame-Icon-MainTank', path = 'Interface\\GroupFrame\\UI-Group-MainTankIcon' },
+    MAINASSIST = { atlas = 'RaidFrame-Icon-MainAssist', path = 'Interface\\GroupFrame\\UI-Group-MainAssistIcon' },
 }
 
 -- The classic PvP sheets hold the badge in the top-left of a 64x64 texture.
@@ -252,7 +257,8 @@ function EUI.Indicators.SetRaidMarkerIcon(texture, index)
     return true
 end
 
--- role: UnitGroupRolesAssigned result. 'NONE' and nil hide the icon.
+-- role: a ROLE_ICONS key ('MAINTANK', 'MAINASSIST' or a UnitGroupRolesAssigned result). 'NONE'
+-- and nil hide the icon.
 function Indicators:SetRole(role)
     if role == self.roleKind then
         return
@@ -263,7 +269,7 @@ function Indicators:SetRole(role)
         self.role:Hide()
         return
     end
-    Style.SetAtlas(self.role, icon.atlas, { path = ROLE_SHEET, coords = icon.coords })
+    Style.SetAtlas(self.role, icon.atlas, { path = icon.path or ROLE_SHEET, coords = icon.coords or { 0, 1, 0, 1 } })
     self.role:Show()
 end
 

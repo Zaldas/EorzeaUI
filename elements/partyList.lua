@@ -337,8 +337,9 @@ function PartyList.UpdateBackground()
     PartyList.bgMid:SetHeight(height)
 end
 
--- Results stay on screen this long after the check ends, as on Blizzard's frames.
-local READY_CHECK_LINGER = 10
+-- Seconds results stay on screen after the check ends: Blizzard's party frames keep them 10, its
+-- raid frames 11.
+local READY_CHECK_LINGER = { party = 10, raid = 11 }
 local readyPhase
 local readyGeneration = 0
 
@@ -356,7 +357,7 @@ function PartyList.OnReadyCheck(event, forEach)
         readyPhase = 'finished'
         readyGeneration = readyGeneration + 1
         local generation = readyGeneration
-        C_Timer.After(READY_CHECK_LINGER, function()
+        C_Timer.After(IsInRaid() and READY_CHECK_LINGER.raid or READY_CHECK_LINGER.party, function()
             if generation == readyGeneration then
                 readyPhase = nil
                 forEach(function(row)

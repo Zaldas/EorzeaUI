@@ -150,6 +150,9 @@ RegisterUnitWatch = function(frame) WATCHED[#WATCHED + 1] = frame end
 SetPortraitTexture = function(texture, unit) PORTRAIT_UNIT = unit end
 HasPetUI = function() return true, true end
 C_PetInfo = { GetPetHappiness = function() return 3, 125, 1 end }
+CustomAuraContainerAuraProcessingPolicy = { None = 0, ProcessAura = 1 }
+AuraContainerSortMethod = { Default = 0, UnitFrameDebuff = 2, Expiration = 4 }
+AuraUtil = { AuraUpdateChangedType = { None = 1, Debuff = 2, Buff = 3, Dispel = 4 } }
 C_IncomingSummon = { HasIncomingSummon = function() return true end, IncomingSummonStatus = function() return 1 end }
 date = os.date
 GetBuildInfo = function() return '1.60.1', '00000', 'Oct 1 2026', 16001 end
@@ -273,8 +276,9 @@ local owner2 = _G.EorzeaUIPartyButton2
 local petButton1 = _G.EorzeaUIPartyPetButton1
 local petButton2 = _G.EorzeaUIPartyPetButton2
 assert(owner1 and owner2 and petButton1 and petButton2, 'party buttons not created')
--- 5 rows, 5 pet buttons, and the target, focus and their mini bars' click areas.
-assert(#WATCHED == 14, 'party buttons not unit-watched: ' .. #WATCHED)
+-- 5 rows, 5 pet buttons, the target, focus and their mini bars' click areas, and 8 Assists
+-- cells' target and target-of-target buttons.
+assert(#WATCHED == 30, 'party buttons not unit-watched: ' .. #WATCHED)
 assert(owner1:GetAttribute('unit') == 'player', 'row 1 unit: ' .. tostring(owner1:GetAttribute('unit')))
 assert(owner2:GetAttribute('unit') == 'party1', 'row 2 unit: ' .. tostring(owner2:GetAttribute('unit')))
 assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))
@@ -775,7 +779,7 @@ local function countDrivers(condition)
     return count
 end
 assert(countDrivers('[group:raid] hide; show') == 1, 'party members visibility driver missing')
-assert(countDrivers('[group:raid] show; hide') == 8, 'raid header drivers: ' .. countDrivers('[group:raid] show; hide'))
+assert(countDrivers('[group:raid] show; hide') == 9, 'raid header drivers: ' .. countDrivers('[group:raid] show; hide'))
 IsInRaid = function() return true end
 GetNumGroupMembers = function() return 6 end
 UnitInRaid = function(unit) return unit == 'player' and 3 or nil end
@@ -788,9 +792,27 @@ you:SetAttribute('unit', 'raid3')
 member:SetAttribute('unit', 'raid4')
 onEvent(nil, 'GROUP_ROSTER_UPDATE')
 local RaidList = EUI.RaidList
-assert(RaidList.CellForUnit('player') and RaidList.CellForUnit('player').button == you, 'player events miss your cell')
-assert(RaidList.CellForUnit('raid3') == nil, 'your cell also takes its raid token')
-assert(RaidList.CellForUnit('raid4') and RaidList.CellForUnit('raid4').button == member, 'raid4 not routed')
+local function cellButtons(unit)
+    local buttons = {}
+    RaidList.ForEachCellForUnit(unit, function(cell) buttons[#buttons + 1] = cell.button end)
+    return buttons
+end
+assert(#cellButtons('player') == 1 and cellButtons('player')[1] == you, 'player events miss your cell')
+assert(#cellButtons('raid3') == 0, 'your cell also takes its raid token')
+assert(#cellButtons('raid4') == 1 and cellButtons('raid4')[1] == member, 'raid4 not routed')
+RaidList.ForEachCellForUnit('raid4', function(cell)
+    assert(cell.auras and cell.auras.container, 'raid cell aura container not set up')
+end)
+-- A main tank shows in its group and in Assists; both cells take its events, and its target
+-- cells take the cell's unit plus suffix.
+local tankCell = _G.EorzeaUIRaidAssistsUnitButton1
+assert(tankCell and _G.EorzeaUIRaidAssistsUnitButton8, 'assists cells not built')
+tankCell:SetAttribute('unit', 'raid4')
+assert(#cellButtons('raid4') == 2, 'main tank not routed to both cells')
+GetRaidRosterInfo = function(i) return 'm' .. i, 0, 1, 60, 'Warrior', 'WARRIOR', 'Zone', true, false, i == 4 and 'MAINTANK' or nil end
+UnitInRaid = function(unit) if unit == 'player' then return 3 elseif unit == 'raid4' then return 4 end end
+onEvent(nil, 'GROUP_ROSTER_UPDATE')
+TICK()
 for _, event in ipairs({ 'UNIT_HEALTH', 'UNIT_POWER_UPDATE', 'UNIT_FLAGS', 'UNIT_SPELLCAST_START', 'UNIT_THREAT_SITUATION_UPDATE' }) do
     onEvent(nil, event, 'raid4')
     onEvent(nil, event, 'player')

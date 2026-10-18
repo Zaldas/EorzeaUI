@@ -9,6 +9,7 @@ local function applyScale()
         local scale = EUI.Style.RootScale()
         EUI.PartyList.anchor:SetScale(scale)
         EUI.RaidList.anchor:SetScale(scale)
+        EUI.RaidList.assistsAnchor:SetScale(scale)
         EUI.TargetBar.target.anchor:SetScale(scale)
         EUI.TargetBar.focus.anchor:SetScale(scale)
         EUI.castAnchor:SetScale(scale)
@@ -91,6 +92,7 @@ local function initialize()
     local partyBg = EUI.PartyList.background
     EUI.EditMode.Register('party', EUI.PartyList.anchor, 'Party', { partyBg.top, partyBg.bottom })
     EUI.EditMode.Register('raid', EUI.RaidList.anchor, 'Raid')
+    EUI.EditMode.Register('assists', EUI.RaidList.assistsAnchor, 'Assists')
     EUI.EditMode.Register('target', EUI.TargetBar.target.anchor, 'Target')
     EUI.EditMode.Register('focus', EUI.TargetBar.focus.anchor, 'Focus')
     EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar')
@@ -109,6 +111,7 @@ local function initialize()
         EUI.RaidList.ForEachVisibleCell(function(cell)
             cell:UpdateRange()
         end)
+        EUI.RaidList.UpdateTargets()
         EUI.TargetBar.ForEach(function(bar)
             bar:UpdateIdentity()
             bar:UpdateThreat()
@@ -196,6 +199,7 @@ local UNIT_ROUTES = {
     INCOMING_SUMMON_CHANGED = { row = 'UpdateStatusIcon' },
     INCOMING_RESURRECT_CHANGED = { row = 'UpdateStatusIcon' },
     UNIT_PHASE = { row = { 'UpdateStatusIcon', 'UpdateRange' } },
+    UNIT_OTHER_PARTY_CHANGED = { row = { 'UpdateStatusIcon', 'UpdateRange' } },
     -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
     UNIT_PET = {
         also = function()
@@ -277,7 +281,11 @@ end
 
 local function onUnitEvent(route, event, unit, arg3, arg4, arg5)
     runAction(route.row and EUI.PartyList.RowForUnit(unit), route.row, route, event, arg3, arg4, arg5)
-    runAction(route.row and EUI.RaidList.CellForUnit(unit), route.row, route, event, arg3, arg4, arg5)
+    if route.row then
+        EUI.RaidList.ForEachCellForUnit(unit, function(cell)
+            runAction(cell, route.row, route, event, arg3, arg4, arg5)
+        end)
+    end
     runAction(route.pet and EUI.PartyList.PetForUnit(unit), route.pet, route, event, arg3, arg4, arg5)
     runAction(route.bar and EUI.TargetBar.ForUnit(unit), route.bar, route, event, arg3, arg4, arg5)
     if route.also then
@@ -486,6 +494,7 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             Settings.Reset('positions')
             EUI.EditMode.RestorePosition('party', EUI.PartyList.anchor)
             EUI.EditMode.RestorePosition('raid', EUI.RaidList.anchor)
+            EUI.EditMode.RestorePosition('assists', EUI.RaidList.assistsAnchor)
             EUI.EditMode.RestorePosition('target', EUI.TargetBar.target.anchor)
             EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)
             EUI.EditMode.RestorePosition('cast', EUI.castAnchor)

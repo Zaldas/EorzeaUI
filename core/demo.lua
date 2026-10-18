@@ -15,11 +15,12 @@ local BUFFS = {
     { ICON .. 'Spell_Holy_Renew', '11' },
     { ICON .. 'Spell_Holy_PowerWordShield', '22' },
 }
+-- Mostly dispellable, so the rows show their dispel-type edges.
 local DEBUFFS = {
-    { ICON .. 'Spell_Shadow_ShadowWordPain', '14' },
-    { ICON .. 'Spell_Shadow_AbominationExplosion', '9' },
-    { ICON .. 'Spell_Shadow_CurseOfSargeras', '21' },
-    { ICON .. 'Spell_Nature_CorrosiveBreath', '2m' },
+    { ICON .. 'Spell_Shadow_ShadowWordPain', '14', dispel = 'Magic' },
+    { ICON .. 'Spell_Shadow_AbominationExplosion', '9', dispel = 'Disease' },
+    { ICON .. 'Spell_Shadow_CurseOfSargeras', '21', dispel = 'Curse' },
+    { ICON .. 'Spell_Nature_CorrosiveBreath', '2m', dispel = 'Poison' },
     { ICON .. 'Spell_Frost_FrostNova', '6' },
 }
 
@@ -150,6 +151,37 @@ local function raidMembers()
     return groups
 end
 
+-- Two main tanks on a boss and its add, and a main assist on the add's pack, picked from the
+-- demo raid; their cells show the raid role in place of the assigned one.
+local function assistMembers(groups)
+    local function flagged(member, role)
+        local copy = {}
+        for key, value in pairs(member) do
+            copy[key] = value
+        end
+        copy.role = role
+        return copy
+    end
+    local tank, offTank, assist = groups[2][5], groups[4][4], groups[6][3]
+    return {
+        {
+            member = flagged(tank, 'MAINTANK'),
+            target = { name = 'Ragnaros', colorKey = 'hostile', hpPercent = 64, raidMarker = 8 },
+            tot = { name = tank.name, colorKey = 'party', hpPercent = math.floor(tank.hp / tank.hpMax * 100) },
+        },
+        {
+            member = flagged(offTank, 'MAINTANK'),
+            target = { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 38, raidMarker = 7 },
+            tot = { name = offTank.name, colorKey = 'party', hpPercent = math.floor(offTank.hp / offTank.hpMax * 100) },
+        },
+        {
+            member = flagged(assist, 'MAINASSIST'),
+            target = { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 38, raidMarker = 7 },
+            tot = { name = offTank.name, colorKey = 'party', hpPercent = math.floor(offTank.hp / offTank.hpMax * 100) },
+        },
+    }
+end
+
 local function target()
     return {
         name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'hostile', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
@@ -230,7 +262,8 @@ function Demo.Refresh()
     end
     Demo.active = active
     EUI.PartyList.SetDemo(active and members() or nil)
-    EUI.RaidList.SetDemo(active and raidMembers() or nil)
+    local raid = active and raidMembers() or nil
+    EUI.RaidList.SetDemo(raid, raid and assistMembers(raid))
     EUI.TargetBar.target:SetPreview(active and target() or nil)
     EUI.TargetBar.focus:SetPreview(active and focus() or nil)
     EUI.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)

@@ -7,10 +7,12 @@ EUI.EditMode = {}
 local EditMode = EUI.EditMode
 
 local movers = {}
+local moverCount = 0
 
 local DEFAULT_POSITIONS = {
     party = { 'TOPLEFT', 'TOPLEFT', 60, -260 },
     raid = { 'TOPLEFT', 'TOPLEFT', 60, -420 },
+    assists = { 'RIGHT', 'RIGHT', -120, 120 },
     target = { 'TOP', 'TOP', 0, -140 },
     focus = { 'TOP', 'TOP', 0, -340 },
     cast = { 'CENTER', 'CENTER', 0, -148 },
@@ -79,6 +81,10 @@ function EditMode.Register(key, frame, label, bounds)
         mover:SetAllPoints(frame)
     end
     mover:SetFrameStrata('DIALOG')
+    -- Later registrations draw above earlier ones, so a small frame placed over a larger one
+    -- (Assists over the raid) can still be grabbed.
+    moverCount = moverCount + 1
+    mover:SetFrameLevel(moverCount * 10)
     mover:EnableMouse(true)
     mover:RegisterForDrag('LeftButton')
     mover:Hide()
