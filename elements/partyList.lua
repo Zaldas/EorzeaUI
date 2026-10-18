@@ -90,6 +90,16 @@ end
 
 -- The pet sub-row: a secure unit button at the bottom of the owner's button. It starts hidden
 -- so the unit watch's first Show runs the snippet that grows the row.
+-- The unit watch shows the button while its unit exists. Click-casting addons (Clique and
+-- others) bind every frame in ClickCastFrames.
+local function watchButton(button)
+    if RegisterUnitWatch then
+        RegisterUnitWatch(button)
+    end
+    ClickCastFrames = ClickCastFrames or {}
+    ClickCastFrames[button] = true
+end
+
 local function createPetButton(owner, index, style)
     local button = CreateFrame('Button', 'EorzeaUIPartyPetButton' .. index, owner,
         'SecureUnitButtonTemplate, SecureHandlerShowHideTemplate')
@@ -105,11 +115,7 @@ local function createPetButton(owner, index, style)
     owner:SetAttribute('eui-base', style.rowHeight)
     owner:SetAttribute('eui-formHeight', style.formRowHeight)
     owner:SetAttribute('eui-petHeight', style.pet.rowHeight)
-    if RegisterUnitWatch then
-        RegisterUnitWatch(button)
-    end
-    ClickCastFrames = ClickCastFrames or {}
-    ClickCastFrames[button] = true
+    watchButton(button)
     return button
 end
 
@@ -235,12 +241,7 @@ function PartyList.Create(style, fonts)
         rows[i] = row
         button:HookScript('OnShow', PartyList.UpdateBackground)
         button:HookScript('OnHide', PartyList.UpdateBackground)
-        if RegisterUnitWatch then
-            RegisterUnitWatch(button)
-        end
-        -- Click-casting addons (Clique and others) bind every frame in this table.
-        ClickCastFrames = ClickCastFrames or {}
-        ClickCastFrames[button] = true
+        watchButton(button)
     end
 
     createFormDriver()
@@ -306,22 +307,22 @@ function PartyList.StackDemoRows(demoRows, members, parent, maxHeight)
     return columns, width, height
 end
 
-function PartyList.OnRowUnitChanged(row, previous, unit)
-    if previous and rowsByUnit[previous] == row then
-        rowsByUnit[previous] = nil
+-- Moves object's entry in map from previous to unit, unless another object took previous.
+local function trackUnit(map, object, previous, unit)
+    if previous and map[previous] == object then
+        map[previous] = nil
     end
     if unit then
-        rowsByUnit[unit] = row
+        map[unit] = object
     end
 end
 
+function PartyList.OnRowUnitChanged(row, previous, unit)
+    trackUnit(rowsByUnit, row, previous, unit)
+end
+
 function PartyList.OnPetUnitChanged(pet, previous, unit)
-    if previous and petsByUnit[previous] == pet then
-        petsByUnit[previous] = nil
-    end
-    if unit then
-        petsByUnit[unit] = pet
-    end
+    trackUnit(petsByUnit, pet, previous, unit)
 end
 
 function PartyList.RowForUnit(unit)

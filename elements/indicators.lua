@@ -282,12 +282,7 @@ end
 -- A raid marker, then an AFK/DND flag, sit where the name starts and push the name right.
 function Indicators:LayoutNameLine(nameText)
     local nameSpec = self.nameSpec
-    local shift = self.raidMarker:IsShown() and (self.spec.raidMarker.size[1] + 3) or 0
-    if self.flag:IsShown() then
-        local flagSpec = self.spec.flag
-        Style.Place(self.flag, self.top, { flagSpec.pos[1] + shift, flagSpec.pos[2] })
-        shift = shift + flagSpec.size[1] + 3
-    end
+    local shift = EUI.UnitVisual.NameLineShift(self.top, self.raidMarker, self.spec.raidMarker, self.flag, self.spec.flag)
     nameText:ClearAllPoints()
     nameText:SetPoint('TOPLEFT', self.top, 'TOPLEFT', nameSpec.pos[1] + shift, -nameSpec.pos[2])
     nameText:SetWidth(nameSpec.width - shift)

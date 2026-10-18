@@ -8,6 +8,7 @@ local Row = {}
 Row.__index = Row
 
 local Style = EUI.Style
+local UnitVisual = EUI.UnitVisual
 local CLASS_ICONS = 'Interface\\TargetingFrame\\UI-Classes-Circles'
 
 local function classColorHex(classToken)
@@ -55,20 +56,11 @@ local function buildArt(self, host, style, fonts)
     end
 
     local iconSpec = style.classIcon
-    local iconFrame = CreateFrame('Frame', nil, art)
-    iconFrame:SetSize(iconSpec.size, iconSpec.size)
-    Style.Place(iconFrame, art, iconSpec.pos)
+    local iconFrame
+    iconFrame, self.classGradient, self.classIcon = UnitVisual.JobFrame(art, iconSpec.pos, iconSpec.size, iconSpec.size / 8, iconSpec)
     iconFrame:SetFrameLevel(self.power.overlay:GetFrameLevel() + 1)
-    local full = { pos = { 0, 0 }, size = { iconSpec.size, iconSpec.size } }
-    Style.Image(iconFrame, 'BACKGROUND', { path = iconSpec.bg, pos = full.pos, size = full.size })
-    self.classGradient = Style.Image(iconFrame, 'BORDER', { path = iconSpec.gradient, pos = full.pos, size = full.size })
-    self.classIcon = iconFrame:CreateTexture(nil, 'ARTWORK')
     self.classIcon:SetTexture(CLASS_ICONS)
-    self.classIcon:SetPoint('TOPLEFT', 5, -5)
-    self.classIcon:SetPoint('BOTTOMRIGHT', -5, 5)
-    Style.Image(iconFrame, 'OVERLAY', { path = iconSpec.frame, pos = full.pos, size = full.size })
     self.iconFrame = iconFrame
-
 
     -- Row-relative text and markers, drawn above both bars.
     local top = CreateFrame('Frame', nil, art)
@@ -122,10 +114,6 @@ local OFFLINE = 'offline'
 
 -- Recolours a power bar when its power type changes (druid forms, unit swaps, going offline).
 local function tintPower(self, bar, powerType)
-    if powerType == bar.powerType then
-        return
-    end
-    bar.powerType = powerType
     local spec = self.style.power
     local color
     if powerType == OFFLINE then
@@ -133,8 +121,7 @@ local function tintPower(self, bar, powerType)
     else
         color = spec.colors and spec.colors[powerType] or spec.bar.fill.color
     end
-    bar:SetFrameColor(color)
-    bar:SetFillColor(color)
+    UnitVisual.TintBar(bar, powerType, color)
 end
 
 local STATE_LABELS = {
@@ -183,21 +170,7 @@ function EUI.PartyRow.Attach(button, style, fonts)
     self.buffs = EUI.AuraRow.Create(art, initialUnit, 'HELPFUL', style.buffs, fonts)
     self.debuffs = EUI.AuraRow.Create(art, initialUnit, 'HARMFUL', style.debuffs, fonts)
 
-    button:HookScript('OnEnter', function()
-        self.hover:Show()
-    end)
-    button:HookScript('OnLeave', function()
-        self.hover:Hide()
-    end)
-    EUI.AttachUnitTooltip(button, function() return self.unit end)
-    button:HookScript('OnAttributeChanged', function(_, name, value)
-        if name == 'unit' then
-            self:SetUnit(value)
-        end
-    end)
-    button:HookScript('OnShow', function()
-        self:Refresh()
-    end)
+    UnitVisual.AttachButton(self, button)
 
     self:SetUnit(button:GetAttribute('unit'))
     return self
@@ -217,31 +190,15 @@ function EUI.PartyRow.CreateDemo(parent, style, fonts, index)
     return self
 end
 
--- The class sheet draws each icon as a ringed circle; cropping to the circle's inscribed
--- square (inset 14.6% per side) drops the ring so the art fills the square job frame.
-local CIRCLE_INSET = 0.146
-
 local function setClassIcon(self, classToken)
     local coords = classToken and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[classToken]
     if coords then
-        local left, right, top, bottom = unpack(coords)
-        local dx, dy = (right - left) * CIRCLE_INSET, (bottom - top) * CIRCLE_INSET
-        self.classIcon:SetTexCoord(left + dx, right - dx, top + dy, bottom - dy)
+        UnitVisual.CropCircle(self.classIcon, unpack(coords))
         self.classIcon:Show()
     else
         self.classIcon:Hide()
     end
     self.classGradient:SetVertexColor(Style.Color(classColorHex(classToken)))
-end
-
-
-local function thresholdColor(style, fraction)
-    for _, step in ipairs(style.hp.thresholds) do
-        if fraction < step.below then
-            return step.color
-        end
-    end
-    return style.hp.textColor
 end
 
 -- The height a demo row needs to show member: the base row plus its form and pet sub-rows.
@@ -267,8 +224,8 @@ function Row:ShowDemo(member)
     if not applyState(self, member.state, member.hpMax) then
         self.hp:SetValue(member.hp)
         self.hp:SetIncoming(member.incoming or 0, member.hpMax, member.absorb or 0)
-        self.hpText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.hp) or tostring(member.hp))
-        self.hpText:SetTextColor(Style.Color(thresholdColor(self.style, member.hp / member.hpMax)))
+        self.hpText:SetText(UnitVisual.FormatNumber(member.hp))
+        self.hpText:SetTextColor(Style.Color(UnitVisual.ThresholdColor(self.style.hp, member.hp / member.hpMax)))
         local low = member.hp / member.hpMax < self.style.lowHealth.below
         self.classIcon:SetVertexColor(Style.Color(low and self.style.lowHealth.color or '#FFFFFFFF'))
     end
@@ -301,12 +258,12 @@ function Row:ShowDemo(member)
         tintPower(self, self.formBar, form.powerType)
         self.formBar:SetRange(form.powerMax)
         self.formBar:SetValue(form.power)
-        self.formText:SetText(tostring(form.power))
+        self.formText:SetText(UnitVisual.FormatNumber(form.power))
     end
     if offline then
         self.powerText:SetText('')
     else
-        self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.power) or tostring(member.power))
+        self.powerText:SetText(UnitVisual.FormatNumber(member.power))
     end
 
     indicators:SetLeader(member.leader == true)
@@ -452,14 +409,7 @@ function Row:UpdateRole()
 end
 
 function Row:UpdatePvP()
-    local unit = self.unit
-    local kind
-    if EUI.Read('UnitIsPVPFreeForAll', UnitIsPVPFreeForAll, unit) then
-        kind = 'FFA'
-    elseif EUI.Read('UnitIsPVP', UnitIsPVP, unit) then
-        kind = EUI.Read('UnitFactionGroup', UnitFactionGroup, unit)
-    end
-    self.indicators:SetPvP(kind)
+    self.indicators:SetPvP(EUI.UnitInfo.PvPKind(self.unit))
 end
 
 function Row:UpdateRaidMarker()

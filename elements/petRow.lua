@@ -9,9 +9,8 @@ local Pet = {}
 Pet.__index = Pet
 
 local Style = EUI.Style
+local UnitVisual = EUI.UnitVisual
 
--- Portraits are drawn as circles; cropping to the inscribed square fills the job frame.
-local CIRCLE_INSET = 0.146
 local ICON_INSET = 0.08
 
 -- C_PetInfo.GetPetHappiness: 1 unhappy, 2 content, 3 happy. The fallback sheet is the pre-atlas art.
@@ -54,19 +53,10 @@ local function buildArt(self, host, spec, fonts)
     end
 
     local portraitSpec = spec.portrait
-    local size = portraitSpec.size
-    local iconFrame = CreateFrame('Frame', nil, art)
-    iconFrame:SetSize(size, size)
-    Style.Place(iconFrame, art, portraitSpec.pos)
+    local iconFrame
+    iconFrame, self.gradient, self.portrait = UnitVisual.JobFrame(art, portraitSpec.pos, portraitSpec.size,
+        portraitSpec.inset, self.partyStyle.classIcon)
     iconFrame:SetFrameLevel(self.power.overlay:GetFrameLevel() + 1)
-    local iconSpec = self.partyStyle.classIcon
-    local full = { pos = { 0, 0 }, size = { size, size } }
-    Style.Image(iconFrame, 'BACKGROUND', { path = iconSpec.bg, pos = full.pos, size = full.size })
-    self.gradient = Style.Image(iconFrame, 'BORDER', { path = iconSpec.gradient, pos = full.pos, size = full.size })
-    self.portrait = iconFrame:CreateTexture(nil, 'ARTWORK')
-    self.portrait:SetPoint('TOPLEFT', portraitSpec.inset, -portraitSpec.inset)
-    self.portrait:SetPoint('BOTTOMRIGHT', -portraitSpec.inset, portraitSpec.inset)
-    Style.Image(iconFrame, 'OVERLAY', { path = iconSpec.frame, pos = full.pos, size = full.size })
 
     self.happiness = art:CreateTexture(nil, 'OVERLAY')
     self.happiness:SetSize(spec.happiness.size[1], spec.happiness.size[2])
@@ -88,21 +78,9 @@ function EUI.PetRow.Attach(button, owner, partyStyle, fonts)
     -- Created at login (out of combat) with the button's initial unit.
     self.auras = EUI.AuraRow.Create(self.auraLayer, button:GetAttribute('unit') or 'pet', { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
 
-    button:HookScript('OnEnter', function()
-        self.hover:Show()
-    end)
-    button:HookScript('OnLeave', function()
-        self.hover:Hide()
-    end)
-    EUI.AttachUnitTooltip(button, function() return self.unit end)
-    button:HookScript('OnAttributeChanged', function(_, name, value)
-        if name == 'unit' then
-            self:SetUnit(value)
-        end
-    end)
+    UnitVisual.AttachButton(self, button)
     -- The secure show/hide handlers have resized the owner's row by the time these run.
     button:HookScript('OnShow', function()
-        self:Refresh()
         EUI.PartyList.UpdateBackground()
     end)
     button:HookScript('OnHide', function()
@@ -124,6 +102,7 @@ function EUI.PetRow.CreateDemo(parent, owner, partyStyle, fonts)
     local auraSpec = spec.auras
     self.auras = EUI.StaticIcons.Create(self.auraLayer, {
         pos = auraSpec.pos, size = auraSpec.size, spacing = auraSpec.spacing, max = auraSpec.max * 2,
+        border = auraSpec.border,
     }, fonts)
     return self
 end
@@ -134,14 +113,8 @@ local function matchOwnerGradient(self)
 end
 
 local function tintPower(self, powerType)
-    if powerType == self.powerType then
-        return
-    end
-    self.powerType = powerType
     local colors = self.partyStyle.power.colors
-    local color = colors and colors[powerType] or self.spec.power.bar.fill.color
-    self.power:SetFrameColor(color)
-    self.power:SetFillColor(color)
+    UnitVisual.TintBar(self.power, powerType, colors and colors[powerType] or self.spec.power.bar.fill.color)
 end
 
 local function setHappiness(self, happiness)
@@ -165,20 +138,13 @@ function Pet:ShowDemo(pet)
 
     self.hp:SetRange(pet.hpMax)
     self.hp:SetValue(pet.hp)
-    self.hpText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(pet.hp) or tostring(pet.hp))
-    local color = self.spec.hp.textColor
-    for _, step in ipairs(self.spec.hp.thresholds) do
-        if pet.hp / pet.hpMax < step.below then
-            color = step.color
-            break
-        end
-    end
-    self.hpText:SetTextColor(Style.Color(color))
+    self.hpText:SetText(UnitVisual.FormatNumber(pet.hp))
+    self.hpText:SetTextColor(Style.Color(UnitVisual.ThresholdColor(self.spec.hp, pet.hp / pet.hpMax)))
 
     tintPower(self, pet.powerType)
     self.power:SetRange(pet.powerMax)
     self.power:SetValue(pet.power)
-    self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(pet.power) or tostring(pet.power))
+    self.powerText:SetText(UnitVisual.FormatNumber(pet.power))
 
     self.cast:SetPreview(pet.cast, 0.55)
     setHappiness(self, pet.happiness)
@@ -223,7 +189,7 @@ end
 
 function Pet:UpdatePortrait()
     EUI.Read('SetPortraitTexture', SetPortraitTexture, self.portrait, self.unit)
-    self.portrait:SetTexCoord(CIRCLE_INSET, 1 - CIRCLE_INSET, CIRCLE_INSET, 1 - CIRCLE_INSET)
+    UnitVisual.CropCircle(self.portrait)
 end
 
 function Pet:UpdateHealth(smooth)

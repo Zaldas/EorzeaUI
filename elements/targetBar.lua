@@ -19,27 +19,16 @@ Bar.__index = Bar
 local bars = {}
 
 local Style = EUI.Style
+local UnitVisual = EUI.UnitVisual
+local UnitInfo = EUI.UnitInfo
 local CLASS_ICONS = 'Interface\\TargetingFrame\\UI-Classes-Circles'
--- Class icons and portraits are drawn as circles; cropping to the inscribed square fills the
--- job frame.
-local CIRCLE_INSET = 0.146
 local NPC_GRADIENT = '#808080FF'
 
 local function createIcon(self, parent, spec, fonts, frameLevel)
     local iconSpec = spec.icon
-    local size = iconSpec.size
-    local frame = CreateFrame('Frame', nil, parent)
-    frame:SetSize(size, size)
-    Style.Place(frame, parent, iconSpec.pos)
+    local frame
+    frame, self.iconGradient, self.portrait = UnitVisual.JobFrame(parent, iconSpec.pos, iconSpec.size, iconSpec.inset, iconSpec)
     frame:SetFrameLevel(frameLevel)
-    local full = { 0, 0 }
-    Style.Image(frame, 'BACKGROUND', { path = iconSpec.bg, pos = full, size = { size, size } })
-    self.iconGradient = Style.Image(frame, 'BORDER', { path = iconSpec.gradient, pos = full, size = { size, size } })
-    local portrait = frame:CreateTexture(nil, 'ARTWORK')
-    portrait:SetPoint('TOPLEFT', iconSpec.inset, -iconSpec.inset)
-    portrait:SetPoint('BOTTOMRIGHT', -iconSpec.inset, iconSpec.inset)
-    self.portrait = portrait
-    Style.Image(frame, 'OVERLAY', { path = iconSpec.frame, pos = full, size = { size, size } })
     self.levelBadge = EUI.LevelBadge.Create(frame, frame, spec.levelBadge, fonts)
     self.levelBadge.frame:SetFrameLevel(frameLevel + 2)
     self.icon = frame
@@ -208,11 +197,11 @@ end
 -- Shows raid marker index, then the optional AFK/DND flag, before text, shifting the text right
 -- while they show. textSpec.right truncates the text at that x. Returns the shift.
 local function setMarkedName(text, textSpec, marker, markerSpec, index, flag, flagSpec, flagKind)
-    local shift = EUI.Indicators.SetRaidMarkerIcon(marker, index) and (markerSpec.size[1] + 3) or 0
-    if flag and EUI.Indicators.SetFlagIcon(flag, flagKind) then
-        Style.Place(flag, marker:GetParent(), { flagSpec.pos[1] + shift, flagSpec.pos[2] })
-        shift = shift + flagSpec.size[1] + 3
+    EUI.Indicators.SetRaidMarkerIcon(marker, index)
+    if flag then
+        EUI.Indicators.SetFlagIcon(flag, flagKind)
     end
+    local shift = UnitVisual.NameLineShift(marker:GetParent(), marker, markerSpec, flag, flagSpec)
     text:ClearAllPoints()
     text:SetPoint('TOPLEFT', marker:GetParent(), 'TOPLEFT', textSpec.pos[1] + shift, -textSpec.pos[2])
     if textSpec.right then
@@ -269,50 +258,6 @@ function Bar:UpdateFlags()
     self:UpdateRaidMarker()
 end
 
-local function inGroup(unit)
-    return EUI.Read('UnitInParty', UnitInParty, unit) == true or EUI.Read('UnitInRaid', UnitInRaid, unit) ~= nil
-end
-
--- Returns the spec.reactionColors key for unit, and whether it is a living NPC you cannot
--- attack. Players and their pets follow UnitSelectionColor's player branches: attacks you
--- (hostile, or blue when you cannot attack back), attackable (neutral), PvP-flagged (friendly),
--- else blue; your own and group members' get 'party' / 'partyPvP' so a palette can set them
--- apart. NPCs: tap-denied, then UnitReaction.
-local function reactionKey(unit)
-    local canAttack = EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) == true
-    if EUI.Read('UnitPlayerControlled', UnitPlayerControlled, unit) then
-        if EUI.Read('UnitCanAttack', UnitCanAttack, unit, 'player') == true then
-            return canAttack and 'hostilePlayer' or 'player', false
-        elseif canAttack then
-            return 'neutral', false
-        end
-        local flagged = EUI.Read('UnitIsPVP', UnitIsPVP, unit) == true
-        local own = EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'player') or EUI.Read('UnitIsUnit', UnitIsUnit, unit, 'pet')
-        if own or (EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) and inGroup(unit)) then
-            return flagged and 'partyPvP' or 'party', false
-        end
-        return flagged and 'friendly' or 'player', false
-    end
-    if EUI.Read('UnitIsTapDenied', UnitIsTapDenied, unit) then
-        return 'tapped', false
-    end
-    local npc = not canAttack and not EUI.Read('UnitIsDead', UnitIsDead, unit)
-    local reaction = EUI.Read('UnitReaction', UnitReaction, unit, 'player')
-    if type(reaction) ~= 'number' then
-        return 'neutral', npc
-    elseif reaction <= 2 then
-        return 'hostile', npc
-    elseif reaction == 3 then
-        return 'unfriendly', npc
-    elseif reaction == 4 then
-        return 'neutral', npc
-    end
-    return 'friendly', npc
-end
-
--- reactionKey results for units you can attack; only these get a difficulty-coloured level.
-local ATTACKABLE = { hostile = true, unfriendly = true, neutral = true, tapped = true, hostilePlayer = true }
-
 local function nameHex(spec, key)
     return spec.nameColor or spec.reactionColors[key]
 end
@@ -349,46 +294,9 @@ local function setPvP(self, kind)
     self.pvp:SetShown(kind ~= nil)
 end
 
-local function readPvP(unit)
-    if EUI.Read('UnitIsPVPFreeForAll', UnitIsPVPFreeForAll, unit) then
-        return 'FFA'
-    elseif EUI.Read('UnitIsPVP', UnitIsPVP, unit) then
-        return EUI.Read('UnitFactionGroup', UnitFactionGroup, unit)
-    end
-    return nil
-end
-
--- r, g, b for a level, or nil. unit (optional) uses the client's content difficulty.
-local function difficultyColor(unit, level)
-    if level <= 0 then
-        local skull = QuestDifficultyColors and QuestDifficultyColors.impossible
-        if skull then
-            return skull.r, skull.g, skull.b
-        end
-        return 1, 0.1, 0.1
-    end
-    local color
-    if unit and C_PlayerInfo and C_PlayerInfo.GetContentDifficultyCreatureForPlayer and GetDifficultyColor then
-        local difficulty = EUI.Read('GetContentDifficultyCreatureForPlayer', C_PlayerInfo.GetContentDifficultyCreatureForPlayer, unit)
-        color = difficulty and EUI.Read('GetDifficultyColor', GetDifficultyColor, difficulty)
-    end
-    if not color and GetCreatureDifficultyColor then
-        color = EUI.Read('GetCreatureDifficultyColor', GetCreatureDifficultyColor, level)
-    end
-    if color then
-        return color.r, color.g, color.b
-    end
-    return nil
-end
-
 local function setLevel(self, level, r, g, b)
     self.levelBadge:Set(level)
     self.levelBadge:SetColor(r, g, b)
-end
-
-local function cropCircle(texture, left, right, top, bottom)
-    local dx, dy = (right - left) * CIRCLE_INSET, (bottom - top) * CIRCLE_INSET
-    texture:SetTexCoord(left + dx, right - dx, top + dy, bottom - dy)
 end
 
 -- The class icon when classToken has one; otherwise drawPortrait(texture) fills the frame.
@@ -398,10 +306,10 @@ local function setIcon(self, classToken, drawPortrait)
     local color = classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[classToken]
     if coords then
         portrait:SetTexture(CLASS_ICONS)
-        cropCircle(portrait, unpack(coords))
+        UnitVisual.CropCircle(portrait, unpack(coords))
     else
         drawPortrait(portrait)
-        cropCircle(portrait, 0, 1, 0, 1)
+        UnitVisual.CropCircle(portrait)
     end
     if color then
         self.iconGradient:SetVertexColor(color.r, color.g, color.b, 1)
@@ -518,14 +426,14 @@ function Bar:UpdateIdentity()
         return
     end
     local unit = self.unit
-    local key, npc = reactionKey(unit)
+    local key, npc = UnitInfo.ReactionKey(unit)
     if key ~= self.colorKey then
         self.colorKey = key
         applyNameColor(self, key)
     end
     -- An NPC in combat (escorts, guards) shows its HP.
     setNpcMode(self, npc and not EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit))
-    setPvP(self, readPvP(unit))
+    setPvP(self, UnitInfo.PvPKind(unit))
     -- UnitLeadsAnyGroup also covers players outside your group.
     local leads
     if UnitLeadsAnyGroup then
@@ -559,7 +467,7 @@ function Bar:UpdateLevel()
     local unit = self.unit
     local level = EUI.SafeValue(UnitLevel, unit)
     if level and EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
-        setLevel(self, level, difficultyColor(unit, level))
+        setLevel(self, level, UnitInfo.DifficultyColor(unit, level))
     else
         setLevel(self, level)
     end
@@ -633,7 +541,7 @@ function Bar:UpdateTargetOfTarget()
     self.totBar:SetRange(UnitHealthMax(totUnit))
     self.totBar:SetValue(UnitHealth(totUnit), true)
     pcall(self.totName.SetText, self.totName, EUI.UnitDisplayName(totUnit))
-    self.totName:SetTextColor(Style.Color(nameHex(self.spec, (reactionKey(totUnit)))))
+    self.totName:SetTextColor(Style.Color(nameHex(self.spec, (UnitInfo.ReactionKey(totUnit)))))
     setMarkedName(self.totName, self.spec.tot.txtName, self.totMarker, self.spec.tot.raidMarker,
         EUI.Indicators.ReadRaidMarker(totUnit))
 end
@@ -716,8 +624,8 @@ function Bar:SetPreview(data)
     self.portrait:SetDesaturated(data.dead == true)
     local low = not data.dead and data.hpPercent < spec.lowHealth.below * 100
     self.portrait:SetVertexColor(Style.Color(low and spec.lowHealth.color or '#FFFFFFFF'))
-    if ATTACKABLE[data.colorKey] then
-        setLevel(self, data.level, difficultyColor(nil, data.level))
+    if UnitInfo.ATTACKABLE[data.colorKey] then
+        setLevel(self, data.level, UnitInfo.DifficultyColor(nil, data.level))
     else
         setLevel(self, data.level)
     end
