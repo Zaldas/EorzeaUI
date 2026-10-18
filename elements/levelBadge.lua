@@ -6,7 +6,8 @@ EUI.LevelBadge = {}
 local LevelBadge = {}
 LevelBadge.__index = LevelBadge
 
--- spec = { size = {w, h}, textSize, textOffset = {x, y}, color, edge, overlap }
+-- spec = { size = {w, h}, textSize, textOffset = {x, y}, color, edge, overlap, skull = { atlas, path } }
+-- skull.path: an asset under assets/ or, holding a backslash, a game texture.
 -- edge: side of `anchor` the label straddles ('BOTTOM' | 'LEFT'); overlap: fraction of the
 -- label box lying on the anchor (0.5 = centred on the edge).
 function EUI.LevelBadge.Create(parent, anchor, spec, fonts)
@@ -32,6 +33,22 @@ function EUI.LevelBadge.Create(parent, anchor, spec, fonts)
     self.text:SetJustifyV('MIDDLE')
     self.text:SetTextColor(EUI.Style.Color(spec.color))
     self.color = spec.color
+
+    -- Replaces the number for unknown levels and corpses, as on Blizzard's target frame.
+    self.skull = frame:CreateTexture(nil, 'OVERLAY')
+    local skull = spec.skull
+    local path = skull.path
+    if path and not path:find('\\', 1, true) then
+        path = EUI.Style.AssetPath(path)
+    end
+    if skull.atlas then
+        EUI.Style.SetAtlas(self.skull, skull.atlas, path and { path = path })
+    else
+        self.skull:SetTexture(path)
+    end
+    self.skull:SetSize(h, h)
+    self.skull:SetPoint('CENTER', offset[1], offset[2])
+    self.skull:Hide()
     return self
 end
 
@@ -44,12 +61,18 @@ function LevelBadge:SetColor(r, g, b)
     end
 end
 
--- level: number, or nil to hide. Non-positive levels (unknown) show "??".
-function LevelBadge:Set(level)
-    if not level then
+-- level: number, or nil to hide. Non-positive levels (unknown) and skull (a corpse) show the
+-- skull in place of the number.
+function LevelBadge:Set(level, skull)
+    if not level and not skull then
         self.frame:Hide()
         return
     end
-    self.text:SetText(level > 0 and tostring(level) or '??')
+    skull = skull == true or level <= 0
+    self.text:SetShown(not skull)
+    self.skull:SetShown(skull)
+    if not skull then
+        self.text:SetText(tostring(level))
+    end
     self.frame:Show()
 end

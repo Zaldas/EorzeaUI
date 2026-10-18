@@ -36,7 +36,7 @@ local FEATURE_APIS = {
     'UnitIsPVPFreeForAll', 'UnitFactionGroup', 'UnitThreatSituation', 'GetThreatStatusColor',
     'UnitPowerType', 'UnitIsGroupAssistant', 'C_Spell', 'C_ActionBar', 'RegisterStateDriver',
     'RegisterUnitWatch', 'SetPortraitTexture', 'HasPetUI', 'C_PetInfo', 'UnitHealthPercent', 'C_CurveUtil',
-    'CurveConstants', 'UnitDetailedThreatSituation', 'UnitReaction',
+    'CurveConstants', 'UnitDetailedThreatSituation', 'UnitReaction', 'UnitIsCorpse', 'HasLFGRestrictions',
 }
 
 local function logCapabilities()

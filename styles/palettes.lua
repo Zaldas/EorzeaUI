@@ -5,6 +5,8 @@ local _, EUI = ...
 -- channel (optional): cast bar colour while channeling; casts otherwise. spark (optional): tints
 -- the cast bar spark.
 -- offline: party HP bar colour while the member is offline.
+-- levelSkull (optional): { atlas, path } art for the level skull; atlas wins when the client has
+-- it, path is an asset (relative to assets/) or a game texture.
 -- heals / absorbs: incoming-heal and absorb segments on HP bars. combo: combo point pips.
 -- reaction: keyed as targetBar.lua reactionKey returns. targetName (optional): one colour for
 -- target names in place of the reaction colour. nameBg (optional): { alpha, leftAlpha, color }.

@@ -91,7 +91,7 @@ function Kit.BuildLayout(p)
                 failure = { color = p.castFailure, hold = 1 },
                 txtName = Kit.castName(castText, 219, -1),
             },
-            levelBadge = Kit.levelBadge,
+            levelBadge = Kit.levelBadge(p),
             indicators = Kit.partyIndicators(p, 38, 3),
             buffs = { pos = { 284, -6 }, size = 18, spacing = 2, max = 6, border = Kit.AURA_BORDER },
             -- dispelBorder: edges debuffs by dispel type, as on the target.

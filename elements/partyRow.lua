@@ -204,7 +204,7 @@ function Row:DemoHeight(member)
     return style.rowHeight + (member.form and style.formRowHeight or 0) + (member.pet and style.pet.rowHeight or 0)
 end
 
--- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
+-- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, guide, targeted, far,
 --            state, resting, combat, status, raidMarker, tag, role, pvp, cast, threat, powerType,
 --            form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
 --            buffs, debuffs, pet (see PetRow ShowDemo) }
@@ -263,7 +263,7 @@ function Row:ShowDemo(member)
         self.powerText:SetText(UnitVisual.FormatNumber(member.power))
     end
 
-    indicators:SetLeader(member.leader == true)
+    indicators:SetLeader(member.leader == true, member.guide == true)
     indicators:SetAssistant(member.assistant == true)
     indicators:SetMasterLooter(member.masterLooter == true)
     self.cursor:SetShown(member.targeted == true)
@@ -584,7 +584,7 @@ function Row:UpdateCostPreview(event, spellID)
 end
 
 function Row:UpdateLeader()
-    self.indicators:SetLeader(EUI.SafeBool(UnitIsGroupLeader, self.unit))
+    self.indicators:SetLeader(EUI.SafeBool(UnitIsGroupLeader, self.unit), EUI.Indicators.IsGuideGroup())
 end
 
 -- Phased or in another group (a cross-faction or public group), as Blizzard's

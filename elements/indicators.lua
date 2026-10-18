@@ -64,8 +64,21 @@ function EUI.Indicators.ThreatColor(status)
     return unpack(THREAT_COLORS[status])
 end
 
-function EUI.Indicators.SetLeaderArt(texture)
-    Style.SetAtlas(texture, 'UI-HUD-UnitFrame-Player-Group-LeaderIcon', LEADER_FALLBACK)
+-- guide: the Dungeon Guide icon, which replaces the crown in dungeon finder groups
+-- (HasLFGRestrictions), as on Blizzard's party and target frames.
+function EUI.Indicators.SetLeaderArt(texture, guide)
+    guide = guide == true
+    if texture.isGuide == guide then
+        return
+    end
+    texture.isGuide = guide
+    local atlas = guide and 'UI-HUD-UnitFrame-Player-Group-GuideIcon' or 'UI-HUD-UnitFrame-Player-Group-LeaderIcon'
+    Style.SetAtlas(texture, atlas, LEADER_FALLBACK)
+end
+
+-- Whether group leaders show as Dungeon Guides.
+function EUI.Indicators.IsGuideGroup()
+    return EUI.Read('HasLFGRestrictions', HasLFGRestrictions) == true
 end
 
 local function sizedTexture(parent, spec)
@@ -130,7 +143,11 @@ function EUI.Indicators.Create(parent, top, style)
     return self
 end
 
-function Indicators:SetLeader(shown)
+-- guide: show the Dungeon Guide icon in place of the crown.
+function Indicators:SetLeader(shown, guide)
+    if shown then
+        EUI.Indicators.SetLeaderArt(self.leader, guide)
+    end
     self.leader:SetShown(shown)
 end
 

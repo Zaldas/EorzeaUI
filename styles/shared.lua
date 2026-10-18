@@ -69,8 +69,19 @@ end
 -- name: unit names; standard: other WoW-default text (level numbers, raid group label).
 Kit.FONTS = { name = 'Fonts\\FRIZQT__.TTF', number = 'grammara.ttf', timer = 'consola.ttf', standard = 'Fonts\\FRIZQT__.TTF' }
 
+-- Blizzard's level skull (unknown levels, corpses); a palette's levelSkull replaces it.
+Kit.LEVEL_SKULL = {
+    atlas = 'UI-HUD-UnitFrame-Target-HighLevelTarget_Icon',
+    path = 'Interface\\TargetingFrame\\UI-TargetingFrame-Skull',
+}
+
 -- Level number on the class icon's bottom edge.
-Kit.levelBadge = { size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, color = '#FFFFFFFF', edge = 'BOTTOM', overlap = 0.5 }
+function Kit.levelBadge(p)
+    return {
+        size = { 32, 18 }, textSize = 13, textOffset = { 2, 0 }, color = '#FFFFFFFF', edge = 'BOTTOM', overlap = 0.5,
+        skull = p.levelSkull or Kit.LEVEL_SKULL,
+    }
+end
 
 -- Party row indicators, in row coordinates. The class icon spans x -13..27, y -4..36; its visible
 -- frame edge is ~1.5px inside that.
@@ -183,7 +194,7 @@ function Kit.target(p, castText, size)
             size = 64,
             paths = { worldboss = 'tiers/boss', elite = 'tiers/elite', rareelite = 'tiers/rareElite', rare = 'tiers/rare' },
         },
-        levelBadge = Kit.levelBadge,
+        levelBadge = Kit.levelBadge(p),
         -- Straddles the icon's left edge in its lower half, as on the party rows.
         pvp = { pos = { iconX - 11, iconY + 22 }, size = { 22, 22 } },
         -- Your combo points on the unit (size.combo only): a zigzag left of the PvP badge, centred

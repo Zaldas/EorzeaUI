@@ -296,8 +296,8 @@ local function setPvP(self, kind)
     self.pvp:SetShown(kind ~= nil)
 end
 
-local function setLevel(self, level, r, g, b)
-    self.levelBadge:Set(level)
+local function setLevel(self, level, r, g, b, corpse)
+    self.levelBadge:Set(level, corpse)
     self.levelBadge:SetColor(r, g, b)
 end
 
@@ -443,6 +443,9 @@ function TargetBarClass:UpdateIdentity()
     else
         leads = EUI.Read('UnitIsGroupLeader', UnitIsGroupLeader, unit)
     end
+    if leads then
+        EUI.Indicators.SetLeaderArt(self.leader, EUI.Indicators.IsGuideGroup())
+    end
     self.leader:SetShown(leads == true)
 end
 
@@ -468,7 +471,9 @@ function TargetBarClass:UpdateLevel()
     end
     local unit = self.unit
     local level = EUI.SafeValue(UnitLevel, unit)
-    if level and EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
+    if EUI.Read('UnitIsCorpse', UnitIsCorpse, unit) then
+        setLevel(self, level, nil, nil, nil, true)
+    elseif level and EUI.Read('UnitCanAttack', UnitCanAttack, 'player', unit) then
         setLevel(self, level, UnitInfo.DifficultyColor(unit, level))
     else
         setLevel(self, level)
@@ -587,7 +592,7 @@ end
 -- data = { name, level, classification, colorKey, npc, pvp, leader, raidMarker, tag, threat,
 --          threatPercent, class | portrait | portraitUnit, hpPercent, dead, incoming, debuffs,
 --          buffs, castName, castProgress, castNotInterruptible, castChannel, totName, totColorKey, totPercent,
---          totDebuffs, combo }
+--          totDebuffs, combo, corpse, guide }
 -- npc: the separator line replaces the HP bar. class: a class token's icon; portrait: a texture
 -- path; portraitUnit: that unit's portrait. threat, totName and combo are optional; nil hides them.
 function TargetBarClass:SetPreview(data)
@@ -617,6 +622,9 @@ function TargetBarClass:SetPreview(data)
     self.colorKey = nil
     setNpcMode(self, data.npc == true)
     setPvP(self, data.pvp)
+    if data.leader then
+        EUI.Indicators.SetLeaderArt(self.leader, data.guide == true)
+    end
     self.leader:SetShown(data.leader == true)
     setTier(self, data.classification)
     if self.combo then
@@ -649,7 +657,9 @@ function TargetBarClass:SetPreview(data)
     self.portrait:SetDesaturated(data.dead == true)
     local low = not data.dead and data.hpPercent < spec.lowHealth.below * 100
     self.portrait:SetVertexColor(Style.Color(low and spec.lowHealth.color or '#FFFFFFFF'))
-    if UnitInfo.ATTACKABLE[data.colorKey] then
+    if data.corpse then
+        setLevel(self, data.level, nil, nil, nil, true)
+    elseif UnitInfo.ATTACKABLE[data.colorKey] then
         setLevel(self, data.level, UnitInfo.DifficultyColor(nil, data.level))
     else
         setLevel(self, data.level)
