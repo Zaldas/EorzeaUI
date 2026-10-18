@@ -454,7 +454,7 @@ function Row:UpdatePvP()
 end
 
 function Row:UpdateRaidMarker()
-    self.indicators:SetRaidMarker(AV.Read('GetRaidTargetIndex', GetRaidTargetIndex, self.unit))
+    self.indicators:SetRaidMarker(AV.Indicators.ReadRaidMarker(self.unit))
     self.indicators:LayoutNameLine(self.name)
 end
 

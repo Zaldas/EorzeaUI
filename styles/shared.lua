@@ -154,6 +154,11 @@ function Kit.target(cast)
         levelBadge = Kit.levelBadge,
         -- Straddles the icon's left edge in its lower half, as on the party rows.
         pvp = { pos = { -49, 27 }, size = { 22, 22 } },
+        -- Crown centred on the icon's top edge, as on the party rows.
+        leader = { pos = { -23, -3 }, size = { 16, 16 } },
+        -- Secure click area: left-click targets, right-click opens the unit menu, hover shows the
+        -- tooltip. Spans the icon and bar from the icon's top to the debuff row's top.
+        click = { pos = { -38, 5 }, size = { 575, 39 } },
         -- Your threat on the target: a diamond on the icon's top-right corner, tinted with
         -- Blizzard's threat colours, and the percent under HP% (raw, or lead while tanking).
         threat = { path = 'ffxi/Range', pos = { 3, 0 }, size = { 12, 12 } },
@@ -182,6 +187,7 @@ function Kit.target(cast)
             bar = Kit.wideBar(226, '#FF9597FF', '#FF9597FF'),
             txtName = { pos = { 20, 17 }, size = 16, color = '#C8C8C8FF', stroke = Kit.STROKE_RED },
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
+            click = { pos = { 0, 10 }, size = { 226, 34 } },
         },
     }
 end

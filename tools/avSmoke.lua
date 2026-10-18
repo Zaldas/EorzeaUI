@@ -210,7 +210,8 @@ local owner2 = _G.AzerothVistaPartyHeaderUnitButton2
 local petButton1 = _G.AzerothVistaPartyPetButton1
 local petButton2 = _G.AzerothVistaPartyPetButton2
 assert(petButton1 and petButton2, 'pet buttons not created')
-assert(#WATCHED == 5, 'pet buttons not unit-watched: ' .. #WATCHED)
+-- 5 pet buttons plus the target and target-of-target click areas.
+assert(#WATCHED == 7, 'pet buttons not unit-watched: ' .. #WATCHED)
 owner1:SetAttribute('unit', 'player')
 owner2:SetAttribute('unit', 'party1')
 assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))

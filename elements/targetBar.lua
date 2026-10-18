@@ -4,7 +4,8 @@ local _, AV = ...
 -- HP% and your threat, a class icon or portrait with the level badge, debuff/buff rows with
 -- dispel and stealable borders, target cast bar, and a target-of-target mini bar.
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
--- Not secure: it only displays, so it may show/hide in combat.
+-- The drawing is not secure, so it may show/hide in combat. Secure buttons on the anchor take
+-- clicks on both bars: left-click targets, right-click opens the unit menu, hover shows the tooltip.
 
 AV.TargetBar = {}
 local TargetBar = AV.TargetBar
@@ -75,6 +76,38 @@ local function createIcon(parent, spec, fonts, frameLevel)
     TargetBar.pvp:Hide()
     TargetBar.threat = Style.Image(markers, 'OVERLAY', spec.threat)
     TargetBar.threat:Hide()
+    TargetBar.leader = markers:CreateTexture(nil, 'OVERLAY')
+    TargetBar.leader:SetSize(spec.leader.size[1], spec.leader.size[2])
+    Style.Place(TargetBar.leader, markers, spec.leader.pos)
+    AV.Indicators.SetLeaderArt(TargetBar.leader)
+    TargetBar.leader:Hide()
+end
+
+-- Secure unit buttons on the anchor, never on content: content shows and hides in combat, which
+-- a frame with protected children cannot. The unit watch shows each one while its unit exists.
+local function createClickArea(unit, rect, origin)
+    local anchor = TargetBar.anchor
+    local button = CreateFrame('Button', nil, anchor, 'SecureUnitButtonTemplate')
+    button:SetSize(rect.size[1], rect.size[2])
+    Style.Place(button, anchor, { origin[1] + rect.pos[1], origin[2] + rect.pos[2] })
+    button:RegisterForClicks('AnyUp')
+    button:SetAttribute('unit', unit)
+    button:SetAttribute('type1', 'target')
+    button:SetAttribute('type2', 'togglemenu')
+    button:HookScript('OnEnter', function()
+        if UnitExists(unit) then
+            GameTooltip_SetDefaultAnchor(GameTooltip, UIParent)
+            GameTooltip:SetUnit(unit)
+            GameTooltip:Show()
+        end
+    end)
+    button:HookScript('OnLeave', function()
+        GameTooltip:Hide()
+    end)
+    if RegisterUnitWatch then
+        RegisterUnitWatch(button)
+    end
+    return button
 end
 
 function TargetBar.Create(style, fonts)
@@ -126,6 +159,9 @@ function TargetBar.Create(style, fonts)
     Style.Place(TargetBar.totMarker, TargetBar.totBar.overlay, spec.tot.raidMarker.pos)
     TargetBar.totMarker:Hide()
 
+    TargetBar.clickTarget = createClickArea('target', spec.click, { 0, 0 })
+    TargetBar.clickTot = createClickArea('targettarget', spec.tot.click, spec.tot.pos)
+
     TargetBar.Refresh()
 end
 
@@ -142,7 +178,7 @@ function TargetBar.UpdateRaidMarker()
     end
     local spec = TargetBar.spec
     setMarkedName(TargetBar.name, spec.txtName, TargetBar.marker, spec.raidMarker,
-        AV.Read('GetRaidTargetIndex', GetRaidTargetIndex, 'target'))
+        AV.Indicators.ReadRaidMarker('target'))
 end
 
 local function inGroup(unit)
@@ -322,7 +358,7 @@ function TargetBar.UpdateThreat()
     end
 end
 
--- Name colour, NPC mode and PvP badge; claim and combat state change without a dedicated
+-- Name colour, NPC mode, PvP badge and leader crown; claim and combat state change without a dedicated
 -- event, so the main ticker calls this too.
 function TargetBar.UpdateIdentity()
     if TargetBar.preview or not UnitExists('target') then
@@ -336,6 +372,14 @@ function TargetBar.UpdateIdentity()
     -- An NPC in combat (escorts, guards) shows its HP.
     setNpcMode(key == 'npc' and not AV.Read('UnitAffectingCombat', UnitAffectingCombat, 'target'))
     setPvP(readPvP('target'))
+    -- UnitLeadsAnyGroup also covers players outside your group.
+    local leads
+    if UnitLeadsAnyGroup then
+        leads = AV.Read('UnitLeadsAnyGroup', UnitLeadsAnyGroup, 'target')
+    else
+        leads = AV.Read('UnitIsGroupLeader', UnitIsGroupLeader, 'target')
+    end
+    TargetBar.leader:SetShown(leads == true)
 end
 
 function TargetBar.Refresh()
@@ -410,7 +454,7 @@ function TargetBar.UpdateTargetOfTarget()
     pcall(TargetBar.totName.SetText, TargetBar.totName, AV.UnitDisplayName('targettarget'))
     TargetBar.totName:SetTextColor(Style.Color(TargetBar.spec.nameColors[nameColorKey('targettarget')]))
     setMarkedName(TargetBar.totName, TargetBar.spec.tot.txtName, TargetBar.totMarker, TargetBar.spec.tot.raidMarker,
-        AV.Read('GetRaidTargetIndex', GetRaidTargetIndex, 'targettarget'))
+        AV.Indicators.ReadRaidMarker('targettarget'))
 end
 
 -- Edit Mode preview: show every part with placeholder values.
@@ -422,7 +466,7 @@ local function setLiveAurasShown(shown)
     end
 end
 
--- data = { name, level, classification, colorKey, pvp, raidMarker, threat, threatPercent,
+-- data = { name, level, classification, colorKey, pvp, leader, raidMarker, threat, threatPercent,
 -- portraitUnit, hpPercent, incoming, castNotInterruptible, debuffs, buffs,
 -- castName, castProgress, totName, totColorKey, totPercent }, or nil to restore live updates.
 function TargetBar.SetPreview(data)
@@ -448,6 +492,7 @@ function TargetBar.SetPreview(data)
     applyNameColor(data.colorKey)
     setNpcMode(false)
     setPvP(data.pvp)
+    TargetBar.leader:SetShown(data.leader == true)
     TargetBar.colorKey = nil
     TargetBar.hpp:SetText(string.format('%d%%', data.hpPercent))
     TargetBar.threat:SetVertexColor(AV.Indicators.ThreatColor(data.threat))

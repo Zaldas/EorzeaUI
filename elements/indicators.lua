@@ -59,6 +59,10 @@ function AV.Indicators.ThreatColor(status)
     return unpack(THREAT_COLORS[status])
 end
 
+function AV.Indicators.SetLeaderArt(texture)
+    Style.SetAtlas(texture, 'UI-HUD-UnitFrame-Player-Group-LeaderIcon', LEADER_FALLBACK)
+end
+
 local function sizedTexture(parent, spec)
     local texture = parent:CreateTexture(nil, 'OVERLAY')
     texture:SetSize(spec.size[1], spec.size[2])
@@ -104,7 +108,7 @@ function AV.Indicators.Create(parent, top, style)
     local spec = style.indicators
     local self = setmetatable({ spec = spec, nameSpec = style.txtName, top = top, parent = parent }, Indicators)
     self.leader = sizedTexture(parent, spec.leader)
-    Style.SetAtlas(self.leader, 'UI-HUD-UnitFrame-Player-Group-LeaderIcon', LEADER_FALLBACK)
+    AV.Indicators.SetLeaderArt(self.leader)
     self.assistant = sizedTexture(parent, spec.assistant)
     self.assistant:SetTexture('Interface\\GroupFrame\\UI-Group-AssistantIcon')
     self.masterLooter = sizedTexture(parent, spec.masterLooter)
@@ -189,22 +193,35 @@ function Indicators:SetStatus(kind)
     self.status:Show()
 end
 
--- index: 1-8 from GetRaidTargetIndex, or nil.
+-- index: from AV.Indicators.ReadRaidMarker (possibly secret), a plain 1-8, or nil.
 function Indicators:SetRaidMarker(index)
     AV.Indicators.SetRaidMarkerIcon(self.raidMarker, index)
 end
 
--- Shows marker index (1-8) on texture, or hides it for anything else. Returns whether it shows.
-function AV.Indicators.SetRaidMarkerIcon(texture, index)
-    if index and index >= 1 and index <= 8 then
-        local column, row = (index - 1) % 4, math.floor((index - 1) / 4)
-        texture:SetTexture(RAID_MARKERS)
-        texture:SetTexCoord(column * 0.25, (column + 1) * 0.25, row * 0.25, (row + 1) * 0.25)
-        texture:Show()
-        return true
+-- GetRaidTargetIndex is secret on Forever, and nil for yourself and friendly NPCs while solo.
+-- SetSpriteSheetCell takes the secret index and rejects a missing one, so nothing else touches it.
+function AV.Indicators.ReadRaidMarker(unit)
+    local ok, index = pcall(GetRaidTargetIndex, unit)
+    if not ok then
+        AV.LogOnce('raidMarker:error', 'GetRaidTargetIndex: %s', tostring(index))
+        return nil
     end
-    texture:Hide()
-    return false
+    return index
+end
+
+-- Shows marker index on texture, or hides it when there is none. Returns whether it shows.
+function AV.Indicators.SetRaidMarkerIcon(texture, index)
+    texture:SetTexture(RAID_MARKERS)
+    local ok, err = pcall(texture.SetSpriteSheetCell, texture, index, 4, 4)
+    if not ok then
+        if type(index) ~= 'nil' then
+            AV.LogOnce('raidMarker:cell', 'SetSpriteSheetCell: %s', tostring(err))
+        end
+        texture:Hide()
+        return false
+    end
+    texture:Show()
+    return true
 end
 
 -- role: UnitGroupRolesAssigned result. 'NONE' and nil hide the icon.
