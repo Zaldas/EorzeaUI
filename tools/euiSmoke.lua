@@ -751,7 +751,7 @@ local REQUIRED = {
     'target.cast.uninterruptible.color', 'target.comboPoints.color', 'target.healPrediction.color',
     'target.auras.groups.HARMFUL.dispelColors', 'focus.header.txtLabel.color', 'castBar.bar.fill.color',
     'target.auras.groups.HELPFUL.dispelColors.Magic', 'target.cast.bar.fill.color', 'target.txtThreat.color',
-    'target.tot.txtName.stroke', 'party.hp.thresholds',
+    'target.tot.txtName.stroke', 'party.hp.thresholds', 'raid.groupNumber.txtLabel.color', 'focus.header.line.color',
 }
 local REACTIONS = { 'party', 'partyPvP', 'player', 'hostilePlayer', 'friendly', 'neutral', 'unfriendly', 'hostile', 'tapped' }
 for _, name in ipairs({ 'vanadiel', 'azeroth' }) do

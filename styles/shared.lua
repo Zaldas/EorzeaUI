@@ -11,8 +11,9 @@ Kit.STROKE_RED = '#3B0B0BC8'
 -- 1px edge around every aura icon (the icon is inset over this colour).
 Kit.AURA_BORDER = '#4A4A4AFF'
 
--- Style.Header's grey line each side of a label, fading out toward the header's ends.
-Kit.HEADER_LINE = { color = '#A0A0A0FF', alpha = 0.6, height = 2, gap = 8 }
+-- Style.Header's line each side of a label, fading out toward the header's ends; coloured with
+-- the palette's label colour.
+Kit.HEADER_LINE = { alpha = 0.6, height = 2, gap = 8 }
 
 -- Pastel takes on Blizzard's debuff-type colours, keyed by dispel type name. An aura with no
 -- dispel type keeps the plain edge.
@@ -285,8 +286,8 @@ function Kit.target(p, castText, size)
             pos = { iconX, iconY - 24 },
             width = totX + size.tot / 3 - iconX,
             height = 14,
-            txtLabel = { size = 14, color = p.targetText, stroke = p.stroke },
-            line = Kit.HEADER_LINE,
+            txtLabel = { size = 14, color = p.label, stroke = p.stroke },
+            line = { color = p.label, alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
         } or nil,
         -- The unit's target.
         tot = {

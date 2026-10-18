@@ -23,16 +23,16 @@ function Kit.BuildLayout(p)
             bottom = { height = 6 },
         }
     end
-    -- A raid block's label, centred on its background with header lines in the text's gold, its box
-    -- ending 3px above the background. Gold with a black shadow and no outline in Friz Quadrata:
-    -- WoW's GameFontNormal look.
+    -- A raid block's label, centred on its background with header lines in the label colour, its
+    -- box ending 3px above the background. A black shadow and no outline in Friz Quadrata: WoW's
+    -- GameFontNormal look.
     local function raidLabel(width)
         return {
             pos = { 7, -24 },
             width = width,
             height = 14,
-            txtLabel = { size = 14, color = '#FFD200FF', stroke = '#000000FF', outline = '', font = 'standard' },
-            line = { color = '#FFD200FF', alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
+            txtLabel = { size = 14, color = p.label, stroke = '#000000FF', outline = '', font = 'standard' },
+            line = { color = p.label, alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
         }
     end
 

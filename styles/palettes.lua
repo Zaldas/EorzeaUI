@@ -11,6 +11,7 @@ local _, EUI = ...
 -- reaction: keyed as targetBar.lua reactionKey returns. targetName (optional): one colour for
 -- target names in place of the reaction colour. nameBg (optional): { alpha, leftAlpha, color }.
 -- partyBg: the party list's fade, { color, alpha, leftAlpha }.
+-- label: frame labels (Group N, Assists, Pets, Focus) and their header lines.
 
 local Kit = EUI.StyleKit
 
@@ -49,6 +50,8 @@ local vanadiel = {
     nameBg = { color = '#000000FF', alpha = 0.3, leftAlpha = 0.45 },
     combo = '#FFD966FF',
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
+    -- Bluish silver.
+    label = '#A6BCE3FF',
 }
 
 -- Blizzard's default colours, as the Forever client reports them: PowerBarColor,
@@ -89,6 +92,8 @@ local azeroth = {
     nameBg = { alpha = 0.4, leftAlpha = 0.5 },
     combo = '#FFF569FF',
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
+    -- NORMAL_FONT_COLOR, as on Blizzard's raid group titles.
+    label = '#FFD200FF',
 }
 
 Kit.PALETTES = { vanadiel = vanadiel, azeroth = azeroth }
