@@ -36,6 +36,15 @@ function Kit.BuildLayout(p)
         }
     end
 
+    -- Encounter units boss1..count, stacked `spacing` apart under one header, sized like the focus
+    -- bar. No auras, as Blizzard's boss frames. The name hides while the cast bar shows.
+    local boss = Kit.target(p, castText, {
+        bar = 268, icon = 40, name = 15, hpp = 13, cast = 160, tot = 180, totName = 14,
+        height = 54, totDebuffs = 0, label = 'Boss', castHidesName = true, compact = true,
+    })
+    boss.count = 5
+    boss.spacing = 6
+
     return {
         fonts = Kit.FONTS,
 
@@ -280,7 +289,9 @@ function Kit.BuildLayout(p)
         focus = Kit.target(p, castText, {
             bar = 268, icon = 40, name = 15, hpp = 13, cast = 160, tot = 180, totName = 14,
             height = 100, perLine = 8, debuffs = 8, buffs = 8, label = 'Focus', castHidesName = true,
+            compact = true,
         }),
+        boss = boss,
         castBar = Kit.castBar(p, castText),
     }
 end

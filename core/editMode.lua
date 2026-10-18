@@ -16,6 +16,7 @@ local DEFAULT_POSITIONS = {
     pets = { 'BOTTOMLEFT', 'BOTTOMLEFT', 60, 220 },
     target = { 'TOP', 'TOP', 0, -140 },
     focus = { 'TOP', 'TOP', 0, -340 },
+    boss = { 'RIGHT', 'RIGHT', -120, -280 },
     cast = { 'CENTER', 'CENTER', 0, -148 },
 }
 

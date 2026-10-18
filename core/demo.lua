@@ -231,6 +231,26 @@ local function focus()
     }
 end
 
+-- An encounter: the boss casting on its tank, a lieutenant on a healer, and a dead add.
+local function bosses()
+    return {
+        {
+            name = 'Ragnaros', level = -1, classification = 'worldboss', colorKey = 'hostile', raidMarker = 8, portraitUnit = 'player',
+            hpPercent = 64, threat = 3, threatPercent = 100, castName = 'Wrath of Ragnaros', castProgress = 0.4, castNotInterruptible = true,
+            totName = 'Brightmane Stormhold', totColorKey = 'party', totPercent = 81,
+        },
+        {
+            name = 'Majordomo Executus', level = 63, classification = 'elite', colorKey = 'hostile', raidMarker = 7, portraitUnit = 'player',
+            hpPercent = 38, threat = 1, threatPercent = 72,
+            totName = 'Velisandre Ashby', totColorKey = 'party', totPercent = 55,
+        },
+        {
+            name = 'Flamewaker Healer', level = 62, classification = 'elite', colorKey = 'hostile', portraitUnit = 'player',
+            hpPercent = 0, dead = true,
+        },
+    }
+end
+
 function Demo.Toggle()
     if InCombatLockdown() then
         EUI.Print('demo mode cannot change in combat')
@@ -295,5 +315,9 @@ function Demo.Refresh()
     EUI.RaidPets.SetDemo(raid and raidPets(raid))
     EUI.TargetBar.target:SetPreview(active and target() or nil)
     EUI.TargetBar.focus:SetPreview(active and focus() or nil)
+    local bossSamples = active and bosses() or {}
+    for i, bar in ipairs(EUI.TargetBar.bosses) do
+        bar:SetPreview(bossSamples[i])
+    end
     EUI.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)
 end

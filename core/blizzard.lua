@@ -13,6 +13,7 @@ local REPLACED = {
     'TargetFrameToT',
     'FocusFrame',
     'FocusFrameToT',
+    'BossTargetFrameContainer',
     'PartyFrame',
     'CompactPartyFrame',
     'CompactRaidFrameContainer',

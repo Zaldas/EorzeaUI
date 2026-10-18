@@ -180,10 +180,12 @@ end
 
 -- p: the palette (styles/palettes.lua); castText as in Kit.castName.
 -- size = { bar, icon, name, hpp, cast, tot, totName, height, perLine, debuffs, buffs, label,
---         castHidesName, combo }: widths of the HP, cast and mini bars, the icon's side, text
--- sizes, the anchor height, the aura row's line length and maxes, an optional header label,
--- whether the name line hides while the unit casts, and whether combo points show. Everything
--- else is placed from these.
+--         castHidesName, combo, compact, totDebuffs }: widths of the HP, cast and mini bars, the
+-- icon's side, text sizes, the anchor height, the aura row's line length and maxes (no debuffs:
+-- no aura row), an optional header label, whether the name line hides while the unit casts,
+-- whether combo points show, the raid Assists cells' tighter spacing between the HP bar, the
+-- attention arrow and the mini bar, and the mini bar's debuff count (default 4). Everything else
+-- is placed from these.
 function Kit.target(p, castText, size)
     local barWidth, iconSize = size.bar, size.icon
     -- The icon is centred on y 28 (the name's top to the bar line's bottom), its right edge 5px
@@ -192,7 +194,14 @@ function Kit.target(p, castText, size)
     local nameX, nameY, nameRight = 20, 32 - size.name, barWidth - 64
     -- The aura row's top; the click areas end there.
     local aurasY = 44
-    local totX = barWidth + 23
+    -- Compact: the arrow starts 4px after the HP line's end (11px inside a wide bar) and the mini
+    -- bar's line 4px after the 11px arrow.
+    local attentionX, totX = barWidth + 8, barWidth + 23
+    if size.compact then
+        attentionX = barWidth - 11 + 4
+        totX = attentionX + 11 + 4 - 11
+    end
+    local totDebuffs = size.totDebuffs or 4
     local bar = Kit.wideBar(barWidth, p.hp, p.hp)
     return {
         width = totX + size.tot,
@@ -275,13 +284,13 @@ function Kit.target(p, castText, size)
         txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
         -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
         -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
-        auras = {
+        auras = size.debuffs and {
             pos = { 25, aurasY }, size = 22, spacing = 3, perLine = size.perLine, lineSpacing = 16, timers = true, border = Kit.AURA_BORDER,
             groups = {
                 HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = p.dispel },
                 HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
             },
-        },
+        } or nil,
         -- Above the HP bar, its right end 70px before the bar's.
         cast = {
             pos = { barWidth - 70 - size.cast, -15 },
@@ -298,7 +307,7 @@ function Kit.target(p, castText, size)
                 lock = { path = 'ffxi/lock', pos = { -2, 25 }, size = { 14, 14 }, color = '#FFFFFFFF' },
             },
         },
-        attention = { path = 'ffxi/attention', pos = { barWidth + 8, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
+        attention = { path = 'ffxi/attention', pos = { attentionX, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
         -- Optional label centred from the icon to a third into the mini bar, its box ending 2px
         -- above the leader crown (top at iconY - 8), with header lines.
         header = size.label and {
@@ -316,11 +325,11 @@ function Kit.target(p, castText, size)
             txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = p.targetText, stroke = p.strokeAlt, right = size.tot - 14 },
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
             click = { pos = { 0, 10 }, size = { size.tot, aurasY - 10 } },
-            -- Up to 4 debuffs under the bar, as Blizzard's target-of-target frame shows.
-            auras = {
-                pos = { 20, aurasY }, size = 16, spacing = 2, max = 4, border = Kit.AURA_BORDER,
+            -- Debuffs under the bar; Blizzard's target-of-target frame shows 4.
+            auras = totDebuffs > 0 and {
+                pos = { 20, aurasY }, size = 16, spacing = 2, max = totDebuffs, border = Kit.AURA_BORDER,
                 dispelBorder = 'dispel', dispelColors = p.dispel,
-            },
+            } or nil,
         },
     }
 end

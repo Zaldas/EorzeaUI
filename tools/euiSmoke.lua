@@ -276,9 +276,9 @@ local owner2 = _G.EorzeaUIPartyButton2
 local petButton1 = _G.EorzeaUIPartyPetButton1
 local petButton2 = _G.EorzeaUIPartyPetButton2
 assert(owner1 and owner2 and petButton1 and petButton2, 'party buttons not created')
--- 5 rows, 5 pet buttons, the target, focus and their mini bars' click areas, and 8 Assists
--- cells' target and target-of-target buttons.
-assert(#WATCHED == 30, 'party buttons not unit-watched: ' .. #WATCHED)
+-- 5 rows, 5 pet buttons, the target, focus and 5 boss bars' click areas and their mini bars',
+-- and 8 Assists cells' target and target-of-target buttons.
+assert(#WATCHED == 40, 'party buttons not unit-watched: ' .. #WATCHED)
 assert(owner1:GetAttribute('unit') == 'player', 'row 1 unit: ' .. tostring(owner1:GetAttribute('unit')))
 assert(owner2:GetAttribute('unit') == 'party1', 'row 2 unit: ' .. tostring(owner2:GetAttribute('unit')))
 assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))
@@ -365,8 +365,9 @@ assert(EUI.TargetBar.ForUnit('target') == EUI.TargetBar.target, 'live target bar
 assert(EUI.TargetBar.ForUnit('focus') == EUI.TargetBar.focus, 'live focus bar not routed')
 local liveBars = 0
 EUI.TargetBar.ForEach(function() liveBars = liveBars + 1 end)
-assert(liveBars == 2, 'demo target bars registered as live: ' .. liveBars)
-for _, unit in ipairs({ 'target', 'focus' }) do
+assert(liveBars == 7, 'demo target bars registered as live: ' .. liveBars)
+assert(EUI.TargetBar.ForUnit('boss5') == EUI.TargetBar.bosses[5], 'boss bar not routed')
+for _, unit in ipairs({ 'target', 'focus', 'boss1' }) do
     onEvent(nil, 'UNIT_HEALTH', unit)
     onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', unit)
     onEvent(nil, 'UNIT_FLAGS', unit)
@@ -415,8 +416,10 @@ local spied = {
     pet = EUI.PartyList.PetForUnit('pet'),
     target = EUI.TargetBar.target,
     focus = EUI.TargetBar.focus,
+    boss1 = EUI.TargetBar.bosses[1],
     targetCast = EUI.TargetBar.target.cast,
     focusCast = EUI.TargetBar.focus.cast,
+    boss1Cast = EUI.TargetBar.bosses[1].cast,
     rowCast = EUI.PartyList.RowForUnit('player').cast,
     party1Cast = EUI.PartyList.RowForUnit('party1').cast,
     petCast = EUI.PartyList.PetForUnit('pet').cast,
@@ -444,7 +447,7 @@ local function route(event, unit)
     table.sort(calls)
     return table.concat(calls, ' ')
 end
-local ROUTE_UNITS = { 'player', 'party1', 'pet', 'target', 'focus' }
+local ROUTE_UNITS = { 'player', 'party1', 'pet', 'target', 'focus', 'boss1' }
 local UNIT_ROUTE_EVENTS = {
     'UNIT_HEALTH', 'UNIT_MAXHEALTH', 'UNIT_POWER_UPDATE', 'UNIT_MAXPOWER', 'UNIT_DISPLAYPOWER',
     'UNIT_NAME_UPDATE', 'UNIT_LEVEL', 'UNIT_TARGET', 'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP',
@@ -452,7 +455,7 @@ local UNIT_ROUTE_EVENTS = {
     'UNIT_SPELLCAST_SUCCEEDED', 'UNIT_HEAL_PREDICTION', 'UNIT_ABSORB_AMOUNT_CHANGED', 'UNIT_CONNECTION',
     'UNIT_FLAGS', 'PLAYER_FLAGS_CHANGED', 'INCOMING_SUMMON_CHANGED', 'INCOMING_RESURRECT_CHANGED',
     'UNIT_PHASE', 'UNIT_FACTION', 'UNIT_THREAT_SITUATION_UPDATE', 'UNIT_PET', 'UNIT_PORTRAIT_UPDATE',
-    'UNIT_HAPPINESS', 'UNIT_CLASSIFICATION_CHANGED',
+    'UNIT_HAPPINESS', 'UNIT_CLASSIFICATION_CHANGED', 'UNIT_TARGETABLE_CHANGED',
 }
 local GLOBAL_ROUTE_EVENTS = {
     'PLAYER_ENTERING_WORLD', 'PLAYER_REGEN_DISABLED', 'PLAYER_REGEN_ENABLED', 'PLAYER_TARGET_CHANGED',
@@ -460,7 +463,7 @@ local GLOBAL_ROUTE_EVENTS = {
     'PLAYER_UPDATE_RESTING', 'PLAYER_DEAD', 'PLAYER_ALIVE', 'PLAYER_UNGHOST', 'READY_CHECK',
     'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
     'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE', 'PLAYER_FOCUS_CHANGED',
-    'COMBO_TARGET_CHANGED',
+    'COMBO_TARGET_CHANGED', 'INSTANCE_ENCOUNTER_ENGAGE_UNIT',
 }
 local cases = {}
 for _, event in ipairs(UNIT_ROUTE_EVENTS) do

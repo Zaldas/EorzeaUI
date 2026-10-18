@@ -6,8 +6,8 @@ local _, EUI = ...
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- The drawing is not secure, so it may show/hide in combat. Secure buttons on the anchor take
 -- clicks on both bars: left-click targets, right-click opens the unit menu, hover shows the tooltip.
--- Each bar is an instance for one unit ('target' or 'focus'; the unit's target gets the mini
--- bar). Demo bars have no unit and only show SetPreview data.
+-- Each bar is an instance for one unit ('target', 'focus' or 'boss1'..; the unit's target gets
+-- the mini bar). Demo bars have no unit and only show SetPreview data.
 
 EUI.TargetBar = {}
 local TargetBar = EUI.TargetBar
@@ -112,7 +112,7 @@ function TargetBar.New(anchor, spec, fonts, unit)
     createIcon(self, content, spec, fonts, top:GetFrameLevel() + 1)
     self.lowHealthCurve = EUI.Curves.Step({ spec.lowHealth }, '#FFFFFFFF')
 
-    if unit then
+    if unit and spec.auras then
         self.auras = EUI.AuraRow.Create(content, unit, { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
     end
 
@@ -142,7 +142,7 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.totMarker:SetSize(spec.tot.raidMarker.size[1], spec.tot.raidMarker.size[2])
     Style.Place(self.totMarker, self.totBar.overlay, spec.tot.raidMarker.pos)
     self.totMarker:Hide()
-    if unit then
+    if unit and spec.tot.auras then
         -- The unit's target fires no UNIT_AURA; UpdateTargetOfTarget refreshes the row.
         self.totAuras = EUI.AuraRow.Create(tot, self.totUnit, 'HARMFUL', spec.tot.auras, fonts)
     end
@@ -168,9 +168,34 @@ local function createLive(anchorName, spec, fonts, unit)
     return TargetBar.New(anchor, spec, fonts, unit)
 end
 
+-- Boss bars stacked on one movable anchor, a fixed slot per encounter unit; only the first
+-- carries the header.
+local function createBosses(spec, fonts)
+    local anchor = CreateFrame('Frame', 'EorzeaUIBossAnchor', UIParent)
+    anchor:SetSize(spec.width, spec.count * spec.height + (spec.count - 1) * spec.spacing)
+    anchor:SetMovable(true)
+    anchor:SetClampedToScreen(true)
+    TargetBar.bossAnchor = anchor
+    TargetBar.bosses = {}
+    local headless = setmetatable({ header = false }, { __index = spec })
+    for i = 1, spec.count do
+        local slot = CreateFrame('Frame', nil, anchor)
+        slot:SetSize(spec.width, spec.height)
+        slot:SetPoint('TOPLEFT', anchor, 'TOPLEFT', 0, -(i - 1) * (spec.height + spec.spacing))
+        TargetBar.bosses[i] = TargetBar.New(slot, i == 1 and spec or headless, fonts, 'boss' .. i)
+    end
+end
+
 function TargetBar.Create(style, fonts)
     TargetBar.target = createLive('EorzeaUITargetAnchor', style.target, fonts, 'target')
     TargetBar.focus = createLive('EorzeaUIFocusAnchor', style.focus, fonts, 'focus')
+    createBosses(style.boss, fonts)
+end
+
+function TargetBar.RefreshBosses()
+    for _, bar in ipairs(TargetBar.bosses) do
+        bar:Refresh()
+    end
 end
 
 -- A demo bar in parent, on its own anchor sized to spec. Show data with bar:SetPreview.
@@ -501,7 +526,9 @@ function TargetBarClass:Refresh()
     self:UpdateHealth(false)
     self:UpdateThreat()
     self:UpdateCombo()
-    self.auras:Refresh()
+    if self.auras then
+        self.auras:Refresh()
+    end
     self.cast:Clear()
     self.cast:Update()
     self:UpdateTargetOfTarget()
@@ -561,7 +588,9 @@ function TargetBarClass:UpdateTargetOfTarget()
     self.totName:SetTextColor(Style.Color(nameHex(self.spec, (UnitInfo.ReactionKey(totUnit)))))
     setMarkedName(self.totName, self.spec.tot.txtName, self.totMarker, self.spec.tot.raidMarker,
         EUI.Indicators.ReadRaidMarker(totUnit))
-    self.totAuras:Refresh()
+    if self.totAuras then
+        self.totAuras:Refresh()
+    end
 end
 
 local function setLiveAurasShown(self, shown)
@@ -597,9 +626,12 @@ end
 -- path; portraitUnit: that unit's portrait. threat, totName and combo are optional; nil hides them.
 function TargetBarClass:SetPreview(data)
     self.preview = data ~= nil
+    local spec = self.spec
     if not data then
         if self.demoAuras then
             self.demoAuras:Set(nil)
+        end
+        if self.totDemoAuras then
             self.totDemoAuras:Set(nil)
         end
         setLiveAurasShown(self, true)
@@ -607,9 +639,10 @@ function TargetBarClass:SetPreview(data)
         self:Refresh()
         return
     end
-    local spec = self.spec
-    if not self.demoAuras then
+    if spec.auras and not self.demoAuras then
         self.demoAuras = EUI.StaticIcons.Create(self.content, spec.auras, self.fonts)
+    end
+    if spec.tot.auras and not self.totDemoAuras then
         self.totDemoAuras = EUI.StaticIcons.Create(self.tot, spec.tot.auras, self.fonts)
     end
     setLiveAurasShown(self, false)
@@ -667,7 +700,9 @@ function TargetBarClass:SetPreview(data)
     self.bar:SetRange(100)
     self.bar:SetValue(data.hpPercent)
     self.bar:SetIncoming(data.incoming or 0, 100)
-    self.demoAuras:Set(demoAuras(spec.auras, data.debuffs, data.buffs))
+    if self.demoAuras then
+        self.demoAuras:Set(demoAuras(spec.auras, data.debuffs, data.buffs))
+    end
     local hasTot = data.totName ~= nil
     self.tot:SetShown(hasTot)
     self.attention:SetShown(hasTot)
@@ -677,14 +712,16 @@ function TargetBarClass:SetPreview(data)
         self.totName:SetText(data.totName)
         setMarkedName(self.totName, spec.tot.txtName, self.totMarker, spec.tot.raidMarker, nil)
         self.totName:SetTextColor(Style.Color(nameHex(spec, data.totColorKey)))
-        local totDebuffs = {}
-        for i, entry in ipairs(data.totDebuffs or {}) do
-            if i > spec.tot.auras.max then
-                break
+        if self.totDemoAuras then
+            local totDebuffs = {}
+            for i, entry in ipairs(data.totDebuffs or {}) do
+                if i > spec.tot.auras.max then
+                    break
+                end
+                totDebuffs[i] = { entry[1], nil, dispel = entry.dispel }
             end
-            totDebuffs[i] = { entry[1], nil, dispel = entry.dispel }
+            self.totDemoAuras:Set(totDebuffs)
         end
-        self.totDemoAuras:Set(totDebuffs)
     end
     self.cast:SetPreview(data.castName or false, data.castProgress, data.castNotInterruptible, data.castChannel)
 end

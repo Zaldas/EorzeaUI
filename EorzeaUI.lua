@@ -13,6 +13,7 @@ local function applyScale()
         EUI.RaidPets.anchor:SetScale(scale)
         EUI.TargetBar.target.anchor:SetScale(scale)
         EUI.TargetBar.focus.anchor:SetScale(scale)
+        EUI.TargetBar.bossAnchor:SetScale(scale)
         EUI.castAnchor:SetScale(scale)
     end, 'scale')
     if EorzeaUIGallery and EorzeaUIGallery.ApplyScale then
@@ -98,6 +99,7 @@ local function initialize()
     EUI.EditMode.Register('pets', EUI.RaidPets.anchor, 'Pets')
     EUI.EditMode.Register('target', EUI.TargetBar.target.anchor, 'Target')
     EUI.EditMode.Register('focus', EUI.TargetBar.focus.anchor, 'Focus')
+    EUI.EditMode.Register('boss', EUI.TargetBar.bossAnchor, 'Boss')
     EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar')
     EUI.EditMode.Initialize()
 
@@ -202,6 +204,7 @@ local UNIT_ROUTES = {
         end,
     },
     UNIT_CLASSIFICATION_CHANGED = { bar = 'UpdateTier' },
+    UNIT_TARGETABLE_CHANGED = { bar = 'Refresh' },
     UNIT_THREAT_SITUATION_UPDATE = { row = 'UpdateThreat' },
     INCOMING_SUMMON_CHANGED = { row = 'UpdateStatusIcon' },
     INCOMING_RESURRECT_CHANGED = { row = 'UpdateStatusIcon' },
@@ -354,6 +357,10 @@ local GLOBAL_ROUTES = {
     PLAYER_FOCUS_CHANGED = function()
         checkUnitLost('focus')
         EUI.TargetBar.focus:Refresh()
+    end,
+    -- The boss1.. units changed.
+    INSTANCE_ENCOUNTER_ENGAGE_UNIT = function()
+        EUI.TargetBar.RefreshBosses()
     end,
     -- CompactPartyFrame is created when raid-style party frames are first needed.
     GROUP_ROSTER_UPDATE = function()
@@ -516,6 +523,7 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             EUI.EditMode.RestorePosition('pets', EUI.RaidPets.anchor)
             EUI.EditMode.RestorePosition('target', EUI.TargetBar.target.anchor)
             EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)
+            EUI.EditMode.RestorePosition('boss', EUI.TargetBar.bossAnchor)
             EUI.EditMode.RestorePosition('cast', EUI.castAnchor)
         end)
     else
