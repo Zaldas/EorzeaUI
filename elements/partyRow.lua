@@ -76,8 +76,6 @@ local function buildArt(self, host, style, fonts)
 
     self.threat = Style.Image(top, 'OVERLAY', style.threat)
     self.threat:Hide()
-    self.combo = AV.ComboPoints.Create(top, style.comboPoints)
-    self.top = top
 
     -- Cut off with an ellipsis before the aura icons.
     self.name = Style.Text(top, style.txtName, fonts)
@@ -128,18 +126,6 @@ local function tintPower(self, bar, powerType)
     local color = spec.colors and spec.colors[powerType] or spec.bar.fill.color
     bar:SetFrameColor(color)
     bar:SetFillColor(color)
-end
-
--- The combo diamonds follow the energy bar: under the form bar's left end while a druid is
--- shifted, at the same offset they keep from the power bar's start.
-local function placeCombo(self, shifted)
-    local style = self.style
-    local pos = style.comboPoints.pos
-    if shifted then
-        local dx = style.formBar.pos[1] - style.power.pos[1]
-        pos = { pos[1] + dx, pos[2] + style.formRowHeight }
-    end
-    Style.Place(self.combo.frame, self.top, pos)
 end
 
 local STATE_LABELS = { dead = 'DEAD', ghost = 'GHOST', offline = 'OFFLINE' }
@@ -245,7 +231,7 @@ end
 
 -- member = { name, class, level, hp, hpMax, incoming, power, powerMax, leader, targeted, far,
 --            state, resting, combat, status, raidMarker, tag, role, pvp, cast, threat, powerType,
---            combo, form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
+--            form = { powerType, power, powerMax }, assistant, masterLooter, absorb,
 --            buffs, debuffs, pet (see PetRow ShowDemo) }
 function Row:ShowDemo(member)
     self.host:SetShown(member ~= nil)
@@ -295,9 +281,6 @@ function Row:ShowDemo(member)
         self.formBar:SetValue(form.power)
         self.formText:SetText(tostring(form.power))
     end
-    placeCombo(self, form ~= nil)
-    self.combo:SetShown(member.combo ~= nil)
-    self.combo:SetCount(member.combo)
     self.powerText:SetText(BreakUpLargeNumbers and BreakUpLargeNumbers(member.power) or tostring(member.power))
 
     indicators:SetLeader(member.leader == true)
@@ -348,7 +331,6 @@ function Row:Refresh()
     self:UpdateCursor()
     self:UpdateCast()
     self:UpdateThreat()
-    self:UpdateCombo()
     self:UpdateFlags()
     self:UpdateRole()
     self:UpdatePvP()
@@ -534,35 +516,6 @@ function Row:UpdateFormBar(smooth)
     local power = UnitPower('player')
     self.formBar:SetValue(power, smooth)
     AV.SetNumberText(self.formText, power)
-end
-
-local COMBO_POINTS = Enum and Enum.PowerType and Enum.PowerType.ComboPoints or 4
-local ENERGY = 3
-
--- Rogues, and druids while on energy (cat form), with a target.
-local function usesComboPoints()
-    local class = AV.SafeValue(function() return select(2, UnitClass('player')) end)
-    if class == 'DRUID' then
-        return AV.Read('UnitPowerType', UnitPowerType, 'player') == ENERGY
-    end
-    return class == 'ROGUE'
-end
-
-function Row:UpdateCombo()
-    local shown = self:IsPlayer() and usesComboPoints() and UnitExists('target')
-    placeCombo(self, shown and AV.Druid.IsShifted())
-    self.combo:SetShown(shown)
-    if not shown then
-        return
-    end
-    local ok, count = pcall(UnitPower, 'player', COMBO_POINTS)
-    if not ok then
-        AV.LogOnce('combo:error', 'combo points: %s', tostring(count))
-        count = 0
-    elseif not AV.CanAccess(count) then
-        AV.LogOnce('combo:secret', 'combo points are secret; drawn through StatusBar ranges')
-    end
-    self.combo:SetCount(count)
 end
 
 -- Loot-method APIs: C_PartyInfo.GetLootMethod (Enum.LootMethod) or the older GetLootMethod

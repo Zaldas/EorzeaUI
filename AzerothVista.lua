@@ -121,8 +121,8 @@ local function onUnitEvent(event, unit, arg3)
     elseif event == 'UNIT_POWER_UPDATE' or event == 'UNIT_MAXPOWER' or event == 'UNIT_DISPLAYPOWER' then
         if row then
             row:UpdatePower(event == 'UNIT_POWER_UPDATE')
-            row:UpdateCombo()
         end
+        if unit == 'player' then AV.TargetBar.target:UpdateCombo() end
         if pet then pet:UpdatePower(event == 'UNIT_POWER_UPDATE') end
     elseif event == 'UNIT_PET' then
         -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
@@ -207,6 +207,7 @@ local GLOBAL_EVENTS = {
     'READY_CHECK', 'READY_CHECK_CONFIRM', 'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE',
     'ADDON_ACTION_BLOCKED', 'ADDON_ACTION_FORBIDDEN', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
     'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE', 'PLAYER_FOCUS_CHANGED',
+    'COMBO_TARGET_CHANGED',
 }
 
 local function forEachRow(method)
@@ -272,8 +273,9 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         AV.TargetBar.target:Refresh()
         AV.PartyList.ForEachVisibleRow(function(row)
             row:UpdateCursor()
-            row:UpdateCombo()
         end)
+    elseif event == 'COMBO_TARGET_CHANGED' then
+        AV.TargetBar.target:UpdateCombo()
     elseif event == 'PLAYER_FOCUS_CHANGED' then
         AV.TargetBar.focus:Refresh()
     elseif event == 'GROUP_ROSTER_UPDATE' then
@@ -289,7 +291,7 @@ events:SetScript('OnEvent', AV.Guard('OnEvent', function(_, event, arg1, arg2, a
         forEachRow('UpdateGroupRoles')
     elseif event == 'UPDATE_SHAPESHIFT_FORM' then
         forEachRow('UpdatePower')
-        forEachRow('UpdateCombo')
+        AV.TargetBar.target:UpdateCombo()
         AV.PartyList.UpdateBackground()
     elseif event == 'UI_SCALE_CHANGED' or event == 'DISPLAY_SIZE_CHANGED' then
         applyScale()

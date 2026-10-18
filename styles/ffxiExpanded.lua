@@ -53,25 +53,14 @@ AV.styles.ffxiExpanded = {
             cost = { color = '#FFFFFF99', fade = 0.25 },
         },
         -- Player row, druid in bear/cat form: the form's power bar in a sub-row under the power
-        -- bar (which keeps showing mana), from the HP bar's middle (x 83) to the power bar's end
-        -- (x 278). Its line (row y 40.5..53) clears both numbers above. The row grows by
+        -- bar (which keeps showing mana), from the HP bar's middle (x 83) to x 239, 39px short of
+        -- the power bar's end. Its line (row y 40.5..53) clears both numbers above. The row grows by
         -- formRowHeight while shifted.
         formRowHeight = 22,
         formBar = {
             pos = { 83, 15 },
-            bar = Kit.wideBar(195, '#FFFF9CFF', '#FFFF9CFF'),
-            txtValue = { pos = { 187, 34 }, size = 13, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true },
-        },
-        -- Player row only. Pip 1 sits under the power bar's line (row y 18.5..31, fill from
-        -- x 162). Steps keep dx == dy so facing 45-degree edges line up; the diamonds' ink is
-        -- 14px, so |dx| + |dy| = 14 makes them touch; tighter merges them.
-        comboPoints = {
-            pos = { 161, 31 },
-            size = { 16, 16 },
-            offsets = { { 0, 0 }, { 7, -7 }, { 14, 0 }, { 21, -7 }, { 28, 0 } },
-            fill = 'pips/diamondFill-16',
-            outline = 'pips/diamondLine-16',
-            color = '#FFD966FF',
+            bar = Kit.wideBar(156, '#FFFF9CFF', '#FFFF9CFF'),
+            txtValue = { pos = { 148, 34 }, size = 13, color = '#F0FFFFFF', stroke = Kit.STROKE_BLUE, font = 'number', alignRight = true },
         },
         classIcon = {
             pos = { -13, -4 },
@@ -141,7 +130,7 @@ AV.styles.ffxiExpanded = {
     -- Maxes match Blizzard's target frame (16 debuffs, 32 buffs): at most 3 lines.
     target = Kit.target({ frame = '#6AB4F8FF', fill = '#6AB4F8FF', text = castText }, {
         bar = 537, icon = 46, name = 17, hpp = 14, cast = 234, tot = 226, totName = 16,
-        height = 120, perLine = 16, debuffs = 16, buffs = 32,
+        height = 120, perLine = 16, debuffs = 16, buffs = 32, combo = true,
     }),
     -- HP bar half the target's; the party's 40px icon. 16 auras at most, 8 per line; the
     -- containers cannot cap a total, so each group gets half. The cast bar covers most of the

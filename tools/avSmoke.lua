@@ -65,6 +65,7 @@ RegisterStateDriver = function(frame, state, condition) STATE_DRIVER = condition
 UnitHealth = function() return 100 end
 UnitHealthMax = function() return 200 end
 UnitPower = function() return 50 end
+GetComboPoints = function() return 3 end
 UnitPowerMax = function() return 100 end
 UnitGUID = function(u) return 'GUID-' .. tostring(u) end
 UnitIsGroupLeader = function() return true end

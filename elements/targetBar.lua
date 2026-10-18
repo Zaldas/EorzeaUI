@@ -1,7 +1,8 @@
 local _, AV = ...
 
 -- Target bar: HP bar with heal prediction, raid marker and name coloured by unit kind and claim,
--- HP% and your threat, a class icon or portrait with the level badge, debuff/buff rows with
+-- HP% and your threat, a class icon or portrait with the level badge, your combo points on the
+-- target bar, debuff/buff rows with
 -- dispel and stealable borders, the unit's cast bar, and a mini bar for the unit's target.
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- The drawing is not secure, so it may show/hide in combat. Secure buttons on the anchor take
@@ -92,6 +93,9 @@ local function createIcon(self, parent, spec, fonts, frameLevel)
     Style.Place(self.leader, markers, spec.leader.pos)
     AV.Indicators.SetLeaderArt(self.leader)
     self.leader:Hide()
+    if spec.comboPoints then
+        self.combo = AV.ComboPoints.Create(markers, spec.comboPoints)
+    end
 end
 
 -- Secure unit buttons on the anchor, never on content: content shows and hides in combat, which
@@ -462,6 +466,38 @@ function Bar:UpdateThreat()
     end
 end
 
+local ENERGY = 3
+
+-- Rogues, and druids while on energy (cat form).
+local function usesComboPoints()
+    local class = AV.SafeValue(function() return select(2, UnitClass('player')) end)
+    if class == 'DRUID' then
+        return AV.Read('UnitPowerType', UnitPowerType, 'player') == ENERGY
+    end
+    return class == 'ROGUE'
+end
+
+-- Your combo points on the unit. They are stored on the unit, so GetComboPoints reads them
+-- rather than UnitPower, which is the raw count wherever the points are.
+function Bar:UpdateCombo()
+    if not self.combo or not isLive(self) then
+        return
+    end
+    local shown = usesComboPoints()
+    self.combo:SetShown(shown)
+    if not shown then
+        return
+    end
+    local ok, count = pcall(GetComboPoints, 'player', self.unit)
+    if not ok then
+        AV.LogOnce('combo:error', 'combo points: %s', tostring(count))
+        count = 0
+    elseif not AV.CanAccess(count) then
+        AV.LogOnce('combo:secret', 'combo points are secret; drawn through StatusBar ranges')
+    end
+    self.combo:SetCount(count)
+end
+
 -- Name colour, NPC mode, PvP badge and leader crown; claim and combat state change without a dedicated
 -- event, so the main ticker calls this too.
 function Bar:UpdateIdentity()
@@ -512,6 +548,7 @@ function Bar:Refresh()
     end
     self:UpdateHealth(false)
     self:UpdateThreat()
+    self:UpdateCombo()
     self.auras:Refresh()
     self.cast:EndFailure()
     self.cast:Update()
@@ -589,9 +626,10 @@ end
 -- Demo and Edit Mode: fixed sample data in place of the unit, or nil to restore live updates.
 -- data = { name, level, classification, colorKey, npc, pvp, leader, raidMarker, tag, threat,
 --          threatPercent, class | portrait | portraitUnit, hpPercent, dead, incoming, debuffs,
---          buffs, castName, castProgress, castNotInterruptible, totName, totColorKey, totPercent }
+--          buffs, castName, castProgress, castNotInterruptible, totName, totColorKey, totPercent,
+--          combo }
 -- npc: the separator line replaces the HP bar. class: a class token's icon; portrait: a texture
--- path; portraitUnit: that unit's portrait. threat and totName are optional; nil hides them.
+-- path; portraitUnit: that unit's portrait. threat, totName and combo are optional; nil hides them.
 function Bar:SetPreview(data)
     self.preview = data ~= nil
     if not data then
@@ -617,6 +655,10 @@ function Bar:SetPreview(data)
     setPvP(self, data.pvp)
     self.leader:SetShown(data.leader == true)
     setTier(self, data.classification)
+    if self.combo then
+        self.combo:SetShown(data.combo ~= nil)
+        self.combo:SetCount(data.combo)
+    end
     self.hpp:SetText(string.format('%d%%', data.hpPercent))
     self.threat:SetShown(data.threat ~= nil)
     self.threatText:SetShown(data.threat ~= nil)

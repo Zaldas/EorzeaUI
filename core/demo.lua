@@ -88,7 +88,7 @@ local function members()
         { name = 'Velisandre Ashby', class = 'PRIEST', level = 59, hp = 1590, hpMax = 2480, incoming = 520, absorb = 240, power = 3360, powerMax = 4200,
           tag = 'AFK', role = 'HEALER', cast = 'Greater Heal', powerType = 0, assistant = true, masterLooter = true, buffs = pick(BUFFS, 6), debuffs = {} },
         { name = 'Korgath Ironhide', class = 'DRUID', level = 60, hp = 480, hpMax = 2890, power = 1800, powerMax = 3000, targeted = true,
-          status = 'waiting', role = 'DAMAGER', raidMarker = 1, threat = 1, powerType = 0, combo = 3, form = { powerType = 3, power = 100, powerMax = 100 }, buffs = pick(BUFFS, 2), debuffs = pick(DEBUFFS, 2) },
+          status = 'waiting', role = 'DAMAGER', raidMarker = 1, threat = 1, powerType = 0, form = { powerType = 3, power = 100, powerMax = 100 }, buffs = pick(BUFFS, 2), debuffs = pick(DEBUFFS, 2) },
         { name = 'Ashwind Vale', class = 'WARLOCK', level = 58, hp = 1720, hpMax = 2350, power = 2100, powerMax = 3400,
           powerType = 0, status = 'notready', buffs = pick(BUFFS, 3), debuffs = pick(DEBUFFS, 3), pet = IMP },
     }
@@ -96,7 +96,7 @@ end
 
 local function target()
     return {
-        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, portraitUnit = 'player', hpPercent = 46,
+        name = 'Defias Pillager', level = 18, classification = 'elite', colorKey = 'claimed', pvp = 'Horde', leader = true, raidMarker = 8, threat = 3, threatPercent = 100, combo = 3, portraitUnit = 'player', hpPercent = 46,
         debuffs = TARGET_DEBUFFS, buffs = TARGET_BUFFS,
         castName = 'Fireball', castProgress = 0.6, castNotInterruptible = true,
         totName = AV.UnitDisplayName('player') or 'You', totColorKey = 'party', totPercent = 92,

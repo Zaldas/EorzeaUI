@@ -173,6 +173,17 @@ function Kit.target(cast, size)
         levelBadge = Kit.levelBadge,
         -- Straddles the icon's left edge in its lower half, as on the party rows.
         pvp = { pos = { iconX - 11, iconY + 22 }, size = { 22, 22 } },
+        -- Your combo points on the unit (size.combo only): a zigzag left of the PvP badge, centred
+        -- on the icon, filling upward from pip 1 at the bottom. Steps keep dx == dy so facing
+        -- 45-degree edges line up; the diamonds' ink is 14px, so |dx| + |dy| = 14 makes them touch.
+        comboPoints = size.combo and {
+            pos = { iconX - 32, iconY + iconSize / 2 - 22 },
+            size = { 16, 16 },
+            offsets = { { 7, 28 }, { 0, 21 }, { 7, 14 }, { 0, 7 }, { 7, 0 } },
+            fill = 'pips/diamondFill-16',
+            outline = 'pips/diamondLine-16',
+            color = '#FFD966FF',
+        } or nil,
         -- Crown centred on the icon's top edge, as on the party rows.
         leader = { pos = { iconX + iconSize / 2 - 8, iconY - 8 }, size = { 16, 16 } },
         -- Secure click area: left-click targets, right-click opens the unit menu, hover shows the
