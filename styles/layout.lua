@@ -38,9 +38,10 @@ function Kit.BuildLayout(p)
 
     -- Encounter units boss1..count, stacked `spacing` apart under one header, sized like the focus
     -- bar. No auras, as Blizzard's boss frames. The name hides while the cast bar shows.
-    local boss = Kit.target(p, castText, {
-        bar = 268, icon = 40, name = 15, hpp = 13, cast = 160, tot = 180, totName = 14,
-        height = 54, totDebuffs = 0, label = 'Boss', castHidesName = true, compact = true,
+    local bossCastText = { color = p.text, size = 12, font = 'number', baseline = 32, stroke = p.stroke }
+    local boss = Kit.target(p, bossCastText, {
+        bar = 268, icon = 40, name = 15, hpp = 13, cast = 182, tot = 180, totName = 14,
+        height = 54, totDebuffs = 0, label = 'Boss', castHidesName = true, compact = true, castNearIcon = true,
     })
     boss.count = 5
     boss.spacing = 6
@@ -83,8 +84,9 @@ function Kit.BuildLayout(p)
             -- Player row, druid in bear/cat form: the form's power bar in a sub-row under the power
             -- bar (which keeps showing mana), from the HP bar's middle (x 83) to x 239, 39px short of
             -- the power bar's end. Its line (row y 40.5..53) clears both numbers above. The row grows by
-            -- formRowHeight while shifted.
-            formRowHeight = 22,
+            -- formRowHeight while shifted, ending at its number's bottom (row y ~60); the row
+            -- spacing clears the next row's name, which starts left of the number.
+            formRowHeight = 14,
             formBar = {
                 pos = { 83, 15 },
                 bar = Kit.wideBar(156, p.power, p.power),
@@ -190,9 +192,10 @@ function Kit.BuildLayout(p)
             assists = {
                 label = 'Assists',
                 max = 8,
-                -- Over the cell and both target cells (x 7..396).
+                -- Over the cell and both target cells (x 7..396); the label ends halfway along
+                -- the target-of-target cell (x 272..392).
                 background = raidBackground(389),
-                groupNumber = raidLabel(389),
+                groupNumber = raidLabel(325),
                 target = {
                     width = 120,
                     -- Each target cell's left edge from the member cell's. Each bar's line starts 4px
@@ -202,6 +205,9 @@ function Kit.BuildLayout(p)
                     -- The target bar's arrow toward the ToT, before this cell's bar line (x 11),
                     -- centred on it.
                     attention = { path = 'ffxi/attention', pos = { -4, 9 }, size = { 11, 12 }, color = '#FFFFFFFF' },
+                    -- Replaces the arrow while the unit is your target: the cells' cursor at 0.75
+                    -- scale, its tip on the arrow's.
+                    cursor = { path = 'ffxi/Cursor', pos = { -19, 6.5 }, size = { 26, 17 }, color = '#FFFFFFFF' },
                     hp = {
                         pos = { 0, -17 },
                         bar = Kit.wideBar(120, p.hp, p.hp),
@@ -295,9 +301,9 @@ function Kit.BuildLayout(p)
         -- containers cannot cap a total, so each group gets half. The cast bar covers most of the
         -- name line, so the name hides while it shows.
         focus = Kit.target(p, castText, {
-            bar = 268, icon = 40, name = 15, hpp = 13, cast = 160, tot = 180, totName = 14,
+            bar = 268, icon = 40, name = 15, hpp = 13, cast = 182, tot = 180, totName = 14,
             height = 100, perLine = 8, debuffs = 8, buffs = 8, label = 'Focus', castHidesName = true,
-            compact = true,
+            compact = true, castNearIcon = true,
         }),
         boss = boss,
         castBar = Kit.castBar(p, castText),

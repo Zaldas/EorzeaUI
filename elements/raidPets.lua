@@ -183,9 +183,14 @@ local function createColumns(parent)
         local slot = CreateFrame('Frame', nil, parent)
         slot:SetSize(style.width, spec.rowHeight)
         slot:SetPoint('TOPLEFT', parent, 'TOPLEFT', columnX(column), 0)
-        -- Only the first column carries the label.
+        -- Only the first column carries the label, centred over it; the header's right line
+        -- reaches the last column in use (sizeColumns).
         if column == 1 then
-            columns[column] = EUI.RaidList.CreateChrome(slot, spec.label, style.background, style.groupNumber, RaidPets.fonts)
+            local header
+            columns[column], header = EUI.RaidList.CreateChrome(slot, spec.label, style.background, style.groupNumber, RaidPets.fonts)
+            header.label:ClearAllPoints()
+            header.label:SetPoint('CENTER', header, 'LEFT', style.groupNumber.width / 2, 0)
+            columns.header = header
         else
             columns[column] = EUI.PartyList.CreateBackground(slot, style.background)
         end
@@ -199,6 +204,8 @@ local function sizeColumns(columns, count)
         local inColumn = math.max(0, math.min(spec.perColumn, count - (column - 1) * spec.perColumn))
         EUI.RaidList.SizeChrome(bg, inColumn, RaidPets.style, spec.rowHeight)
     end
+    local used = math.max(1, math.ceil(count / spec.perColumn))
+    columns.header:SetWidth(columnX(used) + RaidPets.style.groupNumber.width)
 end
 
 local function updateBackground()

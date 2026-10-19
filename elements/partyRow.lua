@@ -520,6 +520,28 @@ local function isPhased(self, unit)
     return ok and checked == true and EUI.CanAccess(distance) and distance < limit * limit
 end
 
+local SUMMON_TOOLTIPS = {
+    summonPending = INCOMING_SUMMON_TOOLTIP_SUMMON_PENDING,
+    summonAccepted = INCOMING_SUMMON_TOOLTIP_SUMMON_ACCEPTED,
+    summonDeclined = INCOMING_SUMMON_TOOLTIP_SUMMON_DECLINED,
+}
+
+-- Blizzard's centre icon tooltips: summons, in another group, and the phase reason. The reason
+-- is secret for units whose identity is restricted; that phased icon gets none.
+local function statusTooltip(kind, unit)
+    if kind == 'otherGroup' then
+        return PARTY_IN_PUBLIC_GROUP_MESSAGE
+    elseif kind ~= 'phased' then
+        return SUMMON_TOOLTIPS[kind]
+    end
+    local reason = EUI.Read('UnitPhaseReason', UnitPhaseReason, unit)
+    if reason == nil or not EUI.CanAccess(reason) or not (PartyUtil and PartyUtil.GetPhasedReasonString) then
+        return nil
+    end
+    local ok, text = pcall(PartyUtil.GetPhasedReasonString, reason, unit)
+    return ok and text or nil
+end
+
 -- One centre icon, by priority: ready check, summon, resurrect, phased, in another group.
 function Row:UpdateStatusIcon()
     local unit = self.unit
@@ -538,7 +560,7 @@ function Row:UpdateStatusIcon()
         kind = 'otherGroup'
         EUI.LogOnce('status:otherGroup', 'in-another-group icon on %s', tostring(unit))
     end
-    self.indicators:SetStatus(kind)
+    self.indicators:SetStatus(kind, kind and statusTooltip(kind, unit))
 end
 
 local MANA = 0

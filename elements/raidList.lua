@@ -62,12 +62,12 @@ local function blockSize(style, bgSpec, labelSpec, rows)
         -labelSpec.pos[2] + cellsHeight(style, rows) + bgSpec.bottom.height
 end
 
--- A block's background and label, on parent's top-left (the first cell's).
+-- A block's background and label, on parent's top-left (the first cell's). Returns both.
 local function createChrome(parent, label, bgSpec, labelSpec, fonts)
     local bg = EUI.PartyList.CreateBackground(parent, bgSpec)
     local header = Style.Header(bg, labelSpec, fonts)
     header.label:SetText(label)
-    return bg
+    return bg, header
 end
 
 local function sizeChrome(bg, count, style, rowHeight)
@@ -152,8 +152,8 @@ local function registerClickCast(button)
 end
 
 -- A flagged member's target or that unit's target: a name line and HP bar, with no HP value;
--- the value slot shows only Dead. These units fire no events; the main ticker refreshes them
--- through UpdateTargets.
+-- the value slot shows only Dead. A hand cursor replaces the attention arrow while the unit is
+-- your target. These units fire no events; the main ticker refreshes them through UpdateTargets.
 local TargetCell = {}
 TargetCell.__index = TargetCell
 
@@ -162,9 +162,10 @@ local function buildTargetArt(self, host, spec, fonts)
     local art = CreateFrame('Frame', nil, host)
     art:SetAllPoints(host)
     art:EnableMouse(false)
+    self.art = art
     self.hover = Style.Image(art, 'BACKGROUND', spec.hover, 1)
     self.hover:Hide()
-    Style.Image(art, 'ARTWORK', spec.attention)
+    self.attention = Style.Image(art, 'ARTWORK', spec.attention)
     self.hp = EUI.Bar.Create(art, spec.hp.bar, spec.hp.pos)
     self.hpText = Style.Text(self.hp.overlay, spec.hp.txtValue, fonts)
     local top = CreateFrame('Frame', nil, art)
@@ -177,6 +178,13 @@ local function buildTargetArt(self, host, spec, fonts)
     self.marker:SetSize(spec.raidMarker.size[1], spec.raidMarker.size[2])
     Style.Place(self.marker, top, spec.raidMarker.pos)
     self.marker:Hide()
+    self.cursor = Style.Image(top, 'OVERLAY', spec.cursor)
+    self.cursor:Hide()
+end
+
+local function setTargeted(self, targeted)
+    self.cursor:SetShown(targeted)
+    self.attention:SetShown(not targeted)
 end
 
 -- name: plain or secret. colorKey: a reaction key. marker: a raid marker index or nil.
@@ -214,15 +222,19 @@ function TargetCell:Refresh()
     self.hp:SetValue(UnitHealth(unit), guid ~= nil and guid == self.guid)
     self.guid = guid
     self:SetStateText(EUI.UnitInfo.DeadState(unit))
+    setTargeted(self, EUI.UnitVisual.IsTarget(unit))
+    EUI.UnitVisual.ShowRange(self.art, unit, RaidList.style.range.farAlpha, true)
 end
 
--- data = { name, colorKey, hpPercent, raidMarker, state }
+-- data = { name, colorKey, hpPercent, raidMarker, state, targeted, far }
 function TargetCell:ShowDemo(data)
     self.host:SetShown(data ~= nil)
     if not data then
         return
     end
     self:SetIdentity(data.name, data.colorKey, data.raidMarker)
+    setTargeted(self, data.targeted == true)
+    self.art:SetAlpha(data.far and RaidList.style.range.farAlpha or 1)
     self.hp:SetRange(100)
     self.hp:SetValue(data.state and 0 or data.hpPercent)
     self:SetStateText(data.state)

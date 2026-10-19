@@ -165,7 +165,7 @@ end
 -- A full Assists block: four main tanks, each on a mob, then four main assists on the tanks'
 -- mobs, picked from the demo raid; their cells show the raid role in place of the assigned one.
 local ASSIST_MOBS = {
-    { name = 'Ragnaros', colorKey = 'hostile', hpPercent = 64, raidMarker = 8 },
+    { name = 'Ragnaros', colorKey = 'hostile', hpPercent = 64, raidMarker = 8, targeted = true },
     { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 38, raidMarker = 7 },
     { name = 'Son of Flame', colorKey = 'hostile', hpPercent = 81, raidMarker = 6 },
     { name = 'Lava Surger', colorKey = 'hostile', hpPercent = 22, raidMarker = 5 },

@@ -110,8 +110,9 @@ end
 
 -- Dims region to farAlpha while unit is out of range. UnitInRange is the 40-yard group check;
 -- its result may be a secret boolean, which SetAlphaFromBoolean takes. CheckInteractDistance
--- (unit, 4), 28 yards, is the fallback.
-function UnitVisual.ShowRange(region, unit, farAlpha)
+-- (unit, 4), 28 yards, is the fallback; with checkedOnly, an unchecked unit (a mob) counts as
+-- near instead, as on Blizzard's raid frames.
+function UnitVisual.ShowRange(region, unit, farAlpha, checkedOnly)
     if UnitInRange then
         local ok, inRange, checked = pcall(UnitInRange, unit)
         if not ok then
@@ -129,6 +130,10 @@ function UnitVisual.ShowRange(region, unit, farAlpha)
         else
             EUI.LogOnce('range:fallback', 'range: UnitInRange is secret and SetAlphaFromBoolean failed; using CheckInteractDistance')
         end
+    end
+    if checkedOnly then
+        region:SetAlpha(1)
+        return
     end
     region:SetAlpha(EUI.SafeValue(CheckInteractDistance, unit, 4) ~= false and 1 or farAlpha)
 end

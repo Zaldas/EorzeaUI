@@ -181,12 +181,13 @@ end
 
 -- p: the palette (styles/palettes.lua); castText as in Kit.castName.
 -- size = { bar, icon, name, hpp, cast, tot, totName, height, perLine, debuffs, buffs, label,
---         castHidesName, combo, compact, totDebuffs }: widths of the HP, cast and mini bars, the
--- icon's side, text sizes, the anchor height, the aura row's line length and maxes (no debuffs:
--- no aura row), an optional header label, whether the name line hides while the unit casts,
--- whether combo points show, the raid Assists cells' tighter spacing between the HP bar, the
--- attention arrow and the mini bar, and the mini bar's debuff count (default 4). Everything else
--- is placed from these.
+--         castHidesName, combo, compact, totDebuffs, castNearIcon }: widths of the HP, cast and
+-- mini bars, the icon's side, text sizes, the anchor height, the aura row's line length and
+-- maxes (no debuffs: no aura row), an optional header label, whether the name line hides while
+-- the unit casts, whether combo points show, the raid Assists cells' tighter spacing between the
+-- HP bar, the attention arrow and the mini bar, the mini bar's debuff count (default 4), and
+-- whether the cast bar starts beside the icon (else its right end is 70px before the bar's).
+-- Everything else is placed from these.
 function Kit.target(p, castText, size)
     local barWidth, iconSize = size.bar, size.icon
     -- The icon is centred on y 28 (the name's top to the bar line's bottom), its right edge 5px
@@ -204,6 +205,9 @@ function Kit.target(p, castText, size)
         totX = attentionX + 11 + 4 - 11
     end
     local totDebuffs = size.totDebuffs or 4
+    -- castNearIcon: the uninterruptible lock (2px left of the bar) starts 6px past the icon's
+    -- right edge, clear of the classification bracket's 4px overhang.
+    local castX = size.castNearIcon and iconX + iconSize + 8 or barWidth - 70 - size.cast
     local bar = Kit.wideBar(barWidth, p.hp, p.hp)
     local levelBadge = Kit.levelBadge(p)
     -- Everything drawn, at full aura rows: combo points, PvP badge and icon on the left; the
@@ -316,9 +320,9 @@ function Kit.target(p, castText, size)
                 HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
             },
         } or nil,
-        -- Above the HP bar, its right end 70px before the bar's.
+        -- Above the HP bar.
         cast = {
-            pos = { barWidth - 70 - size.cast, -15 },
+            pos = { castX, -15 },
             bar = Kit.wideBar(size.cast, p.cast, p.cast),
             channelColor = p.channel,
             sparkColor = p.spark,
@@ -333,12 +337,12 @@ function Kit.target(p, castText, size)
             },
         },
         attention = { path = 'ffxi/attention', pos = { attentionX, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
-        -- Optional label centred from the icon to a third into the mini bar, its box ending 2px
+        -- Optional label centred from the icon to halfway along the mini bar, its box ending 2px
         -- above the leader crown (top at iconY - 8), with header lines.
         header = size.label and {
             label = size.label,
             pos = { iconX, iconY - 24 },
-            width = totX + size.tot / 3 - iconX,
+            width = totX + size.tot / 2 - iconX,
             height = 14,
             txtLabel = { size = 14, color = p.label, stroke = p.stroke },
             line = { color = p.label, alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },

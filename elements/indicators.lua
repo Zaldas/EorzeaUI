@@ -1,8 +1,9 @@
 local _, EUI = ...
 
 -- Status markers on a party row: rest/combat on the player row, one status icon centred on
--- the class icon, leader crown on its top edge, role and PvP on its left edge, and a raid
--- marker before the name. A style without indicators.pvp builds no PvP badge.
+-- the class icon (with a hover tooltip for some states), leader crown on its top edge, role and
+-- PvP on its left edge, and a raid marker before the name. A style without indicators.pvp builds
+-- no PvP badge.
 
 EUI.Indicators = {}
 local Indicators = {}
@@ -127,6 +128,32 @@ local function createRest(parent, spec)
 end
 
 -- parent: frame drawn above the class icon. top: the row's text layer.
+-- A hover area over the status icon for its tooltip. It takes mouse motion only: clicks fall
+-- through to the secure unit button under it, so click-targeting and click-casting keep working
+-- there. Without SetMouseClickEnabled there is no hover area.
+local function createStatusHover(self, parent)
+    local hover = CreateFrame('Frame', nil, parent)
+    if not (hover.SetMouseClickEnabled and hover.SetMouseMotionEnabled) then
+        EUI.LogOnce('status:hover', 'status tooltips off: SetMouseClickEnabled missing')
+        return nil
+    end
+    hover:SetMouseClickEnabled(false)
+    hover:SetMouseMotionEnabled(true)
+    hover:SetFrameLevel(parent:GetFrameLevel() + 1)
+    hover:SetScript('OnEnter', function()
+        if self.statusTooltip then
+            GameTooltip:SetOwner(hover, 'ANCHOR_RIGHT')
+            GameTooltip:SetText(self.statusTooltip, nil, nil, nil, nil, true)
+            GameTooltip:Show()
+        end
+    end)
+    hover:SetScript('OnLeave', function()
+        GameTooltip:Hide()
+    end)
+    hover:Hide()
+    return hover
+end
+
 function EUI.Indicators.Create(parent, top, style)
     local spec = style.indicators
     local self = setmetatable({ spec = spec, nameSpec = style.txtName, top = top, parent = parent }, Indicators)
@@ -140,6 +167,7 @@ function EUI.Indicators.Create(parent, top, style)
     self.combat = sizedTexture(parent, spec.combat)
     Style.SetAtlas(self.combat, 'UI-HUD-UnitFrame-Player-CombatIcon', COMBAT_FALLBACK)
     self.status = sizedTexture(parent, spec.status)
+    self.statusHover = createStatusHover(self, parent)
     self.raidMarker = sizedTexture(top, spec.raidMarker)
     self.raidMarker:SetTexture(RAID_MARKERS)
     self.flag = sizedTexture(top, spec.flag)
@@ -200,8 +228,12 @@ function Indicators:SetPlayerState(state)
     end
 end
 
--- kind: a STATUS_ICONS key, or nil to hide.
-function Indicators:SetStatus(kind)
+-- kind: a STATUS_ICONS key, or nil to hide. tooltip: text shown while hovering the icon, or nil.
+function Indicators:SetStatus(kind, tooltip)
+    self.statusTooltip = tooltip
+    if self.statusHover then
+        self.statusHover:SetShown(kind ~= nil and tooltip ~= nil)
+    end
     if kind == self.statusKind then
         return
     end
@@ -214,6 +246,10 @@ function Indicators:SetStatus(kind)
     local slot = icon.summon and self.spec.summon or self.spec.status
     self.status:SetSize(slot.size[1], slot.size[2])
     Style.Place(self.status, self.parent, slot.pos)
+    if self.statusHover then
+        self.statusHover:SetSize(slot.size[1], slot.size[2])
+        Style.Place(self.statusHover, self.parent, slot.pos)
+    end
     if icon.atlas then
         if not Style.SetAtlas(self.status, icon.atlas) then
             self.status:Hide()

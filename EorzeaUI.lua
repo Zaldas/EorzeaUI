@@ -364,6 +364,7 @@ local GLOBAL_ROUTES = {
         EUI.RaidPets.ForEachVisible(function(pet)
             pet:UpdateCursor()
         end)
+        EUI.RaidList.UpdateTargets()
     end,
     COMBO_TARGET_CHANGED = function()
         EUI.TargetBar.target:UpdateCombo()
