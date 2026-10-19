@@ -7,10 +7,10 @@ local Kit = EUI.StyleKit
 
 function Kit.BuildLayout(p)
     local valueText = {
-        pos = { 120, 34 }, size = 13, color = p.text, stroke = p.stroke, font = 'number', alignRight = true,
+        pos = { 120, 34 }, size = 13, color = p.text, stroke = p.stroke, font = 'health', alignRight = true,
     }
-    local smallValueText = { pos = { 100, 34 }, size = 10, color = p.text, stroke = p.stroke, font = 'number', alignRight = true }
-    local castText = { color = p.text, size = 14, font = 'number', baseline = 34, stroke = p.stroke }
+    local smallValueText = { pos = { 100, 34 }, size = 10, color = p.text, stroke = p.stroke, font = 'health', alignRight = true }
+    local castText = { color = p.text, size = 14, font = 'cast', baseline = 34, stroke = p.stroke }
     -- A raid block's fade, from x 7 to 7 + width, with 7px over the first cell and 6 under the last.
     local function raidBackground(width)
         return {
@@ -31,14 +31,14 @@ function Kit.BuildLayout(p)
             pos = { 7, -24 },
             width = width,
             height = 14,
-            txtLabel = { size = 14, color = p.label, stroke = '#000000FF', outline = '', font = 'standard' },
+            txtLabel = { size = 14, color = p.label, stroke = '#000000FF', outline = '', font = 'header' },
             line = { color = p.label, alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
         }
     end
 
     -- Encounter units boss1..count, stacked `spacing` apart under one header, sized like the focus
     -- bar. No auras, as Blizzard's boss frames. The name hides while the cast bar shows.
-    local bossCastText = { color = p.text, size = 12, font = 'number', baseline = 32, stroke = p.stroke }
+    local bossCastText = { color = p.text, size = 12, font = 'cast', baseline = 32, stroke = p.stroke }
     local boss = Kit.target(p, bossCastText, {
         bar = 268, icon = 40, name = 15, hpp = 13, cast = 182, tot = 180, totName = 14,
         height = 54, totDebuffs = 0, label = 'Boss', castHidesName = true, compact = true, castNearIcon = true,
@@ -90,7 +90,7 @@ function Kit.BuildLayout(p)
             formBar = {
                 pos = { 83, 15 },
                 bar = Kit.wideBar(156, p.power, p.power),
-                txtValue = { pos = { 148, 34 }, size = 13, color = p.text, stroke = p.stroke, font = 'number', alignRight = true },
+                txtValue = { pos = { 148, 34 }, size = 13, color = p.text, stroke = p.stroke, font = 'health', alignRight = true },
             },
             classIcon = {
                 pos = { -13, -4 },
@@ -155,7 +155,7 @@ function Kit.BuildLayout(p)
                     channelColor = p.channel,
                     sparkColor = p.spark,
                     failure = { color = p.castFailure, hold = 1 },
-                    txtName = { pos = { 29, 24 }, width = 160, size = 10, color = p.text, stroke = p.stroke, font = 'number' },
+                    txtName = { pos = { 29, 24 }, width = 160, size = 10, color = p.text, stroke = p.stroke, font = 'cast' },
                 },
                 -- Own hunter pet only, right of the power bar.
                 happiness = { pos = { 223, 10 }, size = { 20, 19 } },
@@ -212,7 +212,7 @@ function Kit.BuildLayout(p)
                         pos = { 0, -17 },
                         bar = Kit.wideBar(120, p.hp, p.hp),
                         -- Dead only.
-                        txtValue = { pos = { 106, 22 }, size = 10, color = '#A0A0A0FF', stroke = p.stroke, font = 'number', alignRight = true },
+                        txtValue = { pos = { 106, 22 }, size = 10, color = '#A0A0A0FF', stroke = p.stroke, font = 'health', alignRight = true },
                     },
                     -- Starts over the HP bar's line, as on the cells.
                     txtName = { pos = { 11, 0 }, width = 95, size = 12, color = p.text, stroke = p.stroke },
@@ -243,7 +243,7 @@ function Kit.BuildLayout(p)
             hp = {
                 pos = { 16, -17 },
                 bar = Kit.wideBar(142, p.hp, p.hp),
-                txtValue = { pos = { 128, 22 }, size = 10, color = p.text, stroke = p.stroke, font = 'number', alignRight = true },
+                txtValue = { pos = { 128, 22 }, size = 10, color = p.text, stroke = p.stroke, font = 'health', alignRight = true },
                 textColor = p.text,
                 thresholds = p.hpThresholds,
                 offlineColor = p.offline,
@@ -321,7 +321,7 @@ function Kit.BuildLayout(p)
                 pos = { 0, 0 },
                 width = 145,
                 height = 14,
-                txtLabel = { size = 14, color = p.label, stroke = p.stroke },
+                txtLabel = { size = 14, color = p.label, stroke = p.stroke, font = 'header' },
                 line = { color = p.label, alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
             },
         },

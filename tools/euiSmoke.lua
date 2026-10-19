@@ -12,7 +12,8 @@ end
 
 local methodOverrides = {
     GetHeight = 768, GetWidth = 1366, GetFrameLevel = 1, IsShown = true, IsVisible = true, IsProtected = false,
-    GetName = 'mock', GetScale = 1,
+    GetName = 'mock', GetScale = 1, GetStringWidth = 40, GetStringHeight = 14, GetVerticalScrollRange = 0,
+    GetVerticalScroll = 0,
 }
 
 local newFrame
@@ -179,6 +180,12 @@ CreateColor = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 Enum = { StatusBarInterpolation = { ExponentialEaseOut = 1, Immediate = 0 }, StatusBarTimerDirection = { ElapsedTime = 0, RemainingTime = 1 } }
 EventRegistry = { RegisterCallback = function() end }
 GameTooltip = newFrame()
+-- Blizzard's Settings panel; the addon's own settings are EUI.Settings.
+BLIZZARD_CATEGORIES = {}
+Settings = {
+    RegisterCanvasLayoutCategory = function(frame, name) return { frame = frame, name = name } end,
+    RegisterAddOnCategory = function(category) BLIZZARD_CATEGORIES[#BLIZZARD_CATEGORIES + 1] = category end,
+}
 CHAT = {}
 DEFAULT_CHAT_FRAME = { AddMessage = function(_, msg) CHAT[#CHAT + 1] = msg end }
 SlashCmdList = {}
@@ -895,6 +902,111 @@ CRF_GetFilterRole = function() return true end
 EUI.RaidList.ApplyManagerFilters()
 assert(rawget(group1, '_attrs').roleFilter == nil and lastDriver(group3) == 'hide', 'filters not restored')
 TICK()
+
+-- Settings window: every page builds, and every option applies live or counts as pending a
+-- reload, with and without the demo showing.
+assert(#BLIZZARD_CATEGORIES == 1 and BLIZZARD_CATEGORIES[1].name == 'EorzeaUI', 'AddOns options entry not registered')
+SlashCmdList.EORZEAUI('config')
+for _, page in ipairs(EUI.Config.PAGES) do
+    EUI.Config.Toggle(page.key)
+end
+-- Every page, control and button explains itself.
+local CONTROLS = { toggle = true, choice = true, slider = true, color = true }
+for _, page in ipairs(EUI.Config.PAGES) do
+    assert(page.tip, 'page without a tip: ' .. page.key)
+    local items = type(page.items) == 'function' and page.items() or page.items
+    for _, item in ipairs(items) do
+        if CONTROLS[item.kind] then
+            assert(item.tip, string.format('%s: %s has no tip', page.key, tostring(item.label)))
+        elseif item.kind == 'buttons' then
+            for _, button in ipairs(item.buttons) do
+                assert(button.tip, string.format('%s: button %s has no tip', page.key, button.label))
+            end
+        end
+    end
+end
+for _, path in ipairs(EUI.Config.ReloadPaths()) do
+    assert(EUI.Config.ReloadLabel(path) ~= path, 'reload option without a label: ' .. path)
+end
+local ALTERNATIVES = {
+    ['party.hpText'] = { 'missing', 'percent', 'none', 'blizzard' },
+    ['raid.hpText'] = { 'missing', 'percent', 'none', 'blizzard' },
+    ['raid.power'] = { 'healers', 'none', 'blizzard' },
+    ['target.castBars'] = { 'off', 'blizzard' },
+    ['raid.previewSize'] = { 10, 25 },
+    ['raid.assists'] = { 'show', 'hide' },
+    ['raid.pets'] = { 'show', 'hide' },
+    ['party.dispellable'] = { 'on', 'off' },
+    ['raid.dispellable'] = { 'on', 'off' },
+    ['party.buffs'] = { 'all' },
+    ['raid.buffs'] = { 'all' },
+}
+local function exerciseOptions()
+    for _, def in ipairs(EUI.Config.Options()) do
+        local original = EUI.Settings.Get(def.path)
+        local values = ALTERNATIVES[def.path]
+        if not values then
+            if type(original) == 'boolean' then
+                values = { not original }
+            elseif type(original) == 'number' then
+                values = { original + 1 }
+            else
+                values = { '#123456FF' }
+            end
+        end
+        for _, value in ipairs(values) do
+            EUI.Settings.Set(def.path, value)
+        end
+        EUI.Config.Refresh()
+        EUI.Settings.Set(def.path, original)
+    end
+end
+exerciseOptions()
+EUI.Demo.Toggle()
+exerciseOptions()
+EUI.Demo.Toggle()
+local styleName = EUI.Settings.Get('style')
+EUI.Settings.Set('colors.' .. styleName .. '.powerColors.0', '#112233FF')
+EUI.Config.Toggle('colors')
+EUI.Settings.Set('colors.' .. styleName .. '.powerColors.0', nil)
+-- Our colour picker: no Blizzard ColorPickerFrame; closing without Okay cancels.
+local cancelled = false
+EUI.Widgets.PickColor('#FF9597FF', true, function() end, function() cancelled = true end, 'Health')
+assert(_G.EorzeaUIColorPicker, 'colour picker not built')
+rawget(_G.EorzeaUIColorPicker, '_OnHide')(_G.EorzeaUIColorPicker)
+assert(cancelled, 'closing the colour picker did not cancel')
+
+-- 'Blizzard' choices read Blizzard's CVar and follow its changes.
+local cvars = { raidFramesHealthText = 'perc' }
+C_CVar = { GetCVar = function(name) return cvars[name] end }
+EUI.Settings.Set('raid.hpText', 'blizzard')
+assert(EUI.RaidList.style.hp.textMode == 'percent', 'raid HP text not read from Blizzard')
+cvars.raidFramesHealthText = 'losthealth'
+EUI.Config.OnCVarChanged('raidFramesHealthText')
+assert(EUI.RaidList.style.hp.textMode == 'missing', 'raid HP text did not follow the CVar change')
+EUI.Settings.Set('raid.hpText', 'current')
+C_CVar = nil
+-- Each page shows its own frames' demo; closing the window ends it.
+EUI.Config.Toggle('party')
+assert(EUI.Demo.IsShowing('party') and not EUI.Demo.IsShowing('raid'), 'party page demo')
+EUI.Config.Toggle('raid')
+assert(EUI.Demo.IsShowing('raid') and not EUI.Demo.IsShowing('party'), 'raid page demo')
+rawget(_G.EorzeaUIConfig, '_OnHide')()
+assert(not EUI.Demo.active, 'demo still showing after the window closed')
+-- 6 members use the 10-player layout; the demo shows the preview size's.
+assert(EUI.RaidList.LayoutSize() == 10 and EUI.RaidList.style.groupsPerRow == 2, 'raid size layout not applied')
+EUI.Settings.Set('raid.layouts.10.groupsPerRow', 1)
+assert(EUI.RaidList.style.groupsPerRow == 1, 'raid layout change not applied live')
+-- A 10-player raid has 2 groups; more per row is clamped.
+EUI.Settings.Set('raid.layouts.10.groupsPerRow', 3)
+assert(EUI.RaidList.style.groupsPerRow == 2, 'groups per row not clamped to the raid size')
+EUI.Settings.Reset('raid.layouts.10.groupsPerRow')
+EUI.Demo.Toggle()
+assert(EUI.RaidList.LayoutSize() == 40 and EUI.RaidList.style.groupsPerRow == 4, 'demo preview size layout not applied')
+EUI.Demo.Toggle()
+
+local recoloured = EUI.StyleKit.BuildStyle('vanadiel', { powerColors = { ['0'] = '#112233FF' } })
+assert(recoloured.party.power.colors[0] == '#112233FF', 'saved powerColors key not mapped to the number key')
 
 assert(#ERRORS == 0, 'errors reported:\n' .. table.concat(ERRORS, '\n'))
 print('SMOKE OK')

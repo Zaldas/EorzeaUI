@@ -175,8 +175,14 @@ local function isCasting(unit)
     return type((UnitCastingInfo(unit))) ~= 'nil' or type((UnitChannelInfo(unit))) ~= 'nil'
 end
 
+-- spec.disabled (settings) keeps the bar hidden.
 function CastBar:Update()
     if self.preview then
+        return
+    end
+    if self.spec.disabled then
+        self.failing = nil
+        setVisible(self, false, 0)
         return
     end
     -- A failure hold outlasts the STOP events that follow it; only a new cast ends it early.
@@ -250,6 +256,9 @@ end
 -- notInterruptible and as a channel when channel. false keeps the preview with the bar hidden;
 -- nil restores live updates.
 function CastBar:SetPreview(spellName, progress, notInterruptible, channel)
+    if spellName and self.spec.disabled then
+        spellName = false
+    end
     self:EndFailure()
     self.preview = spellName ~= nil
     self.channeling = self.preview and channel == true

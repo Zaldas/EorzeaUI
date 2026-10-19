@@ -11,7 +11,11 @@ AuraRow.__index = AuraRow
 -- Rows whose ProcessAura policy follows a CVar (spec.dispellableOnlyCVar).
 local cvarRows = {}
 
+-- spec.dispellableOnly (settings), when set, wins over the CVar.
 local function processAuraOptions(spec)
+    if spec.dispellableOnly ~= nil then
+        return { displayOnlyDispellableDebuffs = spec.dispellableOnly }
+    end
     local cvar = spec.dispellableOnlyCVar
     if not cvar then
         return {}
@@ -140,7 +144,7 @@ local function makeInitializer(spec, fonts)
         end
         if button.SetApplicationCount then
             local count = button:CreateFontString(nil, 'OVERLAY')
-            EUI.Style.SetFont(count, fonts.number, math.max(9, math.floor(size * 0.5)), 'OUTLINE')
+            EUI.Style.SetFont(count, fonts.count, math.max(9, math.floor(size * 0.5)), 'OUTLINE')
             count:SetPoint('TOPRIGHT', button, 'TOPRIGHT', 1, 1)
             pcall(button.SetApplicationCount, button, count, {})
         end
@@ -302,10 +306,11 @@ function AuraRow:Refresh()
     end
 end
 
--- Re-applies the ProcessAura policy of the rows following cvar, out of combat.
+-- Re-applies the ProcessAura policy of the rows following cvar (every such row when cvar is
+-- nil), out of combat.
 function EUI.AuraRow.OnCVarChanged(cvar)
     for _, row in ipairs(cvarRows) do
-        if row.spec.dispellableOnlyCVar == cvar then
+        if cvar == nil or row.spec.dispellableOnlyCVar == cvar then
             EUI.RunOutOfCombat(function()
                 local ok, err = pcall(row.container.SetAuraProcessingPolicy, row.container,
                     CustomAuraContainerAuraProcessingPolicy.ProcessAura, processAuraOptions(row.spec))

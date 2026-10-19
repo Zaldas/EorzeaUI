@@ -44,11 +44,14 @@ local function slotOffset(style, g)
     return -style.cursor.pos[1] + column * columnStep, -style.groupNumber.pos[2] + row * rowStep
 end
 
-local function gridSize(style)
+-- The anchor's size for count groups (default all), groupsPerRow to a row.
+local function gridSize(style, count)
+    count = count or NUM_GROUPS
     local columnStep, rowStep = slotSteps(style)
-    local rows = math.ceil(NUM_GROUPS / style.groupsPerRow)
+    local columns = math.min(style.groupsPerRow, count)
+    local rows = math.ceil(count / style.groupsPerRow)
     local bg = style.background
-    return -style.cursor.pos[1] + (style.groupsPerRow - 1) * columnStep + bg.pos[1] + bg.width,
+    return -style.cursor.pos[1] + (columns - 1) * columnStep + bg.pos[1] + bg.width,
         rows * rowStep - style.groupSpacing[2]
 end
 
@@ -67,6 +70,7 @@ local function createChrome(parent, label, bgSpec, labelSpec, fonts)
     local bg = EUI.PartyList.CreateBackground(parent, bgSpec)
     local header = Style.Header(bg, labelSpec, fonts)
     header.label:SetText(label)
+    header:SetShown(not labelSpec.hidden)
     return bg, header
 end
 
@@ -420,6 +424,66 @@ function RaidList.Create(style, fonts)
     EUI.Log('raid: built %d cells, %d Assists target cells', #cells, #targetCells)
 end
 
+-- Raid sizes with their own layout (settings raid.layouts.<size>), Blizzard's Edit Mode raid
+-- preview sizes (2, 5 and 8 groups). A raid uses the smallest that holds its members; the demo
+-- shows raid.previewSize.
+RaidList.SIZES = { 10, 25, 40 }
+
+function RaidList.LayoutSize()
+    if EUI.Demo.IsShowing('raid') then
+        return EUI.Settings.Get('raid.previewSize')
+    end
+    local members = EUI.Read('GetNumGroupMembers', GetNumGroupMembers) or 0
+    for _, size in ipairs(RaidList.SIZES) do
+        if members <= size then
+            return size
+        end
+    end
+    return RaidList.SIZES[#RaidList.SIZES]
+end
+
+-- Groups a raid of size holds (2, 5 or 8); size defaults to the raid size in use.
+function RaidList.GroupCount(size)
+    return (size or RaidList.LayoutSize()) / GROUP_SIZE
+end
+
+local function layoutSetting(key)
+    return EUI.Settings.Get(string.format('raid.layouts.%d.%s', RaidList.LayoutSize(), key))
+end
+
+-- The current size's scale, times the raid frame's own.
+function RaidList.SizeScale()
+    return layoutSetting('scale') or 1
+end
+
+local appliedGroupCount
+
+-- Lays the groups out for the current raid size and sizes the anchor (and so its Edit Mode box)
+-- to the groups that size holds; waits for combat to end.
+function RaidList.ApplyLayoutSize()
+    EUI.RunOutOfCombat(function()
+        local style = RaidList.style
+        local count = RaidList.GroupCount()
+        local perRow = math.min(layoutSetting('groupsPerRow') or style.groupsPerRow, count)
+        if perRow ~= style.groupsPerRow or count ~= appliedGroupCount then
+            style.groupsPerRow = perRow
+            appliedGroupCount = count
+            EUI.EditMode.ResizeKeepingTopLeft('raid', RaidList.anchor, gridSize(style, count))
+            slotOrder = nil
+            layoutGroups()
+            for g, block in ipairs(RaidList.demoGroups or {}) do
+                local x, y = slotOffset(style, g)
+                block.slot:ClearAllPoints()
+                block.slot:SetPoint('TOPLEFT', RaidList.anchor, 'TOPLEFT', x, -y)
+            end
+        end
+        -- During setup the scale is applied once every frame exists.
+        if EUI.ready then
+            EUI.ApplyScale()
+        end
+    end, 'raidLayoutSize')
+end
+
 local ROLES = { 'TANK', 'HEALER', 'DAMAGER', 'NONE' }
 local appliedFilters
 
@@ -444,7 +508,16 @@ function RaidList.ApplyManagerFilters()
         for g = 1, NUM_GROUPS do
             groupShown[g] = shown and EUI.SafeValue(CRF_GetFilterGroup, g) ~= false
         end
-        local key = string.format('%s|%s|', tostring(shown), table.concat(roles, ','))
+        -- assists.show / pets.show (settings): true or false override the manager's Hide button.
+        local assistsShown, petsShown = shown, shown
+        if RaidList.style.assists.show ~= nil then
+            assistsShown = RaidList.style.assists.show
+        end
+        if RaidList.style.pets.show ~= nil then
+            petsShown = RaidList.style.pets.show
+        end
+        local key = string.format('%s|%s|%s|%s|', tostring(shown), tostring(assistsShown), tostring(petsShown),
+            table.concat(roles, ','))
         for g = 1, NUM_GROUPS do
             key = key .. (groupShown[g] and '1' or '0')
         end
@@ -476,9 +549,9 @@ function RaidList.ApplyManagerFilters()
             end
         end
         if RegisterStateDriver then
-            RegisterStateDriver(RaidList.assistsBlock.header, 'visibility', shown and VISIBILITY or 'hide')
+            RegisterStateDriver(RaidList.assistsBlock.header, 'visibility', assistsShown and VISIBILITY or 'hide')
         end
-        EUI.RaidPets.SetHidden(not shown)
+        EUI.RaidPets.SetHidden(not petsShown)
         slotOrder = nil
         layoutGroups()
         EUI.LogOnce('raid:managerFiltersApplied', 'raid: following the raid manager (%s)', key)
@@ -567,6 +640,7 @@ local function createDemoBlock(parent, anchor, x, y, count, label, bgSpec, label
     slot:SetSize(RaidList.style.width, RaidList.style.rowHeight)
     slot:SetPoint('TOPLEFT', anchor, 'TOPLEFT', x, -y)
     return {
+        slot = slot,
         rows = createDemoRows(slot, count, withTargets),
         bg = createChrome(slot, label, bgSpec, labelSpec, RaidList.fonts),
     }

@@ -36,6 +36,17 @@ function Curves.Step(thresholds, defaultColor)
     return built and curve or nil
 end
 
+-- Step's colours, transparent at full health: missing-health text blanks at 0 without a
+-- comparison on the secret value.
+function Curves.HideAtFull(thresholds, defaultColor)
+    local steps = {}
+    for _, step in ipairs(thresholds) do
+        steps[#steps + 1] = step
+    end
+    steps[#steps + 1] = { below = 1, color = defaultColor }
+    return Curves.Step(steps, '#00000000')
+end
+
 -- Evaluates curve on unit's health and passes the colour to region[setter].
 local function applyCurve(region, setter, unit, curve)
     if not curve then

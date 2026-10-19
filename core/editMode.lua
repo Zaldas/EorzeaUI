@@ -34,6 +34,19 @@ local function savePosition(key, frame)
     end
 end
 
+-- Resizes frame with its top-left corner kept on screen, whatever point it is saved by, and saves
+-- that position. A frame not yet placed is only resized.
+function EditMode.ResizeKeepingTopLeft(key, frame, width, height)
+    local left, top = frame:GetLeft(), frame:GetTop()
+    frame:SetSize(width, height)
+    if not (left and top) then
+        return
+    end
+    frame:ClearAllPoints()
+    frame:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', left, top)
+    savePosition(key, frame)
+end
+
 -- Blizzard's Edit Mode selection box (EditModeSystemSelectionLayout, local to its file), recoloured
 -- so our frames read apart from Blizzard's. Vertex colour only darkens the blue art, so the
 -- pieces are desaturated first.

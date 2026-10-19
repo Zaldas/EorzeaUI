@@ -67,8 +67,18 @@ function Kit.wideBar(width, frameColor, fillColor)
     }
 end
 
--- name: unit names; standard: other WoW-default text (level numbers, raid group label).
-Kit.FONTS = { name = 'Fonts\\FRIZQT__.TTF', number = 'grammara.ttf', timer = 'consola.ttf', standard = 'Fonts\\FRIZQT__.TTF' }
+-- Font file per kind of text: name (unit names), header (frame labels), level (level numbers),
+-- health (HP and power values, HP%, threat %, state text), cast (cast bar text), timer (aura
+-- countdowns), count (aura stacks). Style.Text specs pick one with font; name is the default.
+Kit.FONTS = {
+    name = 'Fonts\\FRIZQT__.TTF',
+    header = 'Fonts\\FRIZQT__.TTF',
+    level = 'Fonts\\FRIZQT__.TTF',
+    health = 'grammara.ttf',
+    cast = 'grammara.ttf',
+    timer = 'consola.ttf',
+    count = 'grammara.ttf',
+}
 
 -- Blizzard's level skull (unknown levels, corpses); a palette's levelSkull replaces it.
 Kit.LEVEL_SKULL = {
@@ -322,7 +332,7 @@ function Kit.target(p, castText, size)
         -- level badge, tinted with Blizzard's threat colours, and the percent under HP% (raw, or
         -- lead while tanking).
         threat = { path = 'pips/diamondFill-16', pos = { 1.5, iconY + iconSize - 8.5 }, size = { 15, 15 } },
-        txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
+        txtThreat = { pos = { barWidth - 14, 38 }, size = 12, color = p.targetText, stroke = p.strokeAlt, font = 'health', alignRight = true },
         lowHealth = Kit.LOW_HEALTH,
         -- Replaces HP% while the unit is dead, unconscious or offline.
         stateColor = '#A0A0A0FF',
@@ -335,7 +345,7 @@ function Kit.target(p, castText, size)
         -- AFK/DND on players, after any raid marker.
         flag = { pos = { nameX, nameY + 1 }, size = { 38, 15 } },
         healPrediction = { color = p.heals, absorbColor = p.absorbs },
-        txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
+        txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'health', alignRight = true },
         auras = auras,
         hostileAuras = hostileAuras,
         -- Above the HP bar.
@@ -362,7 +372,7 @@ function Kit.target(p, castText, size)
             pos = { iconX, iconY - 24 },
             width = totX + size.tot / 2 - iconX,
             height = 14,
-            txtLabel = { size = 14, color = p.label, stroke = p.stroke },
+            txtLabel = { size = 14, color = p.label, stroke = p.stroke, font = 'header' },
             line = { color = p.label, alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
         } or nil,
         -- The unit's target.
@@ -373,7 +383,7 @@ function Kit.target(p, castText, size)
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
             -- DEAD, UNCONSCIOUS or OFFLINE at the bar's right end, on the name's line; the name
             -- ends 4px before it.
-            txtState = { pos = { size.tot - 14, 33 - size.totName }, size = size.totName, color = '#A0A0A0FF', stroke = p.strokeAlt, font = 'number', alignRight = true },
+            txtState = { pos = { size.tot - 14, 33 - size.totName }, size = size.totName, color = '#A0A0A0FF', stroke = p.strokeAlt, font = 'health', alignRight = true },
             click = { pos = { 0, 10 }, size = { size.tot, aurasY - 10 } },
             -- Debuffs under the bar; Blizzard's target-of-target frame shows 4.
             auras = totDebuffs > 0 and {

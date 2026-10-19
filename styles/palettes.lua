@@ -98,10 +98,14 @@ local azeroth = {
 
 Kit.PALETTES = { vanadiel = vanadiel, azeroth = azeroth }
 
--- base with overrides over it; nested tables (reaction, powerColors) merge by key.
+-- base with overrides over it; nested tables (reaction, powerColors) merge by key. Saved keys are
+-- strings ('0' from the path colors.<style>.powerColors.0), so they map onto base's number keys.
 local function overlay(base, overrides)
     local out = EUI.Settings.Copy(base)
     for key, value in pairs(overrides) do
+        if out[key] == nil and tonumber(key) and out[tonumber(key)] ~= nil then
+            key = tonumber(key)
+        end
         if type(value) == 'table' and type(out[key]) == 'table' then
             out[key] = overlay(out[key], value)
         else

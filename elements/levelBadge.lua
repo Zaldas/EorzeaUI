@@ -26,7 +26,7 @@ function EUI.LevelBadge.Create(parent, anchor, spec, fonts)
     -- Friz Quadrata has no bold face; the thick outline gives the heavier weight.
     local offset = spec.textOffset or { 0, 0 }
     self.text = frame:CreateFontString(nil, 'OVERLAY')
-    EUI.Style.SetFont(self.text, fonts.standard, spec.textSize, 'THICKOUTLINE')
+    EUI.Style.SetFont(self.text, fonts.level, spec.textSize, 'THICKOUTLINE')
     self.text:SetPoint('TOPLEFT', offset[1], offset[2])
     self.text:SetPoint('BOTTOMRIGHT', offset[1], offset[2])
     self.text:SetJustifyH('CENTER')

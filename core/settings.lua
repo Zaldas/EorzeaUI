@@ -62,6 +62,12 @@ local function locate(root, path, create)
     return parent, key
 end
 
+-- Adds a default for path (config/options.lua); before Load only.
+function Settings.Declare(path, value)
+    local parent, key = locate(DEFAULTS, path, true)
+    parent[key] = value
+end
+
 function Settings.Load()
     if type(EorzeaUIDB) ~= 'table' then
         EorzeaUIDB = {}

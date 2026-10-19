@@ -246,7 +246,14 @@ end
 
 -- Shows raid marker index, then the optional AFK/DND flag, before text, shifting the text right
 -- while they show. textSpec.right truncates the text at that x. Returns the shift.
+-- A marker or flag spec with hidden set (settings) keeps it hidden.
 local function setMarkedName(text, textSpec, marker, markerSpec, index, flag, flagSpec, flagKind)
+    if markerSpec.hidden then
+        index = nil
+    end
+    if flagSpec and flagSpec.hidden then
+        flagKind = nil
+    end
     EUI.Indicators.SetRaidMarkerIcon(marker, index)
     if flag then
         EUI.Indicators.SetFlagIcon(flag, flagKind)
@@ -334,6 +341,9 @@ end
 
 -- kind: 'FFA' | 'Alliance' | 'Horde' | nil
 local function setPvP(self, kind)
+    if self.spec.pvp.hidden then
+        kind = nil
+    end
     if kind == self.pvpKind then
         return
     end
@@ -418,6 +428,12 @@ function TargetBarClass:UpdateThreat()
             end
         end
     end
+    if self.spec.threat.hidden then
+        status = nil
+    end
+    if self.spec.txtThreat.hidden then
+        display = nil
+    end
     if status and status > 0 then
         self.threat:SetVertexColor(EUI.Indicators.ThreatColor(status))
         self.threat:Show()
@@ -444,7 +460,7 @@ function TargetBarClass:UpdateCombo()
         return
     end
     -- Any class, in any form, as Blizzard's ComboFrame: the diamonds draw nothing at 0 points.
-    self.combo:SetShown(true)
+    self.combo:SetShown(not self.spec.comboPoints.hidden)
     local ok, count = pcall(GetComboPoints, 'player', self.unit)
     if not ok then
         EUI.LogOnce('combo:error', 'combo points: %s', tostring(count))
@@ -482,7 +498,7 @@ function TargetBarClass:UpdateIdentity()
     if leads then
         EUI.Indicators.SetLeaderArt(self.leader, EUI.Indicators.IsGuideGroup())
     end
-    self.leader:SetShown(leads == true)
+    self.leader:SetShown(leads == true and not self.spec.leader.hidden)
 end
 
 -- Hostile NPCs get the filtered aura row, as Blizzard's target frame: not a player, not another
@@ -492,7 +508,8 @@ function TargetBarClass:UpdateAuraFilter()
         return
     end
     local unit = self.unit
-    local hostileNpc = EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) ~= true
+    local hostileNpc = not self.spec.hostileAuras.disabled
+        and EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) ~= true
         and not (UnitIsOtherPlayersPet and EUI.Read('UnitIsOtherPlayersPet', UnitIsOtherPlayersPet, unit) == true)
         and EUI.Read('UnitIsFriend', UnitIsFriend, 'player', unit) ~= true
     if hostileNpc == self.hostileNpc then
@@ -618,7 +635,7 @@ end
 function TargetBarClass:UpdatePortraitShade()
     local grey = self.dead or self.colorKey == 'tapped'
     self.portrait:SetDesaturated(grey)
-    if grey then
+    if grey or self.spec.lowHealth.hidden then
         self.portrait:SetVertexColor(1, 1, 1, 1)
     else
         EUI.Curves.ApplyHealthTint(self.portrait, self.unit, self.lowHealthCurve)
@@ -750,10 +767,10 @@ function TargetBarClass:SetPreview(data)
     if data.leader then
         EUI.Indicators.SetLeaderArt(self.leader, data.guide == true)
     end
-    self.leader:SetShown(data.leader == true)
+    self.leader:SetShown(data.leader == true and not spec.leader.hidden)
     setTier(self, data.classification)
     if self.combo then
-        self.combo:SetShown(data.combo ~= nil)
+        self.combo:SetShown(data.combo ~= nil and not spec.comboPoints.hidden)
         self.combo:SetCount(data.combo)
     end
     if data.dead then
@@ -763,8 +780,8 @@ function TargetBarClass:SetPreview(data)
         self.hpp:SetText(string.format('%d%%', data.hpPercent))
         self.hpp:SetTextColor(Style.Color(spec.txtHpp.color))
     end
-    self.threat:SetShown(data.threat ~= nil)
-    self.threatText:SetShown(data.threat ~= nil and data.threatPercent ~= nil)
+    self.threat:SetShown(data.threat ~= nil and not spec.threat.hidden)
+    self.threatText:SetShown(data.threat ~= nil and data.threatPercent ~= nil and not spec.txtThreat.hidden)
     if data.threat then
         self.threat:SetVertexColor(EUI.Indicators.ThreatColor(data.threat))
         if data.threatPercent then
@@ -781,7 +798,7 @@ function TargetBarClass:SetPreview(data)
     end)
     local grey = data.dead == true or data.colorKey == 'tapped'
     self.portrait:SetDesaturated(grey)
-    local low = not grey and data.hpPercent < spec.lowHealth.below * 100
+    local low = not grey and not spec.lowHealth.hidden and data.hpPercent < spec.lowHealth.below * 100
     self.portrait:SetVertexColor(Style.Color(low and spec.lowHealth.color or '#FFFFFFFF'))
     self.questBoss:SetShown(data.questBoss == true)
     if data.corpse then

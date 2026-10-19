@@ -5,6 +5,7 @@
 ## IconTexture: Interface\AddOns\EorzeaUI\Media\AddonIcon
 ## Category: Unit Frames
 ## SavedVariables: EorzeaUIDB, EorzeaUILog
+## AddonCompartmentFunc: EorzeaUI_OnAddonCompartmentClick
 
 core\secret.lua
 core\combat.lua
@@ -35,5 +36,8 @@ elements\raidList.lua
 elements\raidPets.lua
 elements\targetBar.lua
 elements\totemBar.lua
+config\widgets.lua
+config\options.lua
+config\window.lua
 EorzeaUI.xml
 EorzeaUI.lua

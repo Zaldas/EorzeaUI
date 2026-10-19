@@ -131,7 +131,7 @@ fontRetry:SetScript('OnEvent', EUI.Guard('font retry', function()
     pendingFonts = failed
 end))
 
--- spec = { pos, size, color, stroke, font = 'name'|'number', alignRight | alignCenter, outline }
+-- spec = { pos, size, color, stroke, font (a Kit.FONTS key, default 'name'), alignRight | alignCenter, outline }
 -- outline: font flags, default 'OUTLINE'; '' gives a plain face (shadow only, as GameFontNormal).
 -- The stroke colour becomes the drop shadow; FontStrings only support a black outline.
 function Style.Text(parent, spec, fonts)
@@ -245,4 +245,9 @@ function Style.RootScale()
         return 1
     end
     return height / 1440 * EUI.Settings.Get('scale')
+end
+
+-- The root scale times the frame's own multiplier (settings scales.<key>, as Edit Mode keys).
+function Style.FrameScale(key)
+    return Style.RootScale() * (EUI.Settings.Get('scales.' .. key) or 1)
 end

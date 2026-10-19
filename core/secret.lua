@@ -39,19 +39,21 @@ function EUI.SafeBool(fn, ...)
     return EUI.SafeValue(fn, ...) == true
 end
 
--- Sends a possibly-secret number to a FontString with thousands separators.
-function EUI.SetNumberText(fontString, value)
+-- Sends a possibly-secret number to a FontString with thousands separators, after prefix
+-- (optional).
+function EUI.SetNumberText(fontString, value, prefix)
     if value == nil then
         fontString:SetText('')
         return
     end
+    prefix = prefix or ''
     if BreakUpLargeNumbers then
         local ok, text = pcall(BreakUpLargeNumbers, value)
-        if ok and pcall(fontString.SetText, fontString, text) then
+        if ok and pcall(function() fontString:SetText(string.format('%s%s', prefix, text)) end) then
             return
         end
     end
-    if not pcall(fontString.SetFormattedText, fontString, '%d', value) then
+    if not pcall(fontString.SetFormattedText, fontString, prefix .. '%d', value) then
         fontString:SetText('')
     end
 end

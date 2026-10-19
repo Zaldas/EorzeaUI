@@ -343,22 +343,83 @@ EorzeaUI = {
     end,
 }
 
+-- The demo shows by section: all of them while toggled or in Edit Mode, else the sections the
+-- settings window's page asks for (Demo.SetPageSections).
+Demo.SECTIONS = { 'party', 'raid', 'target', 'cast', 'totems' }
+local shown = {}
+
+local SHOW = {
+    party = function(on)
+        EUI.PartyList.SetDemo(on and members() or nil)
+    end,
+    raid = function(on)
+        local raid = on and raidMembers() or nil
+        local assists = raid and assistMembers(raid)
+        -- The raid preview size (settings raid.previewSize) keeps its first groups.
+        if raid then
+            for g = EUI.Settings.Get('raid.previewSize') / 5 + 1, #raid do
+                raid[g] = {}
+            end
+        end
+        EUI.RaidList.SetDemo(raid, assists)
+        EUI.RaidPets.SetDemo(raid and raidPets(raid))
+        EUI.RaidList.ApplyLayoutSize()
+    end,
+    target = function(on)
+        EUI.TargetBar.target:SetPreview(on and target() or nil)
+        EUI.TargetBar.focus:SetPreview(on and focus() or nil)
+        local bossSamples = on and bosses() or {}
+        for i, bar in ipairs(EUI.TargetBar.bosses) do
+            bar:SetPreview(bossSamples[i])
+        end
+    end,
+    cast = function(on)
+        EUI.playerCast:SetPreview(on and 'Flash of Light' or nil, 0.45)
+    end,
+    totems = function(on)
+        EUI.TotemBar.SetPreview(on and TOTEMS or nil)
+    end,
+}
+
+function Demo.IsShowing(section)
+    return shown[section] == true
+end
+
+-- Demo.active: any section shows.
 function Demo.Refresh()
-    local active = Demo.toggled or EUI.EditMode.unlocked
-    if active == Demo.active then
-        return
+    local all = Demo.toggled or EUI.EditMode.unlocked
+    local any = false
+    for _, section in ipairs(Demo.SECTIONS) do
+        local want = (all or (Demo.pageSections and Demo.pageSections[section])) and true or false
+        if want ~= (shown[section] == true) then
+            shown[section] = want
+            SHOW[section](want)
+        end
+        any = any or want
     end
-    Demo.active = active
-    EUI.PartyList.SetDemo(active and members() or nil)
-    local raid = active and raidMembers() or nil
-    EUI.RaidList.SetDemo(raid, raid and assistMembers(raid))
-    EUI.RaidPets.SetDemo(raid and raidPets(raid))
-    EUI.TargetBar.target:SetPreview(active and target() or nil)
-    EUI.TargetBar.focus:SetPreview(active and focus() or nil)
-    local bossSamples = active and bosses() or {}
-    for i, bar in ipairs(EUI.TargetBar.bosses) do
-        bar:SetPreview(bossSamples[i])
+    Demo.active = any
+end
+
+-- sections: a list of Demo.SECTIONS names, or nil for none. Waits for combat to end.
+function Demo.SetPageSections(sections)
+    local set
+    if sections then
+        set = {}
+        for _, section in ipairs(sections) do
+            set[section] = true
+        end
     end
-    EUI.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)
-    EUI.TotemBar.SetPreview(active and TOTEMS or nil)
+    Demo.pageSections = set
+    EUI.RunOutOfCombat(Demo.Refresh, 'demoRefresh')
+end
+
+-- Draws the shown sections again from fresh samples (after a settings change).
+function Demo.Redraw()
+    EUI.RunOutOfCombat(function()
+        for _, section in ipairs(Demo.SECTIONS) do
+            if shown[section] then
+                SHOW[section](true)
+            end
+        end
+    end, 'demoRedraw')
 end

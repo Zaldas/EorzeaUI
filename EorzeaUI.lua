@@ -6,21 +6,23 @@ local RANGE_TICK = 0.25
 
 local function applyScale()
     EUI.RunOutOfCombat(function()
-        local scale = EUI.Style.RootScale()
-        EUI.PartyList.anchor:SetScale(scale)
-        EUI.RaidList.anchor:SetScale(scale)
-        EUI.RaidList.assistsAnchor:SetScale(scale)
-        EUI.RaidPets.anchor:SetScale(scale)
-        EUI.TargetBar.target.anchor:SetScale(scale)
-        EUI.TargetBar.focus.anchor:SetScale(scale)
-        EUI.TargetBar.bossAnchor:SetScale(scale)
-        EUI.castAnchor:SetScale(scale)
+        local scale = EUI.Style.FrameScale
+        EUI.PartyList.anchor:SetScale(scale('party'))
+        EUI.RaidList.anchor:SetScale(scale('raid') * EUI.RaidList.SizeScale())
+        EUI.RaidList.assistsAnchor:SetScale(scale('assists'))
+        EUI.RaidPets.anchor:SetScale(scale('pets'))
+        EUI.TargetBar.target.anchor:SetScale(scale('target'))
+        EUI.TargetBar.focus.anchor:SetScale(scale('focus'))
+        EUI.TargetBar.bossAnchor:SetScale(scale('boss'))
+        EUI.castAnchor:SetScale(scale('cast'))
         EUI.TotemBar.ApplyScale()
     end, 'scale')
     if EorzeaUIGallery and EorzeaUIGallery.ApplyScale then
         EorzeaUIGallery.ApplyScale()
     end
 end
+
+EUI.ApplyScale = applyScale
 
 local function createPlayerCastBar(style, fonts)
     local spec = style.castBar
@@ -76,7 +78,9 @@ local function initialize()
         Settings.Reset('style')
     end
     local styleName = Settings.Get('style')
+    EUI.Config.BeforeBuild()
     local style = EUI.StyleKit.BuildStyle(styleName, Settings.Get('colors.' .. styleName))
+    EUI.Config.ApplyOptions(style)
     local fonts = style.fonts
     EUI.LogSession()
     logCapabilities()
@@ -89,6 +93,7 @@ local function initialize()
 
     EUI.PartyList.Create(style, fonts)
     EUI.RaidList.Create(style, fonts)
+    EUI.RaidList.ApplyLayoutSize()
     EUI.RaidPets.Create(style, fonts)
     EUI.TargetBar.Create(style, fonts)
     createPlayerCastBar(style, fonts)
@@ -107,6 +112,7 @@ local function initialize()
 
     applyScale()
     Settings.OnChange('scale', applyScale)
+    EUI.Config.Initialize(style)
 
     C_Timer.NewTicker(RANGE_TICK, EUI.Guard('range ticker', function()
         EUI.PartyList.ForEachVisibleRow(function(row)
@@ -323,6 +329,7 @@ local function refreshRoster()
     EUI.PartyList.RefreshAll()
     EUI.PartyList.UpdateFormRows()
     EUI.RaidList.OnRosterChanged()
+    EUI.RaidList.ApplyLayoutSize()
     EUI.RaidPets.RefreshAll()
 end
 
@@ -439,9 +446,11 @@ local GLOBAL_ROUTES = {
     PET_ATTACK_STOP = function()
         setPetAttacking(false)
     end,
-    -- Blizzard's "only dispellable debuffs" options for party and raid frames.
+    -- Blizzard's "only dispellable debuffs" options for party and raid frames, and the Blizzard
+    -- settings our options can follow.
     CVAR_UPDATE = function(_, name)
         EUI.AuraRow.OnCVarChanged(name)
+        EUI.Config.OnCVarChanged(name)
     end,
     PET_UI_UPDATE = function()
         EUI.PartyList.ForEachVisiblePet(function(pet)
@@ -528,7 +537,9 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
         EUI.Print('not set up yet; /eui log shows why')
         return
     end
-    if msg == 'unlock' then
+    if msg == '' or msg == 'config' or msg == 'options' then
+        EUI.Config.Toggle()
+    elseif msg == 'unlock' then
         EUI.EditMode.SetUnlocked(true)
     elseif msg == 'lock' then
         EUI.EditMode.SetUnlocked(false)
@@ -538,6 +549,7 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             Settings.Set('scale', value)
         end
         EUI.Print('scale %.2f', Settings.Get('scale'))
+        EUI.Config.Refresh()
     elseif msg == 'demo' then
         EUI.Demo.Toggle()
     elseif msg == 'gallery' or msg == 'gallery target' then
@@ -579,6 +591,6 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             EUI.EditMode.RestorePosition('totems', EUI.TotemBar.anchor)
         end)
     else
-        EUI.Print('/eui demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
+        EUI.Print('/eui [config] | demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
     end
 end)

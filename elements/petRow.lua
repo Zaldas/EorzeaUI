@@ -141,9 +141,10 @@ local function setHappiness(self, happiness)
     end
 end
 
--- status: UnitThreatSituation's 1-3 tint the diamond with Blizzard's threat colours; else hidden.
+-- status: UnitThreatSituation's 1-3 tint the diamond with Blizzard's threat colours; else hidden,
+-- as while spec.threat.hidden (settings).
 local function setThreat(self, status)
-    if type(status) ~= 'number' or status < 1 then
+    if type(status) ~= 'number' or status < 1 or self.spec.threat.hidden then
         self.threat:Hide()
         return
     end

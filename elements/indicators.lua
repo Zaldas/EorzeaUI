@@ -179,7 +179,9 @@ function EUI.Indicators.Create(parent, top, style)
 end
 
 -- guide: show the Dungeon Guide icon in place of the crown.
+-- A spec entry with hidden set (settings) keeps its indicator hidden.
 function Indicators:SetLeader(shown, guide)
+    shown = shown and not self.spec.leader.hidden
     if shown then
         EUI.Indicators.SetLeaderArt(self.leader, guide)
     end
@@ -204,17 +206,20 @@ local function layoutRightEdge(self)
 end
 
 function Indicators:SetAssistant(shown)
-    self.assistant:SetShown(shown)
+    self.assistant:SetShown(shown and not self.spec.assistant.hidden)
     layoutRightEdge(self)
 end
 
 function Indicators:SetMasterLooter(shown)
-    self.masterLooter:SetShown(shown)
+    self.masterLooter:SetShown(shown and not self.spec.masterLooter.hidden)
     layoutRightEdge(self)
 end
 
 -- state: 'combat' | 'rest' | nil
 function Indicators:SetPlayerState(state)
+    if self.spec.rest.hidden then
+        state = nil
+    end
     self.combat:SetShown(state == 'combat')
     local resting = state == 'rest'
     self.rest:SetShown(resting)
@@ -230,6 +235,9 @@ end
 
 -- kind: a STATUS_ICONS key, or nil to hide. tooltip: text shown while hovering the icon, or nil.
 function Indicators:SetStatus(kind, tooltip)
+    if self.spec.status.hidden then
+        kind = nil
+    end
     self.statusTooltip = tooltip
     if self.statusHover then
         self.statusHover:SetShown(kind ~= nil and tooltip ~= nil)
@@ -264,6 +272,10 @@ end
 
 -- index: from EUI.Indicators.ReadRaidMarker (possibly secret), a plain 1-8, or nil.
 function Indicators:SetRaidMarker(index)
+    if self.spec.raidMarker.hidden then
+        self.raidMarker:Hide()
+        return
+    end
     EUI.Indicators.SetRaidMarkerIcon(self.raidMarker, index)
 end
 
@@ -296,6 +308,9 @@ end
 -- role: a ROLE_ICONS key ('MAINTANK', 'MAINASSIST' or a UnitGroupRolesAssigned result). 'NONE'
 -- and nil hide the icon.
 function Indicators:SetRole(role)
+    if self.spec.role.hidden then
+        role = nil
+    end
     if role == self.roleKind then
         return
     end
@@ -311,6 +326,9 @@ end
 
 -- kind: 'FFA' | 'Alliance' | 'Horde' | nil
 function Indicators:SetPvP(kind)
+    if self.pvp and self.spec.pvp.hidden then
+        kind = nil
+    end
     if not self.pvp or kind == self.pvpKind then
         return
     end
@@ -330,7 +348,7 @@ end
 
 -- kind: 'AFK' | 'DND' | nil. Call LayoutNameLine afterwards.
 function Indicators:SetFlag(kind)
-    EUI.Indicators.SetFlagIcon(self.flag, kind)
+    EUI.Indicators.SetFlagIcon(self.flag, not self.spec.flag.hidden and kind or nil)
 end
 
 -- Shows the badge for kind ('AFK' | 'DND') on texture, or hides it for nil. Returns whether it shows.

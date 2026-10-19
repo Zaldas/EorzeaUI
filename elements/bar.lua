@@ -54,7 +54,7 @@ local function createPrediction(self, frame, spec, predictionSpec)
     if not pcall(calculator.SetDamageAbsorbClampMode, calculator, missingHealth) then
         EUI.LogOnce('prediction:clamp', 'absorbs: SetDamageAbsorbClampMode failed')
     end
-    self.prediction = { bar = heals, absorbs = absorbs, calculator = calculator }
+    self.prediction = { bar = heals, absorbs = absorbs, calculator = calculator, spec = predictionSpec }
 end
 
 -- Spell-cost segment ending at the fill's right edge: a reverse-filling StatusBar the width of
@@ -188,6 +188,10 @@ end
 function Bar:ShowIncomingHeals(unit, maxValue)
     local prediction = self.prediction
     if not prediction then
+        return
+    end
+    if prediction.spec.hidden then
+        self:SetIncoming(0)
         return
     end
     local ok, err = pcall(UnitGetDetailedHealPrediction, unit, 'player', prediction.calculator)

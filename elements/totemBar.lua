@@ -142,7 +142,7 @@ function TotemBar.Create(style)
     local headerHost = CreateFrame('Frame', nil, frame)
     headerHost:SetPoint('BOTTOMLEFT', anchor, 'TOPLEFT', 0, spec.headerGap)
     TotemBar.headerHost = headerHost
-    TotemBar.header = Style.Header(headerHost, spec.header, EUI.StyleKit.FONTS)
+    TotemBar.header = Style.Header(headerHost, spec.header, style.fonts)
 
     TotemBar.buttons = {}
     for i = 1, MAX_TOTEMS do
@@ -157,7 +157,7 @@ function TotemBar.ApplyScale()
         return
     end
     local userScale = EUI.Settings.Get('scale')
-    anchor:SetScale(userScale)
+    anchor:SetScale(userScale * (EUI.Settings.Get('scales.totems') or 1))
     local headerScale = EUI.Style.RootScale() / userScale
     local host = TotemBar.headerHost
     host:SetScale(headerScale)

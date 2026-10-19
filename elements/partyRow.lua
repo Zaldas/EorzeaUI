@@ -38,6 +38,7 @@ local function buildArt(self, host, style, fonts)
     self.hp = EUI.Bar.Create(art, style.hp.bar, style.hp.pos, { prediction = style.indicators.healPrediction })
     self.hpText = Style.Text(self.hp.overlay, style.hp.txtValue, fonts)
     self.hpCurve = EUI.Curves.Step(style.hp.thresholds, style.hp.textColor)
+    self.missingCurve = EUI.Curves.HideAtFull(style.hp.thresholds, style.hp.textColor)
     self.lowHealthCurve = EUI.Curves.Step({ style.lowHealth }, '#FFFFFFFF')
 
     self.power = EUI.Bar.Create(art, style.power.bar, style.power.pos, { cost = style.power.cost })
@@ -106,7 +107,7 @@ end
 
 -- status: UnitThreatSituation result. 1 high threat, 2 tanking but not highest, 3 securely tanking.
 local function setThreat(self, status)
-    if type(status) ~= 'number' or status < 1 then
+    if type(status) ~= 'number' or status < 1 or self.style.threat.hidden then
         self.threat:Hide()
         return
     end
@@ -242,9 +243,19 @@ function Row:ShowDemo(member)
     if not applyState(self, member.state, member.hpMax) then
         self.hp:SetValue(member.hp)
         self.hp:SetIncoming(member.incoming or 0, member.hpMax, member.absorb or 0)
-        self.hpText:SetText(UnitVisual.FormatNumber(member.hp))
+        local mode = self.style.hp.textMode
+        if mode == 'missing' then
+            local missing = member.hpMax - member.hp
+            self.hpText:SetText(missing > 0 and '-' .. UnitVisual.FormatNumber(missing) or '')
+        elseif mode == 'percent' then
+            self.hpText:SetText(string.format('%.0f%%', member.hp / member.hpMax * 100))
+        elseif mode == 'none' then
+            self.hpText:SetText('')
+        else
+            self.hpText:SetText(UnitVisual.FormatNumber(member.hp))
+        end
         self.hpText:SetTextColor(Style.Color(UnitVisual.ThresholdColor(self.style.hp, member.hp / member.hpMax)))
-        local low = member.hp / member.hpMax < self.style.lowHealth.below
+        local low = not self.style.lowHealth.hidden and member.hp / member.hpMax < self.style.lowHealth.below
         self.classIcon:SetVertexColor(Style.Color(low and self.style.lowHealth.color or '#FFFFFFFF'))
     end
 
@@ -270,6 +281,8 @@ function Row:ShowDemo(member)
     tintPower(self, self.power, offline and OFFLINE or member.powerType)
     self.power:SetRange(member.powerMax)
     self.power:SetValue(offline and member.powerMax or member.power)
+    local show = self.style.power.show
+    self.power.frame:SetShown(show ~= 'none' and (show ~= 'healers' or member.role == 'HEALER'))
     local form = self.formBar and member.form
     if self.formBar then
         self.formBar.frame:SetShown(form ~= nil)
@@ -395,9 +408,25 @@ function Row:UpdateHealth(smooth)
     end
     local health = UnitHealth(unit)
     self.hp:SetValue(health, smooth)
-    EUI.SetNumberText(self.hpText, health)
-    EUI.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
-    EUI.Curves.ApplyHealthTint(self.classIcon, unit, self.lowHealthCurve)
+    -- textMode (settings): 'current' (default), 'missing' (blank at full), 'percent' or 'none'.
+    local mode = self.style.hp.textMode
+    if mode == 'missing' and UnitHealthMissing then
+        EUI.SetNumberText(self.hpText, UnitHealthMissing(unit), '-')
+        EUI.Curves.ApplyHealthColor(self.hpText, unit, self.missingCurve)
+    elseif mode == 'percent' then
+        EUI.Curves.SetHealthPercentText(self.hpText, unit)
+        EUI.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
+    elseif mode == 'none' then
+        self.hpText:SetText('')
+    else
+        EUI.SetNumberText(self.hpText, health)
+        EUI.Curves.ApplyHealthColor(self.hpText, unit, self.hpCurve)
+    end
+    if self.style.lowHealth.hidden then
+        self.classIcon:SetVertexColor(1, 1, 1, 1)
+    else
+        EUI.Curves.ApplyHealthTint(self.classIcon, unit, self.lowHealthCurve)
+    end
     self.hp:ShowIncomingHeals(unit, maxHealth)
 end
 
@@ -455,6 +484,9 @@ function Row:UpdateRole()
         role = EUI.Read('UnitGroupRolesAssigned', UnitGroupRolesAssigned, unit)
     end
     self.indicators:SetRole(role)
+    if self.style.power.show == 'healers' then
+        self:UpdatePower(false)
+    end
 end
 
 function Row:UpdatePvP()
@@ -565,9 +597,29 @@ end
 
 local MANA = 0
 
+-- power.show (settings): 'none' hides the bar; 'healers' shows it on healers only.
+local function powerShown(self)
+    local show = self.style.power.show
+    if show == 'none' then
+        return false
+    end
+    if show == 'healers' then
+        return EUI.Read('UnitGroupRolesAssigned', UnitGroupRolesAssigned, self.unit) == 'HEALER'
+    end
+    return true
+end
+
 -- A druid's own power bar always shows mana; the form bar carries rage or energy.
 function Row:UpdatePower(smooth)
     local unit = self.unit
+    local shown = powerShown(self)
+    self.power.frame:SetShown(shown)
+    if not shown then
+        if self.formBar then
+            self.formBar.frame:Hide()
+        end
+        return
+    end
     if self:IsPlayer() and EUI.Druid.IsDruid() then
         tintPower(self, self.power, MANA)
         self.power:SetRange(UnitPowerMax(unit, MANA))
