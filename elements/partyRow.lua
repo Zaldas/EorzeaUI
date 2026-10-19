@@ -393,7 +393,7 @@ local function readState(unit)
     if EUI.Read('UnitIsGhost', UnitIsGhost, unit) then
         return 'ghost'
     end
-    if EUI.Read('UnitIsDead', UnitIsDead, unit) then
+    if EUI.UnitInfo.IsDead(unit) then
         return 'dead'
     end
     return nil

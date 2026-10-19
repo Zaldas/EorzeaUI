@@ -136,6 +136,7 @@ IsResting = function() return true end
 UnitIsConnected = function() return true end
 UnitIsDead = function() return false end
 UnitIsGhost = function() return false end
+UnitIsFeignDeath = function() return false end
 UnitIsDeadOrGhost = function() return false end
 UnitPlayerControlled = function() return false end
 UnitClassification = function() return 'elite' end

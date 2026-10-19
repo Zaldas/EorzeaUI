@@ -130,6 +130,12 @@ UnitInfo.STATE_LABELS = {
     unconscious = UNCONSCIOUS and UNCONSCIOUS:upper() or 'UNCONSCIOUS',
 }
 
+-- UnitIsDead also reports a hunter feigning death, who keeps their real health.
+function UnitInfo.IsDead(unit)
+    return EUI.Read('UnitIsDead', UnitIsDead, unit) == true
+        and EUI.Read('UnitIsFeignDeath', UnitIsFeignDeath, unit) ~= true
+end
+
 -- 'unconscious' or 'dead' for a connected unit at zero health, else nil; Blizzard's target frame
 -- (CheckDead) shows the same two.
 function UnitInfo.DeadState(unit)
@@ -139,7 +145,7 @@ function UnitInfo.DeadState(unit)
     if EUI.Read('UnitIsUnconscious', UnitIsUnconscious, unit) then
         return 'unconscious'
     end
-    if EUI.Read('UnitIsDead', UnitIsDead, unit) then
+    if UnitInfo.IsDead(unit) then
         return 'dead'
     end
     return nil

@@ -628,6 +628,7 @@ function TargetBarClass:UpdateHealth(smooth)
         self.hpp:SetTextColor(Style.Color(self.spec.txtHpp.color))
     end
     self.dead = EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) == true
+        and EUI.Read('UnitIsFeignDeath', UnitIsFeignDeath, unit) ~= true
     self:UpdatePortraitShade()
 end
 

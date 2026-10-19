@@ -39,7 +39,7 @@ end
 
 -- APIs behind optional features; missing ones are logged once per session.
 local FEATURE_APIS = {
-    'IsResting', 'UnitIsConnected', 'UnitIsDead', 'UnitIsGhost', 'UnitIsAFK', 'UnitIsDND',
+    'IsResting', 'UnitIsConnected', 'UnitIsDead', 'UnitIsFeignDeath', 'UnitIsGhost', 'UnitIsAFK', 'UnitIsDND',
     'GetReadyCheckStatus', 'GetRaidTargetIndex', 'C_IncomingSummon', 'UnitHasIncomingResurrection',
     'UnitPhaseReason', 'UnitInRange', 'CreateUnitHealPredictionCalculator', 'UnitGetDetailedHealPrediction',
     'UnitCastingDuration', 'UnitInOtherParty', 'C_StringUtil', 'canaccessvalue', 'UnitGroupRolesAssigned', 'UnitIsPVP',

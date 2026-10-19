@@ -76,7 +76,7 @@ end
 
 -- Pets' HP number coloured by curve, or "DEAD" in stateColor.
 function UnitVisual.SetHealthText(text, unit, health, curve, stateColor)
-    if EUI.Read('UnitIsDead', UnitIsDead, unit) then
+    if EUI.UnitInfo.IsDead(unit) then
         text:SetText(EUI.UnitInfo.STATE_LABELS.dead)
         text:SetTextColor(Style.Color(stateColor))
         return
