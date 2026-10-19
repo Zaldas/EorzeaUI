@@ -224,6 +224,9 @@ function PartyList.Create(style, fonts)
         local row = EUI.PartyRow.Attach(button, partyStyle, fonts, ROW_HOOKS)
         local petButton = createPetButton(button, i, partyStyle)
         petButton:SetAttribute('unit', PARTY_PETS[i])
+        if i == 1 then
+            PartyList.ownPetButton = petButton
+        end
         row.pet = EUI.PetRow.Attach(petButton, row, partyStyle, fonts, PET_HOOKS)
         rows[i] = row
         button:HookScript('OnShow', PartyList.UpdateBackground)
@@ -297,6 +300,23 @@ end
 
 function PartyList.RowForUnit(unit)
     return rowsByUnit[unit]
+end
+
+-- Your pet's sub-row shows only while PetUsesPetFrame(), as Blizzard's pet frame. The unit watch
+-- can't test that, so it is switched on and off out of combat.
+function PartyList.UpdateOwnPet()
+    local button = PartyList.ownPetButton
+    if not (button and PetUsesPetFrame and RegisterUnitWatch and UnregisterUnitWatch) then
+        return
+    end
+    EUI.RunOutOfCombat(function()
+        if EUI.SafeValue(PetUsesPetFrame) == false then
+            UnregisterUnitWatch(button)
+            button:Hide()
+        else
+            RegisterUnitWatch(button)
+        end
+    end, 'ownPetFrame')
 end
 
 function PartyList.PetForUnit(unit)

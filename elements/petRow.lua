@@ -279,13 +279,20 @@ function Pet:SetAttacking(attacking)
 end
 
 -- Hunter pets run on focus, warlock pets on mana.
+-- A pet without power (max 0) shows no number, as Blizzard's pet frame. A secret max can't be
+-- compared, so the number stays.
 function Pet:UpdatePower(smooth)
     local unit = self.unit
     tintPower(self, EUI.Read('UnitPowerType', UnitPowerType, unit))
-    self.power:SetRange(UnitPowerMax(unit))
+    local maxPower = UnitPowerMax(unit)
+    self.power:SetRange(maxPower)
     local power = UnitPower(unit)
     self.power:SetValue(power, smooth)
-    EUI.SetNumberText(self.powerText, power)
+    local powerless = type(maxPower) == 'number' and EUI.CanAccess(maxPower) and maxPower == 0
+    self.powerText:SetShown(not powerless)
+    if not powerless then
+        EUI.SetNumberText(self.powerText, power)
+    end
 end
 
 local function hasHunterPet()

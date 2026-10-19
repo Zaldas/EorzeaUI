@@ -847,6 +847,17 @@ onEvent(nil, 'READY_CHECK_FINISHED')
 onEvent(nil, 'PARTY_LEADER_CHANGED')
 TICK()
 
+-- Your pet's sub-row follows PetUsesPetFrame, as Blizzard's pet frame.
+local unwatched = {}
+UnregisterUnitWatch = function(frame) unwatched[frame] = true end
+PetUsesPetFrame = function() return false end
+onEvent(nil, 'UNIT_PET', 'player')
+assert(unwatched[EUI.PartyList.ownPetButton], 'own pet shown though PetUsesPetFrame is false')
+PetUsesPetFrame = function() return true end
+local watchedBefore = #WATCHED
+onEvent(nil, 'UNIT_PET', 'player')
+assert(#WATCHED == watchedBefore + 1, 'own pet not watched again')
+
 -- Totems: the one active slot gets a button; the bar shows.
 EUI.TotemBar.SetPreview(nil)
 onEvent(nil, 'PLAYER_TOTEM_UPDATE')

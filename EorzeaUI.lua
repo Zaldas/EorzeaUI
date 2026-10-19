@@ -217,7 +217,10 @@ local UNIT_ROUTES = {
     UNIT_OTHER_PARTY_CHANGED = { row = { 'UpdateStatusIcon', 'UpdateRange' } },
     -- unit is the owner, possibly by another token than its row's ('player' for a raidN row).
     UNIT_PET = {
-        also = function()
+        also = function(unit)
+            if unit == 'player' then
+                EUI.PartyList.UpdateOwnPet()
+            end
             EUI.PartyList.ForEachVisiblePet(function(pet)
                 pet:Refresh()
             end)
@@ -359,6 +362,7 @@ local GLOBAL_ROUTES = {
         seedLostUnits()
         EUI.RaidList.ApplyManagerFilters()
         EUI.TotemBar.Update()
+        EUI.PartyList.UpdateOwnPet()
     end,
     PLAYER_TARGET_CHANGED = function()
         checkUnitLost('target')
