@@ -66,7 +66,7 @@ function Kit.BuildLayout(p)
             lowHealth = Kit.LOW_HEALTH,
             hp = {
                 pos = { 19, -7 },
-                bar = Kit.rowBar('ffxi', p.hp, p.hp),
+                bar = Kit.rowBar('hud', p.hp, p.hp),
                 txtValue = valueText,
                 textColor = p.text,
                 thresholds = p.hpThresholds,
@@ -74,7 +74,7 @@ function Kit.BuildLayout(p)
             },
             power = {
                 pos = { 150, -7 },
-                bar = Kit.rowBar('ffxi', p.power, p.power),
+                bar = Kit.rowBar('hud', p.power, p.power),
                 txtValue = valueText,
                 -- Keyed by UnitPowerType: 0 mana, 1 rage, 2 focus, 3 energy. Others keep the bar colour.
                 colors = p.powerColors,
@@ -104,8 +104,8 @@ function Kit.BuildLayout(p)
             -- On the icon's bottom-right corner right of the level badge, as on the target, scaled to
             -- the 40px icon. Tinted with Blizzard's threat colours; hidden without threat.
             threat = { path = 'pips/diamondFill-16', pos = { 23.5, 28.5 }, size = { 13, 13 } },
-            hover = { path = 'ffxi/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
-            cursor = { path = 'ffxi/Cursor', pos = { -47, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
+            hover = { path = 'hud/Hover', pos = { 20, -8 }, size = { 390, 60 }, color = '#9C94E8AA' },
+            cursor = { path = 'hud/Cursor', pos = { -47, 4 }, size = { 37, 24 }, color = '#FFFFFFFF', onTop = true },
             txtName = { pos = { 38, 3 }, width = 242, size = 17, color = p.name, stroke = p.stroke },
             -- Replaces the name row while the member casts, spanning the HP and power bars (x 19..278).
             -- Spell name in the target cast bar's text style, 1px higher on the bar.
@@ -159,9 +159,9 @@ function Kit.BuildLayout(p)
                 },
                 -- Own hunter pet only, right of the power bar.
                 happiness = { pos = { 223, 10 }, size = { 20, 19 } },
-                hover = { path = 'ffxi/Hover', pos = { 20, -6 }, size = { 390, 44 }, color = '#9C94E8AA' },
+                hover = { path = 'hud/Hover', pos = { 20, -6 }, size = { 390, 44 }, color = '#9C94E8AA' },
                 -- Points at the portrait (x 24..51, y 3..30) as the member cursor does at the class icon.
-                cursor = { path = 'ffxi/Cursor', pos = { -10, 5 }, size = { 37, 24 }, color = '#FFFFFFFF' },
+                cursor = { path = 'hud/Cursor', pos = { -10, 5 }, size = { 37, 24 }, color = '#FFFFFFFF' },
                 -- One line of 6 in the party aura column.
                 auras = Kit.groupAuras(p, { pos = { 284, 7 }, size = 18, spacing = 2, perLine = 6, lines = 1 }),
                 -- On the portrait's bottom-right corner, as on the member rows at 0.75 scale.
@@ -204,10 +204,10 @@ function Kit.BuildLayout(p)
                     x = { 155, 272 },
                     -- The target bar's arrow toward the ToT, before this cell's bar line (x 11),
                     -- centred on it.
-                    attention = { path = 'ffxi/attention', pos = { -4, 9 }, size = { 11, 12 }, color = '#FFFFFFFF' },
+                    attention = { path = 'hud/attention', pos = { -4, 9 }, size = { 11, 12 }, color = '#FFFFFFFF' },
                     -- Replaces the arrow while the unit is your target: the cells' cursor at 0.75
                     -- scale, its tip on the arrow's.
-                    cursor = { path = 'ffxi/Cursor', pos = { -19, 6.5 }, size = { 26, 17 }, color = '#FFFFFFFF' },
+                    cursor = { path = 'hud/Cursor', pos = { -19, 6.5 }, size = { 26, 17 }, color = '#FFFFFFFF' },
                     hp = {
                         pos = { 0, -17 },
                         bar = Kit.wideBar(120, p.hp, p.hp),
@@ -217,7 +217,7 @@ function Kit.BuildLayout(p)
                     -- Starts over the HP bar's line, as on the cells.
                     txtName = { pos = { 11, 0 }, width = 95, size = 12, color = p.text, stroke = p.stroke },
                     raidMarker = { pos = { 11, 0 }, size = { 12, 12 } },
-                    hover = { path = 'ffxi/Hover', pos = { 0, -6 }, size = { 120, 57 }, color = '#9C94E8AA' },
+                    hover = { path = 'hud/Hover', pos = { 0, -6 }, size = { 120, 57 }, color = '#9C94E8AA' },
                     -- Names by reaction, as the target bar's; nameColor (optional) overrides them all.
                     reactionColors = p.reaction,
                     nameColor = p.targetName,
@@ -234,9 +234,9 @@ function Kit.BuildLayout(p)
                 rowHeight = 32,
                 -- The party pet portrait, its right edge on the cells' class icon's (x 24).
                 portrait = { pos = { -3, 2 }, size = 27, inset = 3.5 },
-                hover = { path = 'ffxi/Hover', pos = { 18, -6 }, size = { 156, 44 }, color = '#9C94E8AA' },
+                hover = { path = 'hud/Hover', pos = { 18, -6 }, size = { 156, 44 }, color = '#9C94E8AA' },
                 -- Tip on the portrait's left edge, centred, as on the cells.
-                cursor = { path = 'ffxi/Cursor', pos = { -35, 4 }, size = { 35, 23 }, color = '#FFFFFFFF' },
+                cursor = { path = 'hud/Cursor', pos = { -35, 4 }, size = { 35, 23 }, color = '#FFFFFFFF' },
             },
             lowHealth = Kit.LOW_HEALTH,
             -- The bar's line starts under the name (x 27) and keeps VanaVista's right end.
@@ -267,9 +267,9 @@ function Kit.BuildLayout(p)
             range = { farAlpha = 0.5, notPresentAlpha = 0.6, phaseDistance = 250 },
             -- On the icon's bottom-right corner, as on the target.
             threat = { path = 'pips/diamondFill-16', pos = { 19, 29 }, size = { 12, 12 } },
-            hover = { path = 'ffxi/Hover', pos = { 18, -6 }, size = { 156, 57 }, color = '#9C94E8AA' },
+            hover = { path = 'hud/Hover', pos = { 18, -6 }, size = { 156, 57 }, color = '#9C94E8AA' },
             -- Placed against the icon as on the party rows: tip on its left edge, centred.
-            cursor = { path = 'ffxi/Cursor', pos = { -42, 7.5 }, size = { 35, 23 }, color = '#FFFFFFFF', onTop = true },
+            cursor = { path = 'hud/Cursor', pos = { -42, 7.5 }, size = { 35, 23 }, color = '#FFFFFFFF', onTop = true },
             -- Ends before the HP value on the same line.
             txtName = { pos = { 27, 0 }, width = 73, size = 12, color = p.name, stroke = p.stroke },
             indicators = Kit.raidIndicators(p, 27, 0),

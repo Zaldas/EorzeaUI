@@ -39,10 +39,10 @@ function Widgets.Solid(parent, layer, color)
     return texture
 end
 
--- The HUD's hover bar (ffxi/Hover), shown while the mouse is over frame.
+-- The HUD's hover bar (hud/Hover), shown while the mouse is over frame.
 function Widgets.AddHover(frame, target)
     local hover = (target or frame):CreateTexture(nil, 'BACKGROUND')
-    hover:SetTexture(Style.AssetPath('ffxi/Hover'))
+    hover:SetTexture(Style.AssetPath('hud/Hover'))
     hover:SetVertexColor(Style.Color(C.hover))
     hover:SetAllPoints(target or frame)
     hover:Hide()

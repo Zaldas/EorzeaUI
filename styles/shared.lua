@@ -28,7 +28,7 @@ Kit.DISPEL_COLORS = {
 Kit.STEALABLE_COLOR = '#BFE3FFFF'
 
 -- 128x64 party bar on a 256x128 texture; no slicing needed at uniform half scale.
--- art: asset folder, e.g. 'ffxi'
+-- art: asset folder, e.g. 'hud'
 function Kit.rowBar(art, frameColor, fillColor)
     return {
         width = 128,
@@ -49,21 +49,21 @@ function Kit.allyBar(frameColor, fillColor, width)
         width = width,
         height = 64,
         slice = width ~= 128 and { texSize = { 256, 128 }, cap = 60 } or nil,
-        bg = { path = 'ffxi/AllyBarBgMP', color = frameColor },
-        fill = { path = 'ffxi/AllyBarMP', color = fillColor, x = 27, width = width - 54 },
-        fg = { path = 'ffxi/AllyBarFgMP', color = frameColor },
+        bg = { path = 'hud/AllyBarBgMP', color = frameColor },
+        fill = { path = 'hud/AllyBarMP', color = fillColor, x = 27, width = width - 54 },
+        fg = { path = 'hud/AllyBarFgMP', color = frameColor },
     }
 end
 
--- Wide bars three-slice the ffxi frame art: 30px texture caps on a 256x128 texture.
+-- Wide bars three-slice the hud frame art: 30px texture caps on a 256x128 texture.
 function Kit.wideBar(width, frameColor, fillColor)
     return {
         width = width,
         height = 64,
         slice = { texSize = { 256, 128 }, cap = 30 },
-        bg = { path = 'ffxi/BarBG', color = frameColor },
-        fill = { path = 'ffxi/Bar', color = fillColor, x = 13, width = width - 26 },
-        fg = { path = 'ffxi/BarFG', color = frameColor },
+        bg = { path = 'hud/BarBG', color = frameColor },
+        fill = { path = 'hud/Bar', color = fillColor, x = 13, width = width - 26 },
+        fg = { path = 'hud/BarFG', color = frameColor },
     }
 end
 
@@ -361,10 +361,10 @@ function Kit.target(p, castText, size)
             -- Casts that cannot be interrupted tint the whole bar and show VanaVista's lock left of it.
             uninterruptible = {
                 color = p.uninterruptible,
-                lock = { path = 'ffxi/lock', pos = { -2, 25 }, size = { 14, 14 }, color = '#FFFFFFFF' },
+                lock = { path = 'hud/lock', pos = { -2, 25 }, size = { 14, 14 }, color = '#FFFFFFFF' },
             },
         },
-        attention = { path = 'ffxi/attention', pos = { attentionX, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
+        attention = { path = 'hud/attention', pos = { attentionX, 26 }, size = { 11, 12 }, color = '#FFFFFFFF' },
         -- Optional label centred from the icon to halfway along the mini bar, its box ending 2px
         -- above the leader crown (top at iconY - 8), with header lines.
         header = size.label and {
