@@ -138,15 +138,24 @@ local function tintPower(self, bar, powerType)
     UnitVisual.TintBar(bar, powerType, color)
 end
 
--- Offline members get a full HP bar in style.hp.offlineColor, as on Blizzard's frames.
-local function greyHealth(self, offline)
-    if offline == self.greyed then
+-- The HP bar's fill and line art: offline members get style.hp.offlineColor, as on Blizzard's
+-- frames; else the class colour while style.hp.classColor (settings) and the class is known; else
+-- the palette's.
+local function applyHealthColor(self)
+    local hp = self.style.hp
+    local fill, frame = hp.bar.fill.color, hp.bar.bg.color
+    if self.offline then
+        fill, frame = hp.offlineColor, hp.offlineColor
+    elseif hp.classColor and self.classToken and RAID_CLASS_COLORS and RAID_CLASS_COLORS[self.classToken] then
+        fill = classColorHex(self.classToken)
+        frame = fill
+    end
+    if fill == self.healthFill and frame == self.healthFrame then
         return
     end
-    self.greyed = offline
-    local bar = self.style.hp.bar
-    self.hp:SetFillColor(offline and self.style.hp.offlineColor or bar.fill.color)
-    self.hp:SetFrameColor(offline and self.style.hp.offlineColor or bar.bg.color)
+    self.healthFill, self.healthFrame = fill, frame
+    self.hp:SetFillColor(fill)
+    self.hp:SetFrameColor(frame)
 end
 
 -- state: 'dead' | 'ghost' | 'offline' | nil. Returns true when a label replaced the HP value.
@@ -157,7 +166,8 @@ local function applyState(self, state, maxHealth)
         self.hpText:SetTextColor(Style.Color(self.style.hp.textColor))
     end
     self.state = state
-    greyHealth(self, state == 'offline')
+    self.offline = state == 'offline'
+    applyHealthColor(self)
     self.classIcon:SetDesaturated(state ~= nil)
     if state then
         self.classIcon:SetVertexColor(1, 1, 1, 1)
@@ -215,6 +225,8 @@ local function setClassIcon(self, classToken)
         self.classIcon:Hide()
     end
     self.classGradient:SetVertexColor(Style.Color(classColorHex(classToken)))
+    self.classToken = classToken
+    applyHealthColor(self)
 end
 
 -- The height a demo row needs to show member: the base row plus its form and pet sub-rows.

@@ -416,13 +416,81 @@ local function createWindow()
     window.demoLabel = demoLabel
 
     window:SetScript('OnShow', function()
+        Config.HideLockPrompt()
         showPage(currentPage or Config.PAGES[1].key)
         window.demoButton:SetLabel(window.demoLabel())
         updateReloadBar()
     end)
     window:SetScript('OnHide', function()
         EUI.Demo.SetPageSections(nil)
+        Config.ShowLockPrompt()
     end)
+end
+
+local lockPrompt
+
+local function createLockPrompt()
+    local frame = CreateFrame('Frame', 'EorzeaUILockPrompt', UIParent)
+    frame:SetSize(330, 70)
+    frame:SetPoint('TOP', 0, -120)
+    frame:SetFrameStrata('DIALOG')
+    frame:SetClampedToScreen(true)
+    frame:SetMovable(true)
+    frame:EnableMouse(true)
+    frame:RegisterForDrag('LeftButton')
+    frame:SetScript('OnDragStart', frame.StartMoving)
+    frame:SetScript('OnDragStop', frame.StopMovingOrSizing)
+    frame:Hide()
+    local bg = frame:CreateTexture(nil, 'BACKGROUND')
+    bg:SetAllPoints()
+    bg:SetColorTexture(1, 1, 1, 1)
+    if not pcall(bg.SetGradient, bg, 'VERTICAL', CreateColor(0.02, 0.03, 0.06, 0.94), CreateColor(0.07, 0.10, 0.19, 0.94)) then
+        bg:SetVertexColor(0.04, 0.06, 0.12, 0.94)
+    end
+    for _, edge in ipairs({
+        { 'TOPLEFT', 'TOPRIGHT', true }, { 'BOTTOMLEFT', 'BOTTOMRIGHT', true },
+        { 'TOPLEFT', 'BOTTOMLEFT', false }, { 'TOPRIGHT', 'BOTTOMRIGHT', false },
+    }) do
+        local line = Widgets.Solid(frame, 'BORDER', '#A6BCE366')
+        line:SetPoint(edge[1])
+        line:SetPoint(edge[2])
+        if edge[3] then
+            line:SetHeight(1)
+        else
+            line:SetWidth(1)
+        end
+    end
+    local note = Widgets.Text(frame, 12, C.text)
+    note:SetPoint('TOP', 0, -12)
+    note:SetText('EorzeaUI frames are unlocked: drag them to move.')
+    local lock = Widgets.Button(frame, 'Lock frames', function()
+        EUI.EditMode.SetUnlocked(false)
+    end, 110)
+    lock:SetPoint('BOTTOMRIGHT', frame, 'BOTTOM', -4, 8)
+    Widgets.SetTooltip(lock, 'Lock frames', 'Hide the drag handles and keep the frames where they are.')
+    local settings = Widgets.Button(frame, 'Settings', function()
+        Config.Toggle()
+    end, 110)
+    settings:SetPoint('BOTTOMLEFT', frame, 'BOTTOM', 4, 8)
+    Widgets.SetTooltip(settings, 'Settings', 'Open the EorzeaUI settings window again.')
+    return frame
+end
+
+-- While frames are unlocked outside Edit Mode, a small panel offers to lock them; locking by any
+-- route hides it (EditMode.SetUnlocked).
+function Config.ShowLockPrompt()
+    local editMode = EditModeManagerFrame and EditModeManagerFrame:IsShown()
+    if not EUI.EditMode.unlocked or editMode then
+        return
+    end
+    lockPrompt = lockPrompt or createLockPrompt()
+    lockPrompt:Show()
+end
+
+function Config.HideLockPrompt()
+    if lockPrompt then
+        lockPrompt:Hide()
+    end
 end
 
 function Config.Toggle(pageKey)

@@ -292,6 +292,8 @@ for _, size in ipairs(EUI.RaidList.SIZES) do
     option({ path = string.format('raid.layouts.%d.groupsPerRow', size), default = RAID_LAYOUT_DEFAULTS[size],
         refresh = 'raidLayout', apply = function() end })
     option({ path = string.format('raid.layouts.%d.scale', size), default = 1, refresh = 'raidLayout', apply = function() end })
+    option({ path = string.format('raid.layouts.%d.petsPerColumn', size), default = 10, refresh = 'raidLayout', apply = function() end })
+    option({ path = string.format('raid.layouts.%d.petsScale', size), default = 1, refresh = 'raidLayout', apply = function() end })
 end
 option({ path = 'raid.previewSize', default = 40, apply = function() end })
 option({ path = 'raid.groupLabels', default = true, reload = true, label = 'Raid group labels', apply = function(style, value)
@@ -312,6 +314,19 @@ end })
 option({ path = 'raid.pets', default = 'blizzard', refresh = 'raidSections', apply = function(style, value)
     style.raid.pets.show = sectionShown(value)
 end })
+-- Per palette (styles/palettes.lua healthColor); only the built palette's applies.
+for name, palette in pairs(Kit.PALETTES) do
+    option({ path = 'healthColor.' .. name, default = palette.healthColor or 'palette', refresh = 'rows',
+        blizzard = { cvars = { 'raidFramesDisplayClassColor' }, read = function()
+            return readCVar('raidFramesDisplayClassColor') == '0' and 'palette' or 'class'
+        end },
+        apply = function(style, value)
+            if style.palette == name then
+                style.party.hp.classColor = value == 'class'
+                style.raid.hp.classColor = value == 'class'
+            end
+        end })
+end
 option({ path = 'raid.dispellable', default = 'blizzard', refresh = 'auraPolicy', apply = function(style, value)
     style.raid.auras.dispellableOnly = followValue(value)
 end })
@@ -678,6 +693,22 @@ raid[#raid + 1] = {
     set = function(value) Settings.Set(layoutPath('scale'), value) end,
     tip = 'Size of the raid groups in raids of the chosen size, times the raid scale on the Scale page.',
 }
+raid[#raid + 1] = {
+    kind = 'slider', label = 'Pets per column', min = 1, max = 40, step = 1, format = '%d',
+    range = function() return EUI.RaidPets.PerColumnRange(Settings.Get('raid.previewSize')) end,
+    get = function()
+        local low, high = EUI.RaidPets.PerColumnRange(Settings.Get('raid.previewSize'))
+        return math.max(low, math.min(high, Settings.Get(layoutPath('petsPerColumn'))))
+    end,
+    set = function(value) Settings.Set(layoutPath('petsPerColumn'), value) end,
+    tip = 'Pets stacked in a column before the next column starts, in raids of the chosen size. At most 8 columns: at least 2 per column for 10 players, 4 for 25, 5 for 40.',
+}
+raid[#raid + 1] = {
+    kind = 'slider', label = 'Pets scale', min = 0.5, max = 2, step = 0.05, format = '%.2f',
+    get = function() return Settings.Get(layoutPath('petsScale')) end,
+    set = function(value) Settings.Set(layoutPath('petsScale'), value) end,
+    tip = 'Size of the Pets block in raids of the chosen size, times the raid pets scale on the Scale page.',
+}
 
 local target = {
     { kind = 'header', label = 'Target, Focus and Boss' },
@@ -769,8 +800,15 @@ local function colorItems()
     local items = {
         { kind = 'note', text = string.format('Colours of the %s palette. Applies after a reload.', styleName) },
     }
-    for _, group in ipairs(COLOR_GROUPS) do
+    for i, group in ipairs(COLOR_GROUPS) do
         items[#items + 1] = { kind = 'header', label = group[1] }
+        if i == 1 then
+            items[#items + 1] = choice('healthColor.' .. styleName, 'Health colour', withBlizzard({
+                { 'class', 'Class', 'HP bars in the class colour.' },
+                { 'palette', 'Palette', 'HP bars in the Health colour below.' },
+            }, "Follow Blizzard's raid frame Display Class Colors setting."),
+                'HP bar fill and line on party rows and raid cells. Kept per palette; applies at once.')
+        end
         for _, entry in ipairs(group[2]) do
             local key, label, text, alpha, fallback = entry[1], entry[2], entry[3], entry[4], entry[5]
             local path = string.format('colors.%s.%s', styleName, key)

@@ -676,10 +676,10 @@ do
     local unitIsConnected = UnitIsConnected
     UnitIsConnected = function(unit) return unit ~= 'party1' end
     onEvent(nil, 'UNIT_CONNECTION', 'party1')
-    assert(row.state == 'offline' and row.greyed and row.power.tintKey == 'offline', 'offline state not applied')
+    assert(row.state == 'offline' and row.offline and row.healthFill == row.style.hp.offlineColor and row.power.tintKey == 'offline', 'offline state not applied')
     UnitIsConnected = unitIsConnected
     onEvent(nil, 'UNIT_CONNECTION', 'party1')
-    assert(row.state == nil and not row.greyed and row.power.tintKey ~= 'offline', 'online state not restored')
+    assert(row.state == nil and not row.offline and row.power.tintKey ~= 'offline', 'online state not restored')
 end
 
 -- Phased members and their pets fade to notPresentAlpha.
@@ -976,6 +976,21 @@ assert(_G.EorzeaUIColorPicker, 'colour picker not built')
 rawget(_G.EorzeaUIColorPicker, '_OnHide')(_G.EorzeaUIColorPicker)
 assert(cancelled, 'closing the colour picker did not cancel')
 
+-- Health colour per palette: class colours the bar live; another palette's setting does nothing.
+do
+    local row = EUI.PartyList.RowForUnit('party1')
+    local styleName = EUI.Config.style.palette
+    local other = styleName == 'vanadiel' and 'azeroth' or 'vanadiel'
+    EUI.Settings.Set('healthColor.' .. styleName, 'palette')
+    assert(row.healthFill == row.style.hp.bar.fill.color, 'palette health colour not applied')
+    EUI.Settings.Set('healthColor.' .. other, 'class')
+    assert(row.healthFill == row.style.hp.bar.fill.color, "another palette's health colour applied")
+    EUI.Settings.Set('healthColor.' .. styleName, 'class')
+    assert(row.healthFill ~= row.style.hp.bar.fill.color and row.healthFrame == row.healthFill, 'class health colour not applied')
+    EUI.Settings.Reset('healthColor.' .. styleName)
+    EUI.Settings.Reset('healthColor.' .. other)
+end
+
 -- 'Blizzard' choices read Blizzard's CVar and follow its changes.
 local cvars = { raidFramesHealthText = 'perc' }
 C_CVar = { GetCVar = function(name) return cvars[name] end }
@@ -993,6 +1008,11 @@ EUI.Config.Toggle('raid')
 assert(EUI.Demo.IsShowing('raid') and not EUI.Demo.IsShowing('party'), 'raid page demo')
 rawget(_G.EorzeaUIConfig, '_OnHide')()
 assert(not EUI.Demo.active, 'demo still showing after the window closed')
+-- Closing the window with frames unlocked offers to lock them; locking from anywhere hides it.
+EUI.EditMode.SetUnlocked(true)
+rawget(_G.EorzeaUIConfig, '_OnHide')()
+assert(_G.EorzeaUILockPrompt, 'lock prompt not shown after closing the window unlocked')
+EUI.EditMode.SetUnlocked(false)
 -- 6 members use the 10-player layout; the demo shows the preview size's.
 assert(EUI.RaidList.LayoutSize() == 10 and EUI.RaidList.style.groupsPerRow == 2, 'raid size layout not applied')
 EUI.Settings.Set('raid.layouts.10.groupsPerRow', 1)
@@ -1001,6 +1021,13 @@ assert(EUI.RaidList.style.groupsPerRow == 1, 'raid layout change not applied liv
 EUI.Settings.Set('raid.layouts.10.groupsPerRow', 3)
 assert(EUI.RaidList.style.groupsPerRow == 2, 'groups per row not clamped to the raid size')
 EUI.Settings.Reset('raid.layouts.10.groupsPerRow')
+-- Pets follow the same size: 10 players fit 10 per column; fewer than 2 would need 5 columns.
+assert(EUI.RaidPets.spec.perColumn == 10, 'pets per column not applied for the raid size')
+EUI.Settings.Set('raid.layouts.10.petsPerColumn', 5)
+assert(EUI.RaidPets.spec.perColumn == 5 and rawget(EUI.RaidPets.header, '_attrs').unitsPerColumn == 5, 'pets per column change not applied live')
+EUI.Settings.Set('raid.layouts.10.petsPerColumn', 1)
+assert(EUI.RaidPets.spec.perColumn == 2, 'pets per column not clamped to 8 columns')
+EUI.Settings.Reset('raid.layouts.10.petsPerColumn')
 EUI.Demo.Toggle()
 assert(EUI.RaidList.LayoutSize() == 40 and EUI.RaidList.style.groupsPerRow == 4, 'demo preview size layout not applied')
 EUI.Demo.Toggle()

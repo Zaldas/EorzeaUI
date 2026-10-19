@@ -477,6 +477,7 @@ function RaidList.ApplyLayoutSize()
                 block.slot:SetPoint('TOPLEFT', RaidList.anchor, 'TOPLEFT', x, -y)
             end
         end
+        EUI.RaidPets.ApplyLayoutSize()
         -- During setup the scale is applied once every frame exists.
         if EUI.ready then
             EUI.ApplyScale()

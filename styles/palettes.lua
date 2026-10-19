@@ -12,6 +12,8 @@ local _, EUI = ...
 -- target names in place of the reaction colour. nameBg (optional): { alpha, leftAlpha, color }.
 -- partyBg: the party list's fade, { color, alpha, leftAlpha }.
 -- label: frame labels (Group N, Assists, Pets, Focus) and their header lines.
+-- healthColor: party and raid HP bars by default (settings healthColor.<style>): 'blizzard'
+-- (Blizzard's raid frame class colour setting), 'class' or 'palette' (hp).
 
 local Kit = EUI.StyleKit
 
@@ -52,6 +54,7 @@ local vanadiel = {
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
     -- Bluish silver.
     label = '#A6BCE3FF',
+    healthColor = 'palette',
 }
 
 -- Blizzard's default colours, as the Forever client reports them: PowerBarColor,
@@ -94,6 +97,7 @@ local azeroth = {
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
     -- NORMAL_FONT_COLOR, as on Blizzard's raid group titles.
     label = '#FFD200FF',
+    healthColor = 'blizzard',
 }
 
 Kit.PALETTES = { vanadiel = vanadiel, azeroth = azeroth }
@@ -116,8 +120,11 @@ local function overlay(base, overrides)
 end
 
 -- The named style with overrides (palette keys) over its palette.
+-- style.palette names the palette it was built from.
 function Kit.BuildStyle(name, overrides)
-    return Kit.BuildLayout(overlay(Kit.PALETTES[name], overrides or {}))
+    local style = Kit.BuildLayout(overlay(Kit.PALETTES[name], overrides or {}))
+    style.palette = name
+    return style
 end
 
 for name, palette in pairs(Kit.PALETTES) do

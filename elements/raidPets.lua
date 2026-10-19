@@ -176,10 +176,13 @@ local function columnX(column)
     return (column - 1) * EUI.RaidList.ColumnStep(RaidPets.style)
 end
 
+-- The most columns a layout uses: pets per column is kept at or above max / MAX_COLUMNS.
+local MAX_COLUMNS = 8
+
 local function createColumns(parent)
     local style, spec = RaidPets.style, RaidPets.spec
     local columns = {}
-    for column = 1, math.ceil(spec.max / spec.perColumn) do
+    for column = 1, MAX_COLUMNS do
         local slot = CreateFrame('Frame', nil, parent)
         slot:SetSize(style.width, spec.rowHeight)
         slot:SetPoint('TOPLEFT', parent, 'TOPLEFT', columnX(column), 0)
@@ -240,6 +243,15 @@ function RaidPets.EditBox()
     return { left = -(-spec.cursor.pos[1] + spec.portrait.pos[1]) }
 end
 
+-- The anchor's size for count pets, spec.perColumn to a column.
+local function gridSize(count)
+    local raidStyle, spec = RaidPets.style, RaidPets.spec
+    local columns = math.ceil(count / spec.perColumn)
+    local rowsInColumn = math.min(spec.perColumn, count)
+    return -spec.cursor.pos[1] + columnX(columns) + raidStyle.background.pos[1] + raidStyle.background.width,
+        -raidStyle.groupNumber.pos[2] + rowsInColumn * (spec.rowHeight + raidStyle.rowSpacing) + raidStyle.background.bottom.height
+end
+
 function RaidPets.Create(style, fonts)
     RaidPets.style = style.raid
     RaidPets.spec = style.raid.pets
@@ -249,8 +261,7 @@ function RaidPets.Create(style, fonts)
 
     local anchor = CreateFrame('Frame', 'EorzeaUIRaidPetsAnchor', UIParent)
     local labelTop = -raidStyle.groupNumber.pos[2]
-    anchor:SetSize(-spec.cursor.pos[1] + columnX(columnCount) + raidStyle.background.pos[1] + raidStyle.background.width,
-        labelTop + spec.perColumn * (spec.rowHeight + raidStyle.rowSpacing) + raidStyle.background.bottom.height)
+    anchor:SetSize(gridSize(spec.max))
     anchor:SetMovable(true)
     anchor:SetClampedToScreen(true)
     RaidPets.anchor = anchor
@@ -349,7 +360,7 @@ function RaidPets.SetDemo(pets)
             local host = CreateFrame('Frame', nil, origin)
             host:SetSize(RaidPets.style.width, spec.rowHeight)
             host:SetPoint('TOPLEFT', origin, 'TOPLEFT', columnX(column), -index * (spec.rowHeight + RaidPets.style.rowSpacing))
-            local row = setmetatable({ host = host }, PetCell)
+            local row = setmetatable({ host = host, origin = origin }, PetCell)
             buildArt(row, host)
             RaidPets.demoRows[i] = row
         end
@@ -358,8 +369,52 @@ function RaidPets.SetDemo(pets)
         for i, row in ipairs(RaidPets.demoRows) do
             row:ShowDemo(pets[i])
         end
-        sizeColumns(RaidPets.demoColumns, math.min(#pets, spec.max))
+        RaidPets.demoCount = math.min(#pets, spec.max)
+        sizeColumns(RaidPets.demoColumns, RaidPets.demoCount)
     end
     RaidPets.demoFrame:SetShown(pets ~= nil)
     RaidPets.live:SetShown(pets == nil)
+end
+
+-- Pets per column for raids of size: settings raid.layouts.<size>.petsPerColumn, kept between
+-- size / MAX_COLUMNS and size.
+function RaidPets.PerColumnRange(size)
+    return math.ceil(size / MAX_COLUMNS), size
+end
+
+function RaidPets.SizeScale()
+    return EUI.Settings.Get(string.format('raid.layouts.%d.petsScale', EUI.RaidList.LayoutSize())) or 1
+end
+
+local appliedSize
+
+-- Lays the pets out for the raid size in use (EUI.RaidList.LayoutSize) and sizes the anchor (and so
+-- its Edit Mode box) to that many pets. Out of combat only; RaidList.ApplyLayoutSize calls it.
+function RaidPets.ApplyLayoutSize()
+    if not RaidPets.anchor then
+        return
+    end
+    local spec = RaidPets.spec
+    local size = EUI.RaidList.LayoutSize()
+    local low, high = RaidPets.PerColumnRange(size)
+    local saved = EUI.Settings.Get(string.format('raid.layouts.%d.petsPerColumn', size)) or spec.perColumn
+    local perColumn = math.max(low, math.min(high, saved))
+    if perColumn == spec.perColumn and size == appliedSize then
+        return
+    end
+    spec.perColumn, appliedSize = perColumn, size
+    local header = RaidPets.header
+    header:SetAttribute('unitsPerColumn', perColumn)
+    header:SetAttribute('maxColumns', math.ceil(spec.max / perColumn))
+    for i, row in ipairs(RaidPets.demoRows or {}) do
+        local column = math.floor((i - 1) / perColumn) + 1
+        local index = (i - 1) % perColumn
+        row.host:ClearAllPoints()
+        row.host:SetPoint('TOPLEFT', row.origin, 'TOPLEFT', columnX(column), -index * (spec.rowHeight + RaidPets.style.rowSpacing))
+    end
+    EUI.EditMode.ResizeKeepingTopLeft('pets', RaidPets.anchor, gridSize(size))
+    updateBackground()
+    if RaidPets.demoColumns and RaidPets.demoCount then
+        sizeColumns(RaidPets.demoColumns, RaidPets.demoCount)
+    end
 end

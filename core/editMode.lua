@@ -156,6 +156,9 @@ function EditMode.SetUnlocked(unlocked)
     for _, mover in pairs(movers) do
         mover:SetShown(unlocked)
     end
+    if not unlocked and EUI.Config then
+        EUI.Config.HideLockPrompt()
+    end
     EUI.RunOutOfCombat(EUI.Demo.Refresh, 'demoRefresh')
 end
 
