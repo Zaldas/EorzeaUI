@@ -43,6 +43,12 @@ local function createIcon(self, parent, spec, fonts, frameLevel)
     self.tier:SetSize(spec.tier.size, spec.tier.size)
     Style.Place(self.tier, markers, spec.tier.pos)
     self.tier:Hide()
+    local questSpec = spec.questBoss
+    self.questBoss = markers:CreateTexture(nil, 'OVERLAY')
+    self.questBoss:SetSize(questSpec.size[1], questSpec.size[2])
+    Style.Place(self.questBoss, markers, questSpec.pos)
+    Style.SetAtlas(self.questBoss, questSpec.atlas, { path = questSpec.path })
+    self.questBoss:Hide()
     self.threat = Style.Image(markers, 'OVERLAY', spec.threat)
     self.threat:Hide()
     self.leader = markers:CreateTexture(nil, 'OVERLAY')
@@ -70,6 +76,9 @@ local function createClickArea(self, unit, rect, origin)
     if RegisterUnitWatch then
         RegisterUnitWatch(button)
     end
+    -- Click-casting addons (Clique and others) bind every frame in ClickCastFrames.
+    ClickCastFrames = ClickCastFrames or {}
+    ClickCastFrames[button] = true
 end
 
 -- Builds a bar on anchor, sized spec.width x spec.height by the caller. unit (e.g. 'target')
@@ -142,6 +151,8 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.totMarker:SetSize(spec.tot.raidMarker.size[1], spec.tot.raidMarker.size[2])
     Style.Place(self.totMarker, self.totBar.overlay, spec.tot.raidMarker.pos)
     self.totMarker:Hide()
+    self.totState = Style.Text(self.totBar.overlay, spec.tot.txtState, fonts)
+    self.totState:Hide()
     if unit and spec.tot.auras then
         -- The unit's target fires no UNIT_AURA; UpdateTargetOfTarget refreshes the row.
         self.totAuras = EUI.AuraRow.Create(tot, self.totUnit, 'HARMFUL', spec.tot.auras, fonts)
@@ -457,6 +468,7 @@ function TargetBarClass:UpdateIdentity()
     if key ~= self.colorKey then
         self.colorKey = key
         applyNameColor(self, key)
+        self:UpdatePortraitShade()
     end
     -- An NPC in combat (escorts, guards) shows its HP.
     setNpcMode(self, npc and not EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit))
@@ -493,6 +505,7 @@ function TargetBarClass:UpdateTier()
         classification = 'worldboss'
     end
     setTier(self, classification)
+    self.questBoss:SetShown(UnitIsQuestBoss ~= nil and EUI.Read('UnitIsQuestBoss', UnitIsQuestBoss, unit) == true)
 end
 
 -- Difficulty-coloured for units you can attack, so it also changes with faction and PvP state.
@@ -576,12 +589,18 @@ function TargetBarClass:UpdateHealth(smooth)
         EUI.Curves.SetHealthPercentText(self.hpp, unit)
         self.hpp:SetTextColor(Style.Color(self.spec.txtHpp.color))
     end
-    local dead = EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) == true
-    self.portrait:SetDesaturated(dead)
-    if dead then
+    self.dead = EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, unit) == true
+    self:UpdatePortraitShade()
+end
+
+-- Grey while dead or tapped by others, as Blizzard's portraits; otherwise the low-health tint.
+function TargetBarClass:UpdatePortraitShade()
+    local grey = self.dead or self.colorKey == 'tapped'
+    self.portrait:SetDesaturated(grey)
+    if grey then
         self.portrait:SetVertexColor(1, 1, 1, 1)
     else
-        EUI.Curves.ApplyHealthTint(self.portrait, unit, self.lowHealthCurve)
+        EUI.Curves.ApplyHealthTint(self.portrait, self.unit, self.lowHealthCurve)
     end
 end
 
@@ -590,6 +609,27 @@ function TargetBarClass:UpdateHealPrediction()
         return
     end
     self.bar:ShowIncomingHeals(self.unit, UnitHealthMax(self.unit))
+end
+
+-- Shows state's label ('dead' | 'unconscious' | 'offline' | nil) at the mini bar's right end.
+-- Returns the name spec, ending 4px before the label while it shows.
+local function totNameSpec(self, state)
+    local spec = self.spec.tot
+    self.totState:SetShown(state ~= nil)
+    if not state then
+        return spec.txtName
+    end
+    self.totState:SetText(UnitInfo.STATE_LABELS[state])
+    local nameSpec = {}
+    for key, value in pairs(spec.txtName) do
+        nameSpec[key] = value
+    end
+    local width = self.totState:GetStringWidth()
+    if type(width) ~= 'number' or not EUI.CanAccess(width) then
+        width = 0
+    end
+    nameSpec.right = spec.txtState.pos[1] - width - 4
+    return nameSpec
 end
 
 -- The unit's target fires no UNIT_HEALTH events; the main ticker calls this.
@@ -613,7 +653,9 @@ function TargetBarClass:UpdateTargetOfTarget()
     self.totGuid = guid
     pcall(self.totName.SetText, self.totName, EUI.UnitDisplayName(totUnit))
     self.totName:SetTextColor(Style.Color(nameHex(self.spec, (UnitInfo.ReactionKey(totUnit)))))
-    setMarkedName(self.totName, self.spec.tot.txtName, self.totMarker, self.spec.tot.raidMarker,
+    local state = EUI.Read('UnitIsConnected', UnitIsConnected, totUnit) == false and 'offline'
+        or UnitInfo.DeadState(totUnit)
+    setMarkedName(self.totName, totNameSpec(self, state), self.totMarker, self.spec.tot.raidMarker,
         EUI.Indicators.ReadRaidMarker(totUnit))
     if self.totAuras then
         self.totAuras:Refresh()
@@ -648,7 +690,8 @@ end
 -- data = { name, level, classification, colorKey, npc, pvp, leader, raidMarker, tag, threat,
 --          threatPercent, class | portrait | portraitUnit, hpPercent, dead, incoming, debuffs,
 --          buffs, castName, castProgress, castNotInterruptible, castChannel, totName, totColorKey, totPercent,
---          totDebuffs, combo, corpse, guide }
+--          totDebuffs, totState, combo, corpse, guide, questBoss }
+-- totState: 'dead' | 'unconscious' | 'offline' | nil, the mini bar's label.
 -- npc: the separator line replaces the HP bar. class: a class token's icon; portrait: a texture
 -- path; portraitUnit: that unit's portrait. threat, totName and combo are optional; nil hides them.
 function TargetBarClass:SetPreview(data)
@@ -715,9 +758,11 @@ function TargetBarClass:SetPreview(data)
             EUI.Read('SetPortraitTexture', SetPortraitTexture, texture, data.portraitUnit)
         end
     end)
-    self.portrait:SetDesaturated(data.dead == true)
-    local low = not data.dead and data.hpPercent < spec.lowHealth.below * 100
+    local grey = data.dead == true or data.colorKey == 'tapped'
+    self.portrait:SetDesaturated(grey)
+    local low = not grey and data.hpPercent < spec.lowHealth.below * 100
     self.portrait:SetVertexColor(Style.Color(low and spec.lowHealth.color or '#FFFFFFFF'))
+    self.questBoss:SetShown(data.questBoss == true)
     if data.corpse then
         setLevel(self, data.level, nil, nil, nil, true)
     elseif UnitInfo.ATTACKABLE[data.colorKey] then
@@ -738,7 +783,7 @@ function TargetBarClass:SetPreview(data)
         self.totBar:SetRange(100)
         self.totBar:SetValue(data.totPercent)
         self.totName:SetText(data.totName)
-        setMarkedName(self.totName, spec.tot.txtName, self.totMarker, spec.tot.raidMarker, nil)
+        setMarkedName(self.totName, totNameSpec(self, data.totState), self.totMarker, spec.tot.raidMarker, nil)
         self.totName:SetTextColor(Style.Color(nameHex(spec, data.totColorKey)))
         if self.totDemoAuras then
             local totDebuffs = {}

@@ -85,15 +85,16 @@ end
 
 local HUNTER_PET = {
     name = 'Fang', icon = ICON .. 'Ability_Hunter_Pet_Wolf', hp = 1640, hpMax = 1920, power = 70, powerMax = 100, powerType = 2,
-    happiness = 3,
+    happiness = 3, attacking = true, threat = 3,
 }
 local IMP = {
     name = 'Zhaztak', icon = ICON .. 'Spell_Shadow_SummonImp', hp = 980, hpMax = 1210, power = 860, powerMax = 1350, powerType = 0,
-    cast = 'Firebolt',
+    cast = 'Firebolt', threat = 1,
 }
 
 local function members()
     HUNTER_PET.auras = petAuras(1, 2)
+    IMP.auras = petAuras(2, 1)
     local playerName = playerDisplayName()
     local playerClass = select(2, UnitClass('player')) or 'PALADIN'
     local playerFaction = UnitFactionGroup and UnitFactionGroup('player') or 'Alliance'
@@ -243,6 +244,7 @@ end
 local function focus()
     return {
         name = 'Defias Conjurer', level = 17, colorKey = 'hostile', leader = true, raidMarker = 5, portraitUnit = 'player', hpPercent = 78,
+        questBoss = true,
         debuffs = cycle({ { ICON .. 'Spell_Nature_Polymorph', '41', dispel = 'Magic' }, unpack(TARGET_DEBUFFS) }, 8),
         buffs = cycle({ { ICON .. 'Spell_Frost_FrostArmor02', '9m', stealable = true }, unpack(TARGET_BUFFS, 2) }, 8),
         castName = 'Frostbolt', castProgress = 0.3,
@@ -272,7 +274,7 @@ local function bosses()
         {
             name = 'Lava Surger', level = 62, classification = 'elite', colorKey = 'hostile', raidMarker = 5, portraitUnit = 'player',
             hpPercent = 22, castName = 'Surge', castProgress = 0.7,
-            totName = 'Ashwind Vale', totColorKey = 'party', totPercent = 73,
+            totName = 'Ashwind Vale', totColorKey = 'party', totPercent = 0, totState = 'dead',
         },
         {
             name = 'Flamewaker Healer', level = 62, classification = 'elite', colorKey = 'hostile', portraitUnit = 'player',

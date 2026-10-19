@@ -160,8 +160,13 @@ function Kit.BuildLayout(p)
                 hover = { path = 'ffxi/Hover', pos = { 20, -6 }, size = { 390, 44 }, color = '#9C94E8AA' },
                 -- Points at the portrait (x 24..51, y 3..30) as the member cursor does at the class icon.
                 cursor = { path = 'ffxi/Cursor', pos = { -10, 5 }, size = { 37, 24 }, color = '#FFFFFFFF' },
-                -- Own pet only: one line of 6 in the party aura column.
+                -- One line of 6 in the party aura column.
                 auras = Kit.groupAuras(p, { pos = { 284, 7 }, size = 18, spacing = 2, perLine = 6, lines = 1 }),
+                -- On the portrait's bottom-right corner, as on the member rows at 0.75 scale.
+                threat = { path = 'pips/diamondFill-16', pos = { 48, 24 }, size = { 10, 10 } },
+                -- Own pet while it attacks: a red glow over the portrait, pulsing as Blizzard's pet
+                -- frame does; alpha bounces between from and to every period seconds.
+                attack = { path = 'jobIcons/gradient', color = '#FF2020FF', from = 0.15, to = 0.75, period = 0.5 },
             },
         },
 
@@ -268,6 +273,7 @@ function Kit.BuildLayout(p)
             -- buffs are cut to fit the line. max: the demo's total.
             auras = {
                 pos = { 31, 31 }, size = 12, spacing = 1, max = 11, border = Kit.AURA_BORDER, swipe = true,
+                dispellableOnlyCVar = 'raidFramesDisplayOnlyDispellableDebuffs',
                 -- Debuffs only; buffs keep the plain edge.
                 dispelBorder = 'dispel', dispelColors = p.dispel,
                 processAuras = true,

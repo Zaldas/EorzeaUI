@@ -138,14 +138,15 @@ end
 -- One flow of auras in Blizzard's unit frame classes (AuraUtil.ProcessAura): debuffs you can
 -- dispel, edged by dispel type; other debuffs, boss and role auras first; then buffs you cast that
 -- others can have. Any group may fill the flow; perLine * lines caps the total and the rest are
--- clipped. Icons carry a cooldown swipe, as Blizzard's party and raid frames.
+-- clipped. Icons carry a cooldown swipe, as Blizzard's party and raid frames. Party rows follow
+-- Blizzard's "only dispellable debuffs" CVar for party frames.
 -- spec = { pos, size, spacing, perLine, lines, lineSpacing }
 function Kit.groupAuras(p, spec)
     local total = spec.perLine * spec.lines
     return {
         pos = spec.pos, size = spec.size, spacing = spec.spacing, perLine = spec.perLine, lines = spec.lines,
         lineSpacing = spec.lineSpacing, max = total, clip = true, swipe = true, border = Kit.AURA_BORDER,
-        processAuras = true,
+        processAuras = true, dispellableOnlyCVar = 'showDispelDebuffs',
         order = { 'dispel', 'debuffs', 'buffs' },
         groups = {
             dispel = { filter = 'HARMFUL', auraType = 'Dispel', max = total, sort = 'UnitFrameDebuff', dispelBorder = 'dispel', dispelColors = p.dispel },
@@ -261,6 +262,13 @@ function Kit.target(p, castText, size)
             paths = { worldboss = 'tiers/boss', elite = 'tiers/elite', rareelite = 'tiers/rareElite', rare = 'tiers/rare' },
         },
         levelBadge = levelBadge,
+        -- Quest bosses (UnitIsQuestBoss): Blizzard's quest badge on the icon's top-left corner.
+        questBoss = {
+            atlas = 'UI-HUD-UnitFrame-Target-PortraitOn-Boss-Quest',
+            path = 'Interface\\TargetingFrame\\PortraitQuestBadge',
+            pos = { iconX - 4, iconY - 4 },
+            size = { 16, 16 },
+        },
         -- Straddles the icon's left edge in its lower half, as on the party rows.
         pvp = { pos = { iconX - 11, iconY + 22 }, size = { 22, 22 } },
         -- Your combo points on the unit (size.combo only): a zigzag left of the PvP badge, centred
@@ -302,7 +310,7 @@ function Kit.target(p, castText, size)
         -- Blizzard's target order: your auras first, then in the order they landed.
         auras = size.debuffs and {
             pos = { 25, aurasY }, size = auraSize, spacing = 3, perLine = size.perLine, lineSpacing = auraLineSpacing, timers = true, border = Kit.AURA_BORDER,
-            sort = 'Default',
+            sort = 'Default', swipe = true,
             groups = {
                 HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = p.dispel },
                 HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
@@ -341,11 +349,14 @@ function Kit.target(p, castText, size)
             bar = Kit.wideBar(size.tot, p.hp, p.hp),
             txtName = { pos = { 20, 33 - size.totName }, size = size.totName, color = p.targetText, stroke = p.strokeAlt, right = size.tot - 14 },
             raidMarker = { pos = { 20, 18 }, size = { 15, 15 } },
+            -- DEAD, UNCONSCIOUS or OFFLINE at the bar's right end, on the name's line; the name
+            -- ends 4px before it.
+            txtState = { pos = { size.tot - 14, 33 - size.totName }, size = size.totName, color = '#A0A0A0FF', stroke = p.strokeAlt, font = 'number', alignRight = true },
             click = { pos = { 0, 10 }, size = { size.tot, aurasY - 10 } },
             -- Debuffs under the bar; Blizzard's target-of-target frame shows 4.
             auras = totDebuffs > 0 and {
                 pos = { 20, aurasY }, size = 16, spacing = 2, max = totDebuffs, border = Kit.AURA_BORDER,
-                dispelBorder = 'dispel', dispelColors = p.dispel, sort = 'Default',
+                dispelBorder = 'dispel', dispelColors = p.dispel, sort = 'Default', swipe = true,
             } or nil,
         },
     }

@@ -8,6 +8,18 @@ EUI.AuraRow = {}
 local AuraRow = {}
 AuraRow.__index = AuraRow
 
+-- Rows whose ProcessAura policy follows a CVar (spec.dispellableOnlyCVar).
+local cvarRows = {}
+
+local function processAuraOptions(spec)
+    local cvar = spec.dispellableOnlyCVar
+    if not cvar then
+        return {}
+    end
+    local getBool = C_CVar and C_CVar.GetCVarBool or GetCVarBool
+    return { displayOnlyDispellableDebuffs = getBool and getBool(cvar) == true or false }
+end
+
 local loaded = false
 local function ensureLoaded()
     if loaded then
@@ -164,7 +176,8 @@ end
 -- perLine = icons per line before wrapping (nil: one line), lineSpacing = gap between lines,
 -- lines = lines the row shows (default 1), clip = hide icons past them, swipe = cooldown swipe,
 -- groups = { [name] = per-group overrides of max, dispelBorder, dispelColors, ... },
--- processAuras = classify auras with AuraUtil.ProcessAura, as Blizzard's raid frames do }
+-- processAuras = classify auras with AuraUtil.ProcessAura, as Blizzard's raid frames do,
+-- dispellableOnlyCVar = with processAuras, the CVar that limits debuffs to ones you can dispel }
 -- A group may also set filter (the aura filter, default its name), auraType ('Debuff', 'Dispel'
 -- or 'Buff': ProcessAura's class, with processAuras) and sort (an AuraContainerSortMethod key,
 -- default Expiration).
@@ -172,7 +185,7 @@ end
 -- each showing up to its group's max auras.
 function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
     ensureLoaded()
-    local self = setmetatable({ unit = unit }, AuraRow)
+    local self = setmetatable({ unit = unit, spec = spec }, AuraRow)
     local filters = type(filter) == 'table' and filter or { filter }
 
     local count = 0
@@ -208,7 +221,10 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
     local setupOk, err = pcall(function()
         container:SetUnit(unit)
         if spec.processAuras then
-            container:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, {})
+            container:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, processAuraOptions(spec))
+            if spec.dispellableOnlyCVar then
+                cvarRows[#cvarRows + 1] = self
+            end
         end
         if container.SetFlowLayoutAxis and AnchorUtil and AnchorUtil.FlowLayoutAxis then
             container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal or 0)
@@ -276,5 +292,21 @@ end
 function AuraRow:Refresh()
     if self.container and self.container.UpdateAllAuras then
         pcall(self.container.UpdateAllAuras, self.container)
+    end
+end
+
+-- Re-applies the ProcessAura policy of the rows following cvar, out of combat.
+function EUI.AuraRow.OnCVarChanged(cvar)
+    for _, row in ipairs(cvarRows) do
+        if row.spec.dispellableOnlyCVar == cvar then
+            EUI.RunOutOfCombat(function()
+                local ok, err = pcall(row.container.SetAuraProcessingPolicy, row.container,
+                    CustomAuraContainerAuraProcessingPolicy.ProcessAura, processAuraOptions(row.spec))
+                if not ok then
+                    EUI.LogOnce('aura:policy', 'SetAuraProcessingPolicy failed: %s', tostring(err))
+                end
+                row:Refresh()
+            end, 'policy:' .. tostring(row))
+        end
     end
 end

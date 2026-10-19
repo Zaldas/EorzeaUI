@@ -1,7 +1,8 @@
 local _, EUI = ...
 
--- Visuals for a party row's pet sub-row: portrait, HP and power. The player's own pet adds
--- hunter happiness, a cast bar on the name line and an aura row. The party list builds the
+-- Visuals for a party row's pet sub-row: portrait with threat, HP with incoming heals, power and
+-- an aura row. The player's own pet adds hunter happiness, a cast bar on the name line and a
+-- pulse while it attacks. The party list builds the
 -- secure button that carries the pet unit; this only draws on it and follows unit changes.
 
 EUI.PetRow = {}
@@ -32,7 +33,7 @@ local function buildArt(self, host, spec, fonts)
     self.hover = Style.Image(art, 'BACKGROUND', spec.hover, 1)
     self.hover:Hide()
 
-    self.hp = EUI.Bar.Create(art, spec.hp.bar, spec.hp.pos)
+    self.hp = EUI.Bar.Create(art, spec.hp.bar, spec.hp.pos, { prediction = self.partyStyle.indicators.healPrediction })
     self.hpText = Style.Text(self.hp.overlay, spec.hp.txtValue, fonts)
     self.hpCurve = EUI.Curves.Step(spec.hp.thresholds, spec.hp.textColor)
 
@@ -58,22 +59,37 @@ local function buildArt(self, host, spec, fonts)
         portraitSpec.inset, self.partyStyle.classIcon)
     iconFrame:SetFrameLevel(self.power.overlay:GetFrameLevel() + 1)
 
+    -- Over the picture, under the frame art.
+    local attack = spec.attack
+    self.attackGlow = Style.Image(iconFrame, 'ARTWORK', {
+        path = attack.path, color = attack.color, size = { portraitSpec.size, portraitSpec.size },
+    }, 1)
+    self.attackGlow:SetBlendMode('ADD')
+    local pulse = self.attackGlow:CreateAnimationGroup()
+    pulse:SetLooping('BOUNCE')
+    local fade = pulse:CreateAnimation('Alpha')
+    fade:SetFromAlpha(attack.from)
+    fade:SetToAlpha(attack.to)
+    fade:SetDuration(attack.period)
+    self.attackPulse = pulse
+    self.attackGlow:Hide()
+
     -- The target pointer, drawn over the portrait as on the member rows.
     local pointer = CreateFrame('Frame', nil, art)
     pointer:SetAllPoints(art)
     pointer:SetFrameLevel(iconFrame:GetFrameLevel() + 1)
     self.cursor = Style.Image(pointer, 'OVERLAY', spec.cursor)
     self.cursor:Hide()
+    self.threat = Style.Image(pointer, 'OVERLAY', spec.threat)
+    self.threat:Hide()
 
     self.happiness = art:CreateTexture(nil, 'OVERLAY')
     self.happiness:SetSize(spec.happiness.size[1], spec.happiness.size[2])
     Style.Place(self.happiness, art, spec.happiness.pos)
     self.happiness:Hide()
 
-    -- Own pet only; the AuraContainer keeps its unit, the layer decides whether it shows.
     self.auraLayer = CreateFrame('Frame', nil, art)
     self.auraLayer:SetAllPoints(art)
-    self.auraLayer:Hide()
 end
 
 -- button: the secure pet button. owner: the party row it belongs to. hooks = { unitChanged(pet,
@@ -125,7 +141,18 @@ local function setHappiness(self, happiness)
     end
 end
 
--- pet = { name, icon, hp, hpMax, power, powerMax, powerType, happiness, cast, auras, targeted, far }
+-- status: UnitThreatSituation's 1-3 tint the diamond with Blizzard's threat colours; else hidden.
+local function setThreat(self, status)
+    if type(status) ~= 'number' or status < 1 then
+        self.threat:Hide()
+        return
+    end
+    self.threat:SetVertexColor(EUI.Indicators.ThreatColor(status))
+    self.threat:Show()
+end
+
+-- pet = { name, icon, hp, hpMax, power, powerMax, powerType, happiness, cast, auras, targeted, far,
+--         threat, attacking }
 function Pet:ShowDemo(pet)
     self.host:SetShown(pet ~= nil)
     if not pet then
@@ -152,6 +179,8 @@ function Pet:ShowDemo(pet)
     setHappiness(self, pet.happiness)
     self.auraLayer:SetShown(pet.auras ~= nil)
     self.auras:Set(pet.auras)
+    setThreat(self, pet.threat)
+    self:SetAttacking(pet.attacking == true)
 end
 
 function Pet:SetUnit(unit)
@@ -163,7 +192,9 @@ function Pet:SetUnit(unit)
     self.isOwn = unit == 'pet'
     self.hooks.unitChanged(self, previous, unit)
     self.cast:SetUnit(self.isOwn and unit or nil)
-    self.auraLayer:SetShown(self.isOwn)
+    if not self.isOwn then
+        self:SetAttacking(false)
+    end
     if unit then
         self.auras:SetUnit(unit)
     end
@@ -179,6 +210,7 @@ function Pet:Refresh()
     self:UpdatePortrait()
     self:UpdateHealth(false)
     self:UpdatePower(false)
+    self:UpdateThreat()
     self:UpdateHappiness()
     self:UpdateCast()
     self:UpdateRange()
@@ -215,10 +247,35 @@ end
 
 function Pet:UpdateHealth(smooth)
     local unit = self.unit
-    self.hp:SetRange(UnitHealthMax(unit))
+    local maxHealth = UnitHealthMax(unit)
+    self.hp:SetRange(maxHealth)
     local health = UnitHealth(unit)
     self.hp:SetValue(health, smooth)
     UnitVisual.SetHealthText(self.hpText, unit, health, self.hpCurve, self.partyStyle.indicators.stateColor)
+    self.hp:ShowIncomingHeals(unit, maxHealth)
+end
+
+function Pet:UpdateHealPrediction()
+    self.hp:ShowIncomingHeals(self.unit, UnitHealthMax(self.unit))
+end
+
+-- As the member rows: no threat colours on others' pets while solo.
+function Pet:UpdateThreat()
+    if not self.unit or (not IsInGroup() and not self.isOwn) then
+        setThreat(self, nil)
+        return
+    end
+    setThreat(self, EUI.Read('UnitThreatSituation', UnitThreatSituation, self.unit))
+end
+
+-- Own pet: PET_ATTACK_START / PET_ATTACK_STOP.
+function Pet:SetAttacking(attacking)
+    self.attackGlow:SetShown(attacking)
+    if attacking then
+        self.attackPulse:Play()
+    else
+        self.attackPulse:Stop()
+    end
 end
 
 -- Hunter pets run on focus, warlock pets on mana.

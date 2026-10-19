@@ -179,8 +179,8 @@ local UNIT_ROUTES = {
         end,
     },
     UNIT_TARGET = { bar = 'UpdateTargetOfTarget' },
-    UNIT_HEAL_PREDICTION = { row = 'UpdateHealPrediction', raidPet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
-    UNIT_ABSORB_AMOUNT_CHANGED = { row = 'UpdateHealPrediction', raidPet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
+    UNIT_HEAL_PREDICTION = { row = 'UpdateHealPrediction', pet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
+    UNIT_ABSORB_AMOUNT_CHANGED = { row = 'UpdateHealPrediction', pet = 'UpdateHealPrediction', bar = 'UpdateHealPrediction' },
     UNIT_CONNECTION = { row = { 'UpdateState', 'UpdateStatusIcon' }, bar = 'UpdateHealth', smooth = false },
     UNIT_FLAGS = {
         row = { 'UpdateFlags', 'UpdateState', 'UpdatePvP', 'UpdateStatusIcon' },
@@ -206,7 +206,7 @@ local UNIT_ROUTES = {
     },
     UNIT_CLASSIFICATION_CHANGED = { bar = 'UpdateTier' },
     UNIT_TARGETABLE_CHANGED = { bar = 'Refresh' },
-    UNIT_THREAT_SITUATION_UPDATE = { row = 'UpdateThreat' },
+    UNIT_THREAT_SITUATION_UPDATE = { row = 'UpdateThreat', pet = 'UpdateThreat', raidPet = false },
     INCOMING_SUMMON_CHANGED = { row = 'UpdateStatusIcon' },
     INCOMING_RESURRECT_CHANGED = { row = 'UpdateStatusIcon' },
     UNIT_PHASE = { row = { 'UpdateStatusIcon', 'UpdateRange' } },
@@ -333,11 +333,18 @@ local function updatePresence()
     forEachRow('UpdateRange')
 end
 
+local function setPetAttacking(attacking)
+    local pet = EUI.PartyList.PetForUnit('pet')
+    if pet then
+        pet:SetAttacking(attacking)
+    end
+end
+
 local function readyCheck(event)
     EUI.PartyList.OnReadyCheck(event, forEachUnitRow)
 end
 
--- Events with no unit, run once EUI.ready; fn(event).
+-- Events with no unit, run once EUI.ready; fn(event, arg1, arg2).
 local GLOBAL_ROUTES = {
     PLAYER_ENTERING_WORLD = function()
         applyScale()
@@ -408,6 +415,16 @@ local GLOBAL_ROUTES = {
     UNIT_CTR_OPTIONS = updatePresence,
     PLAYER_ROLES_ASSIGNED = updateRoles,
     ROLE_CHANGED_INFORM = updateRoles,
+    PET_ATTACK_START = function()
+        setPetAttacking(true)
+    end,
+    PET_ATTACK_STOP = function()
+        setPetAttacking(false)
+    end,
+    -- Blizzard's "only dispellable debuffs" options for party and raid frames.
+    CVAR_UPDATE = function(_, name)
+        EUI.AuraRow.OnCVarChanged(name)
+    end,
     PET_UI_UPDATE = function()
         EUI.PartyList.ForEachVisiblePet(function(pet)
             pet:UpdateHappiness()
@@ -477,7 +494,7 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
     end
     local global = GLOBAL_ROUTES[event]
     if global then
-        global(event)
+        global(event, arg1, arg2)
         return
     end
     local route = UNIT_ROUTES[event]
