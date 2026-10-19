@@ -122,7 +122,19 @@ function TargetBar.New(anchor, spec, fonts, unit)
     self.lowHealthCurve = EUI.Curves.Step({ spec.lowHealth }, '#FFFFFFFF')
 
     if unit and spec.auras then
-        self.auras = EUI.AuraRow.Create(content, unit, { 'HARMFUL', 'HELPFUL' }, spec.auras, fonts)
+        -- One layer per row; UpdateAuraFilter shows the one for the unit's kind.
+        local function auraLayer()
+            local layer = CreateFrame('Frame', nil, content)
+            layer:SetAllPoints(content)
+            return layer
+        end
+        self.auraLayer = auraLayer()
+        self.auras = EUI.AuraRow.Create(self.auraLayer, unit, spec.auras.order, spec.auras, fonts)
+        if spec.hostileAuras then
+            self.hostileAuraLayer = auraLayer()
+            self.hostileAuras = EUI.AuraRow.Create(self.hostileAuraLayer, unit, spec.hostileAuras.order, spec.hostileAuras, fonts)
+            self.hostileAuraLayer:Hide()
+        end
     end
 
     self.cast = EUI.CastBar.Create(content, unit, spec.cast, fonts, spec.cast.pos)
@@ -459,6 +471,7 @@ function TargetBarClass:UpdateIdentity()
     -- An NPC in combat (escorts, guards) shows its HP.
     setNpcMode(self, npc and not EUI.Read('UnitAffectingCombat', UnitAffectingCombat, unit))
     setPvP(self, UnitInfo.PvPKind(unit))
+    self:UpdateAuraFilter()
     -- UnitLeadsAnyGroup also covers players outside your group.
     local leads
     if UnitLeadsAnyGroup then
@@ -470,6 +483,24 @@ function TargetBarClass:UpdateIdentity()
         EUI.Indicators.SetLeaderArt(self.leader, EUI.Indicators.IsGuideGroup())
     end
     self.leader:SetShown(leads == true)
+end
+
+-- Hostile NPCs get the filtered aura row, as Blizzard's target frame: not a player, not another
+-- player's pet, not friendly.
+function TargetBarClass:UpdateAuraFilter()
+    if not self.hostileAuraLayer or not isLive(self) then
+        return
+    end
+    local unit = self.unit
+    local hostileNpc = EUI.Read('UnitIsPlayer', UnitIsPlayer, unit) ~= true
+        and not (UnitIsOtherPlayersPet and EUI.Read('UnitIsOtherPlayersPet', UnitIsOtherPlayersPet, unit) == true)
+        and EUI.Read('UnitIsFriend', UnitIsFriend, 'player', unit) ~= true
+    if hostileNpc == self.hostileNpc then
+        return
+    end
+    self.hostileNpc = hostileNpc
+    self.auraLayer:SetShown(not hostileNpc)
+    self.hostileAuraLayer:SetShown(hostileNpc)
 end
 
 function TargetBarClass:UpdateName()
@@ -531,8 +562,12 @@ function TargetBarClass:Refresh()
     self:UpdateHealth(false)
     self:UpdateThreat()
     self:UpdateCombo()
+    self:UpdateAuraFilter()
     if self.auras then
         self.auras:Refresh()
+    end
+    if self.hostileAuras then
+        self.hostileAuras:Refresh()
     end
     self.cast:Clear()
     self.cast:Update()
@@ -649,7 +684,7 @@ function TargetBarClass:UpdateTargetOfTarget()
 end
 
 local function setLiveAurasShown(self, shown)
-    for _, row in pairs({ self.auras, self.totAuras }) do
+    for _, row in pairs({ self.auras, self.hostileAuras, self.totAuras }) do
         if row.container then
             row.container:SetShown(shown)
         end

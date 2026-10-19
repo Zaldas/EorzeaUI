@@ -179,8 +179,9 @@ end
 -- processAuras = classify auras with AuraUtil.ProcessAura, as Blizzard's raid frames do,
 -- dispellableOnlyCVar = with processAuras, the CVar that limits debuffs to ones you can dispel }
 -- A group may also set filter (the aura filter, default its name), auraType ('Debuff', 'Dispel'
--- or 'Buff': ProcessAura's class, with processAuras) and sort (an AuraContainerSortMethod key,
--- default Expiration).
+-- or 'Buff': ProcessAura's class, with processAuras), sort (an AuraContainerSortMethod key,
+-- default Expiration) and candidates (AuraContainer candidate filters, e.g.
+-- { isFromPlayerOrPlayerPet = false }).
 -- filter: an aura filter or group name, or a list of them laid out one after another in the row,
 -- each showing up to its group's max auras.
 function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
@@ -239,8 +240,14 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
         for index, groupName in ipairs(filters) do
             local groupSpec = EUI.AuraRow.GroupSpec(spec, groupName)
             local candidateFilters
-            if groupSpec.auraType then
-                candidateFilters = { processedAuraType = AuraUtil.AuraUpdateChangedType[groupSpec.auraType] }
+            if groupSpec.candidates or groupSpec.auraType then
+                candidateFilters = {}
+                for key, value in pairs(groupSpec.candidates or {}) do
+                    candidateFilters[key] = value
+                end
+                if groupSpec.auraType then
+                    candidateFilters.processedAuraType = AuraUtil.AuraUpdateChangedType[groupSpec.auraType]
+                end
             end
             container:AddAuraGroup('row' .. index, groupSpec.filter or groupName, {
                 maxFrameCount = groupSpec.max,

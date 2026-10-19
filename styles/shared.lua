@@ -210,6 +210,33 @@ function Kit.target(p, castText, size)
     local castX = size.castNearIcon and iconX + iconSize + 8 or barWidth - 70 - size.cast
     local bar = Kit.wideBar(barWidth, p.hp, p.hp)
     local levelBadge = Kit.levelBadge(p)
+    -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
+    -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
+    -- Blizzard's target order: your auras first, then in the order they landed.
+    -- hostileAuras replaces auras on hostile NPCs, as Blizzard's target frame filters them: your
+    -- debuffs, other players' debuffs flagged for everyone (nameplateShowAll), and NPCs' debuffs;
+    -- other players' remaining debuffs are hidden. Three disjoint groups share the debuff cap.
+    local auras, hostileAuras
+    if size.debuffs then
+        local function auraRow(order, groups)
+            return {
+                pos = { 25, aurasY }, size = auraSize, spacing = 3, perLine = size.perLine, lineSpacing = auraLineSpacing,
+                timers = true, border = Kit.AURA_BORDER, sort = 'Default', swipe = true, order = order, groups = groups,
+            }
+        end
+        local function debuffs(filter, max, candidates)
+            return { filter = filter, max = max, candidates = candidates, dispelBorder = 'dispel', dispelColors = p.dispel }
+        end
+        local buffs = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } }
+        auras = auraRow({ 'HARMFUL', 'HELPFUL' }, { HARMFUL = debuffs('HARMFUL', size.debuffs), HELPFUL = buffs })
+        local others = math.max(1, math.floor(size.debuffs / 5))
+        hostileAuras = auraRow({ 'mine', 'shared', 'npc', 'HELPFUL' }, {
+            mine = debuffs('HARMFUL|PLAYER', size.debuffs - 2 * others, { nameplateShowAll = false }),
+            shared = debuffs('HARMFUL', others, { isFromPlayerOrPlayerPet = true, nameplateShowAll = true }),
+            npc = debuffs('HARMFUL', others, { isFromPlayerOrPlayerPet = false }),
+            HELPFUL = buffs,
+        })
+    end
     -- Everything drawn, at full aura rows: combo points, PvP badge and icon on the left; the
     -- header, else the leader crown, on top; the level badge or the aura rows at the bottom.
     local left = size.combo and iconX - 30 or iconX - 11
@@ -309,17 +336,8 @@ function Kit.target(p, castText, size)
         flag = { pos = { nameX, nameY + 1 }, size = { 38, 15 } },
         healPrediction = { color = p.heals, absorbColor = p.absorbs },
         txtHpp = { pos = { barWidth - 14, 20 }, size = size.hpp, color = p.targetText, stroke = p.strokeAlt, font = 'number', alignRight = true },
-        -- Debuffs then buffs in one row, wrapping after perLine; lineSpacing leaves room for timers.
-        -- dispelBorder: 'dispel' edges debuffs by dispel type; 'stealable' edges stealable buffs.
-        -- Blizzard's target order: your auras first, then in the order they landed.
-        auras = size.debuffs and {
-            pos = { 25, aurasY }, size = auraSize, spacing = 3, perLine = size.perLine, lineSpacing = auraLineSpacing, timers = true, border = Kit.AURA_BORDER,
-            sort = 'Default', swipe = true,
-            groups = {
-                HARMFUL = { max = size.debuffs, dispelBorder = 'dispel', dispelColors = p.dispel },
-                HELPFUL = { max = size.buffs, dispelBorder = 'stealable', dispelColors = { Magic = p.stealable } },
-            },
-        } or nil,
+        auras = auras,
+        hostileAuras = hostileAuras,
         -- Above the HP bar.
         cast = {
             pos = { castX, -15 },
