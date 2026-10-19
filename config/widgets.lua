@@ -51,18 +51,101 @@ function Widgets.AddHover(frame, target)
     return hover
 end
 
+-- The settings window's own tooltip: Blizzard's tooltip border atlases on a frame of ours,
+-- greyscaled and tinted to the window's silver, over the window's blue fill. Without
+-- NineSliceUtil or the atlases it falls back to the window's 1px edge.
+local TOOLTIP_LAYOUT = 'TooltipDefaultLayout'
+local TOOLTIP_BORDER = C.accent
+local TOOLTIP_PAD = 10
+local TOOLTIP_MAX_WIDTH = 260
+local tooltip
+
+local function hasTooltipArt()
+    return NineSliceUtil and NineSliceUtil.ApplyLayout and NineSliceUtil.GetLayout
+        and NineSliceUtil.GetLayout(TOOLTIP_LAYOUT) and Style.HasAtlas('Tooltip-NineSlice-CornerTopLeft')
+end
+
+local function addFlatEdge(frame)
+    for _, edge in ipairs({
+        { 'TOPLEFT', 'TOPRIGHT', true }, { 'BOTTOMLEFT', 'BOTTOMRIGHT', true },
+        { 'TOPLEFT', 'BOTTOMLEFT', false }, { 'TOPRIGHT', 'BOTTOMRIGHT', false },
+    }) do
+        local line = Widgets.Solid(frame, 'BORDER', '#A6BCE366')
+        line:SetPoint(edge[1])
+        line:SetPoint(edge[2])
+        if edge[3] then
+            line:SetHeight(1)
+        else
+            line:SetWidth(1)
+        end
+    end
+end
+
+local function createTooltip()
+    local frame = CreateFrame('Frame', 'EorzeaUITooltip', UIParent)
+    frame:SetFrameStrata('TOOLTIP')
+    frame:SetClampedToScreen(true)
+    frame:Hide()
+
+    local fill
+    if hasTooltipArt() then
+        -- Applied to the tooltip itself, so the pieces sit in its BACKGROUND/BORDER layers under the text.
+        NineSliceUtil.ApplyLayout(frame, NineSliceUtil.GetLayout(TOOLTIP_LAYOUT))
+        for _, piece in ipairs({ 'TopLeftCorner', 'TopRightCorner', 'BottomLeftCorner', 'BottomRightCorner',
+            'TopEdge', 'BottomEdge', 'LeftEdge', 'RightEdge' }) do
+            local texture = frame[piece]
+            if texture then
+                texture:SetDesaturated(true)
+                texture:SetVertexColor(Style.Color(TOOLTIP_BORDER))
+            end
+        end
+        -- The fill takes the place of the layout's Center, so it keeps Blizzard's inset.
+        fill = frame.Center
+    else
+        fill = frame:CreateTexture(nil, 'BACKGROUND')
+        fill:SetAllPoints()
+        addFlatEdge(frame)
+    end
+    fill:SetColorTexture(1, 1, 1, 1)
+    if not pcall(fill.SetGradient, fill, 'VERTICAL', CreateColor(0.02, 0.03, 0.06, 0.97), CreateColor(0.07, 0.10, 0.19, 0.97)) then
+        fill:SetVertexColor(0.04, 0.06, 0.12, 0.97)
+    end
+
+    frame.title = Widgets.Text(frame, 13, C.accent)
+    frame.title:SetPoint('TOPLEFT', TOOLTIP_PAD, -TOOLTIP_PAD)
+    frame.body = Widgets.Text(frame, 12, C.text)
+    frame.body:SetPoint('TOPLEFT', frame.title, 'BOTTOMLEFT', 0, -4)
+    frame.body:SetWordWrap(true)
+    frame.body:SetSpacing(2)
+    return frame
+end
+
+local function showTooltip(owner, title, body)
+    tooltip = tooltip or createTooltip()
+    tooltip.title:SetText(title)
+    tooltip.body:SetText(body)
+    local unwrapped = tooltip.body.GetUnboundedStringWidth and tooltip.body:GetUnboundedStringWidth()
+        or TOOLTIP_MAX_WIDTH
+    local width = math.min(TOOLTIP_MAX_WIDTH, math.max(unwrapped, tooltip.title:GetStringWidth()))
+    tooltip.body:SetWidth(width)
+    tooltip:SetSize(width + TOOLTIP_PAD * 2,
+        tooltip.title:GetStringHeight() + 4 + tooltip.body:GetStringHeight() + TOOLTIP_PAD * 2)
+    tooltip:ClearAllPoints()
+    tooltip:SetPoint('BOTTOMLEFT', owner, 'TOPRIGHT', 0, 0)
+    tooltip:Show()
+end
+
 local function setTooltip(frame, title, body)
     if not body then
         return
     end
     frame:HookScript('OnEnter', function(self)
-        GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
-        GameTooltip:SetText(title, 1, 1, 1)
-        GameTooltip:AddLine(body, nil, nil, nil, true)
-        GameTooltip:Show()
+        showTooltip(self, title, body)
     end)
     frame:HookScript('OnLeave', function()
-        GameTooltip:Hide()
+        if tooltip then
+            tooltip:Hide()
+        end
     end)
 end
 Widgets.SetTooltip = setTooltip
