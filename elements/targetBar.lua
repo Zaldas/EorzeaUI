@@ -425,28 +425,14 @@ function TargetBarClass:UpdateThreat()
     end
 end
 
-local ENERGY = 3
-
--- Rogues, and druids while on energy (cat form).
-local function usesComboPoints()
-    local class = EUI.SafeValue(function() return select(2, UnitClass('player')) end)
-    if class == 'DRUID' then
-        return EUI.Read('UnitPowerType', UnitPowerType, 'player') == ENERGY
-    end
-    return class == 'ROGUE'
-end
-
 -- Your combo points on the unit. They are stored on the unit: GetComboPoints reads them
 -- there, while UnitPower is the raw count wherever the points are.
 function TargetBarClass:UpdateCombo()
     if not self.combo or not isLive(self) then
         return
     end
-    local shown = usesComboPoints()
-    self.combo:SetShown(shown)
-    if not shown then
-        return
-    end
+    -- Any class, in any form, as Blizzard's ComboFrame: the diamonds draw nothing at 0 points.
+    self.combo:SetShown(true)
     local ok, count = pcall(GetComboPoints, 'player', self.unit)
     if not ok then
         EUI.LogOnce('combo:error', 'combo points: %s', tostring(count))

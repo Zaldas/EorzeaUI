@@ -192,7 +192,7 @@ return {
     ["PLAYER_ROLES_ASSIGNED "] = "party1:UpdateRole row:UpdateRole",
     ["ROLE_CHANGED_INFORM "] = "party1:UpdateRole row:UpdateRole",
     ["PARTY_LOOT_METHOD_CHANGED "] = "party1:UpdateGroupRoles row:UpdateGroupRoles",
-    ["UPDATE_SHAPESHIFT_FORM "] = "party1:UpdatePower row:UpdatePower target:UpdateCombo",
+    ["UPDATE_SHAPESHIFT_FORM "] = "party1:UpdatePower row:UpdatePower",
     ["PET_UI_UPDATE "] = "pet:UpdateHappiness",
     ["PLAYER_FOCUS_CHANGED "] = "focus:Refresh",
     ["COMBO_TARGET_CHANGED "] = "target:UpdateCombo",

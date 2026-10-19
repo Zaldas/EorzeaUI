@@ -290,11 +290,19 @@ function RaidPets.Create(style, fonts)
         end
         attachRow(button)
     end
+    RaidPets.header = header
     if RegisterStateDriver then
         RegisterStateDriver(header, 'visibility', VISIBILITY)
     end
     updateBackground()
     EUI.Log('raid: built %d pet rows', #rows)
+end
+
+-- Hides the block whatever the group (the raid manager's Hide). Out of combat only.
+function RaidPets.SetHidden(hidden)
+    if RegisterStateDriver and RaidPets.header then
+        RegisterStateDriver(RaidPets.header, 'visibility', hidden and 'hide' or VISIBILITY)
+    end
 end
 
 -- The row showing unit (raidpetN), if shown.

@@ -131,6 +131,8 @@ local function initialize()
     EUI.Blizzard.HideReplaced()
     EUI.Blizzard.KeepTotems(EUI.castAnchor)
     EUI.Blizzard.TrimRaidManager()
+    EUI.Blizzard.FollowRaidManager(EUI.RaidList.ApplyManagerFilters)
+    EUI.RaidList.ApplyManagerFilters()
     EUI.PartyList.RefreshAll()
     EUI.RaidList.RefreshAll()
     EUI.RaidPets.RefreshAll()
@@ -353,6 +355,7 @@ local GLOBAL_ROUTES = {
         forEachBar('Refresh')
         EUI.playerCast:Update()
         seedLostUnits()
+        EUI.RaidList.ApplyManagerFilters()
     end,
     PLAYER_TARGET_CHANGED = function()
         checkUnitLost('target')
@@ -393,7 +396,6 @@ local GLOBAL_ROUTES = {
     end,
     UPDATE_SHAPESHIFT_FORM = function()
         forEachRow('UpdatePower')
-        EUI.TargetBar.target:UpdateCombo()
         EUI.PartyList.UpdateBackground()
     end,
     UI_SCALE_CHANGED = applyScale,

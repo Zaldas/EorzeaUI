@@ -91,13 +91,17 @@ local slotOrder
 local function layoutGroups()
     EUI.RunOutOfCombat(function()
         local order = {}
+        -- A group the raid manager filters out counts as empty.
+        local function occupied(group)
+            return group.count > 0 and not group.filtered
+        end
         for g, group in ipairs(groups) do
-            if group.count > 0 then
+            if occupied(group) then
                 order[#order + 1] = g
             end
         end
         for g, group in ipairs(groups) do
-            if group.count == 0 then
+            if not occupied(group) then
                 order[#order + 1] = g
             end
         end
@@ -414,6 +418,71 @@ function RaidList.Create(style, fonts)
     layoutGroups()
     createAssists()
     EUI.Log('raid: built %d cells, %d Assists target cells', #cells, #targetCells)
+end
+
+local ROLES = { 'TANK', 'HEALER', 'DAMAGER', 'NONE' }
+local appliedFilters
+
+-- Follows Blizzard's raid manager: its group and role filters and its Hide button. Reads its
+-- state through CRF_GetFilterGroup / CRF_GetFilterRole / CompactRaidFrameManager_GetSetting and
+-- sets our own headers only. Headers are protected, so this runs out of combat.
+function RaidList.ApplyManagerFilters()
+    if not (CRF_GetFilterGroup and CRF_GetFilterRole and CompactRaidFrameManager_GetSetting) then
+        EUI.LogOnce('raid:managerFilters', 'raid manager filters unavailable')
+        return
+    end
+    EUI.RunOutOfCombat(function()
+        local isShown = EUI.SafeValue(CompactRaidFrameManager_GetSetting, 'IsShown')
+        local shown = isShown ~= false and isShown ~= '0'
+        local roles = {}
+        for _, role in ipairs(ROLES) do
+            if EUI.SafeValue(CRF_GetFilterRole, role) ~= false then
+                roles[#roles + 1] = role
+            end
+        end
+        local groupShown = {}
+        for g = 1, NUM_GROUPS do
+            groupShown[g] = shown and EUI.SafeValue(CRF_GetFilterGroup, g) ~= false
+        end
+        local key = string.format('%s|%s|', tostring(shown), table.concat(roles, ','))
+        for g = 1, NUM_GROUPS do
+            key = key .. (groupShown[g] and '1' or '0')
+        end
+        if key == appliedFilters then
+            return
+        end
+        appliedFilters = key
+        -- With some roles filtered, strict filtering needs the group, any class and an allowed role.
+        local allRoles = #roles == #ROLES
+        if not allRoles and not CLASS_SORT_ORDER then
+            EUI.LogOnce('raid:classOrder', 'CLASS_SORT_ORDER missing; raid role filters ignored')
+            allRoles = true
+        end
+        local classes = table.concat(CLASS_SORT_ORDER or {}, ',')
+        for g, group in ipairs(groups) do
+            local header = group.header
+            group.filtered = not groupShown[g]
+            if allRoles then
+                header:SetAttribute('strictFiltering', nil)
+                header:SetAttribute('roleFilter', nil)
+                header:SetAttribute('groupFilter', tostring(g))
+            else
+                header:SetAttribute('strictFiltering', true)
+                header:SetAttribute('roleFilter', table.concat(roles, ','))
+                header:SetAttribute('groupFilter', tostring(g) .. ',' .. classes)
+            end
+            if RegisterStateDriver then
+                RegisterStateDriver(header, 'visibility', groupShown[g] and VISIBILITY or 'hide')
+            end
+        end
+        if RegisterStateDriver then
+            RegisterStateDriver(RaidList.assistsBlock.header, 'visibility', shown and VISIBILITY or 'hide')
+        end
+        EUI.RaidPets.SetHidden(not shown)
+        slotOrder = nil
+        layoutGroups()
+        EUI.LogOnce('raid:managerFiltersApplied', 'raid: following the raid manager (%s)', key)
+    end, 'raidManagerFilters')
 end
 
 -- Calls fn on each shown cell for unit. Events for you arrive as 'player' and go to your cells;

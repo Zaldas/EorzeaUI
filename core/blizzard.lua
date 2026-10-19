@@ -95,10 +95,10 @@ function EUI.Blizzard.KeepTotems(anchor)
     placeTotems(totems, anchor)
 end
 
--- The raid manager's group/role filters, Edit and Hide buttons act on Blizzard's raid frames,
--- which are hidden. They hide after each layout of its options; their space stays. None of its
--- buttons are secure, so this is safe in combat.
-local MANAGER_HIDDEN = { 'filterOptions', 'editMode', 'hiddenModeToggle' }
+-- The raid manager's Edit button moves Blizzard's raid frames, which are hidden. It hides after
+-- each layout of its options; its space stays. None of its buttons are secure, so this is safe
+-- in combat.
+local MANAGER_HIDDEN = { 'editMode' }
 
 local function hideManagerButtons()
     local display = CompactRaidFrameManager and CompactRaidFrameManager.displayFrame
@@ -120,4 +120,17 @@ function EUI.Blizzard.TrimRaidManager()
     end
     hooksecurefunc('CompactRaidFrameManager_UpdateOptionsFlowContainer', EUI.Guard('trim raid manager', hideManagerButtons))
     hideManagerButtons()
+end
+
+-- fn() after the raid manager's filters or settings (its Hide button) change: post-hooks on
+-- its setters, so our frames follow without touching Blizzard's.
+function EUI.Blizzard.FollowRaidManager(fn)
+    local guarded = EUI.Guard('raid manager filters', fn)
+    for _, name in ipairs({ 'CompactRaidFrameManager_SetFilterOptions', 'CompactRaidFrameManager_SetSetting' }) do
+        if _G[name] then
+            hooksecurefunc(name, guarded)
+        else
+            EUI.LogOnce('raidManager:' .. name, '%s missing; our raid frames ignore it', name)
+        end
+    end
 end

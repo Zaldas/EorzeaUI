@@ -837,5 +837,35 @@ onEvent(nil, 'READY_CHECK')
 onEvent(nil, 'READY_CHECK_FINISHED')
 onEvent(nil, 'PARTY_LEADER_CHANGED')
 TICK()
+
+-- The raid frames follow Blizzard's raid manager: group 3 and DPS filtered out, then its Hide.
+CLASS_SORT_ORDER = CLASS_SORT_ORDER or { 'WARRIOR', 'PRIEST' }
+local managerShown = true
+CRF_GetFilterGroup = function(g) return g ~= 3 end
+CRF_GetFilterRole = function(role) return role ~= 'DAMAGER' end
+CompactRaidFrameManager_GetSetting = function() return managerShown end
+local function lastDriver(frame)
+    local found
+    for _, entry in ipairs(STATE_DRIVERS) do
+        if entry.frame == frame and entry.state == 'visibility' then found = entry.condition end
+    end
+    return found
+end
+EUI.RaidList.ApplyManagerFilters()
+local group1, group3 = _G.EorzeaUIRaidGroup1, _G.EorzeaUIRaidGroup3
+assert(group1 and group3, 'raid group headers not named')
+local attrs1 = rawget(group1, '_attrs')
+assert(attrs1.roleFilter == 'TANK,HEALER,NONE' and attrs1.strictFiltering == true, 'role filter not applied')
+assert(attrs1.groupFilter:sub(1, 2) == '1,', 'group filter: ' .. tostring(attrs1.groupFilter))
+assert(lastDriver(group3) == 'hide' and lastDriver(group1) ~= 'hide', 'group filter visibility')
+managerShown = false
+EUI.RaidList.ApplyManagerFilters()
+assert(lastDriver(group1) == 'hide', 'raid manager Hide ignored')
+managerShown = true
+CRF_GetFilterRole = function() return true end
+EUI.RaidList.ApplyManagerFilters()
+assert(rawget(group1, '_attrs').roleFilter == nil and lastDriver(group3) == 'hide', 'filters not restored')
+TICK()
+
 assert(#ERRORS == 0, 'errors reported:\n' .. table.concat(ERRORS, '\n'))
 print('SMOKE OK')
