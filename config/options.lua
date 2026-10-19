@@ -542,6 +542,7 @@ function Config.Initialize(style)
     Config.style = style
     Config.SnapshotBuilt()
     Config.RegisterBlizzardEntry()
+    Config.RegisterMinimapButton()
 end
 
 ---------------------------------------------------------------------------------------------

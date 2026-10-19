@@ -45,7 +45,15 @@ local function methodResolver(t, k)
     if k == 'GetPoint' then
         return function() return 'TOPLEFT', nil, 'TOPLEFT', 0, 0 end
     end
-    if k == 'CreateTexture' or k == 'CreateFontString' or k == 'CreateMaskTexture' or k == 'GetStatusBarTexture' or k == 'GetParent'
+    -- Regions report the frame that created them as their parent (LibDBIcon reads its fields).
+    if k == 'CreateTexture' or k == 'CreateFontString' or k == 'CreateMaskTexture' then
+        return function(self)
+            local region = newFrame()
+            rawset(region, 'GetParent', function() return self end)
+            return region
+        end
+    end
+    if k == 'GetStatusBarTexture' or k == 'GetParent'
         or k == 'CreateAnimationGroup' or k == 'CreateAnimation' then
         return function() return newFrame() end
     end
@@ -180,6 +188,9 @@ CreateColor = function(r, g, b, a) return { r = r, g = g, b = b, a = a } end
 Enum = { StatusBarInterpolation = { ExponentialEaseOut = 1, Immediate = 0 }, StatusBarTimerDirection = { ElapsedTime = 0, RemainingTime = 1 } }
 EventRegistry = { RegisterCallback = function() end }
 GameTooltip = newFrame()
+Minimap = newFrame()
+strmatch = string.match
+securecallfunction = function(fn, ...) return fn(...) end
 -- Blizzard's Settings panel; the addon's own settings are EUI.Settings.
 BLIZZARD_CATEGORIES = {}
 Settings = {
@@ -236,6 +247,15 @@ local onEvent = eventFrames[#eventFrames]._OnEvent
 assert(onEvent, 'no OnEvent captured')
 onEvent(nil, 'ADDON_LOADED', 'EorzeaUI')
 assert(EUI.ready, 'initialize did not complete')
+-- Minimap button: right-click toggles the frame lock, left-click the settings window.
+local minimapButton = _G.LibDBIcon10_EorzeaUI
+assert(minimapButton and minimapButton._OnClick, 'minimap button not registered')
+minimapButton._OnClick(minimapButton, 'RightButton')
+assert(EUI.EditMode.unlocked, 'minimap right-click did not unlock')
+minimapButton._OnClick(minimapButton, 'RightButton')
+assert(not EUI.EditMode.unlocked, 'minimap right-click did not lock')
+minimapButton._OnClick(minimapButton, 'LeftButton')
+minimapButton._OnClick(minimapButton, 'LeftButton')
 -- Settings: missing keys take their defaults; saved ones are kept.
 local Settings = EUI.Settings
 assert(Settings.Get('style') == STYLE and Settings.Get('scale') == 1 and type(Settings.Get('positions')) == 'table',

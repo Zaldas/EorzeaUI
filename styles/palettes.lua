@@ -12,6 +12,7 @@ local _, EUI = ...
 -- target names in place of the reaction colour. nameBg (optional): { alpha, leftAlpha, color }.
 -- partyBg: the party list's fade, { color, alpha, leftAlpha }.
 -- label: frame labels (Group N, Assists, Pets, Focus) and their header lines.
+-- ring (optional): tints the totem and minimap button rings, desaturated; Blizzard's gold otherwise.
 -- healthColor: party and raid HP bars by default (settings healthColor.<style>): 'blizzard'
 -- (Blizzard's raid frame class colour setting), 'class' or 'palette' (hp).
 
@@ -54,6 +55,7 @@ local vanadiel = {
     partyBg = { color = '#000000FF', alpha = 0.2, leftAlpha = 0.3 },
     -- Bluish silver.
     label = '#A6BCE3FF',
+    ring = Kit.RING_SILVER,
     healthColor = 'palette',
 }
 

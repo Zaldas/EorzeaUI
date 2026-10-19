@@ -26,6 +26,8 @@ Kit.DISPEL_COLORS = {
 }
 -- Stealable buffs (always Magic): lighter than the Magic debuff edge.
 Kit.STEALABLE_COLOR = '#BFE3FFFF'
+-- Blue-leaning silver for Blizzard's gold ring art, applied over the desaturated texture.
+Kit.RING_SILVER = '#9DB8F0FF'
 
 -- 128x64 party bar on a 256x128 texture; no slicing needed at uniform half scale.
 -- art: asset folder, e.g. 'hud'

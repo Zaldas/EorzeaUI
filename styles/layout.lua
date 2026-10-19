@@ -48,6 +48,8 @@ function Kit.BuildLayout(p)
 
     return {
         fonts = Kit.FONTS,
+        -- The palette's ring tint, also read by the minimap button; nil keeps Blizzard's gold.
+        ring = p.ring,
 
         party = {
             width = 410,
@@ -312,7 +314,7 @@ function Kit.BuildLayout(p)
         -- bottom. durationHeight leaves room for it. The header sits headerGap above the anchor.
         totems = {
             button = 37, spacing = -6, leftPadding = 15, topPadding = -2, durationOffset = 5, durationHeight = 10,
-            border = { atlas = 'UI-HUD-UnitFrame-TotemFrame', size = 30, offset = { 1, -1.5 } },
+            border = { atlas = 'UI-HUD-UnitFrame-TotemFrame', size = 30, offset = { 1, -1.5 }, color = p.ring },
             icon = 22,
             swipeColor = '#000000A6',
             headerGap = 2,

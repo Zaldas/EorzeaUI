@@ -7,6 +7,10 @@
 ## SavedVariables: EorzeaUIDB, EorzeaUILog
 ## AddonCompartmentFunc: EorzeaUI_OnAddonCompartmentClick
 
+libs\LibStub\LibStub.lua
+libs\CallbackHandler-1.0\CallbackHandler-1.0.lua
+libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
 core\secret.lua
 core\combat.lua
 core\settings.lua
@@ -39,5 +43,6 @@ elements\totemBar.lua
 config\widgets.lua
 config\options.lua
 config\window.lua
+config\minimapButton.lua
 EorzeaUI.xml
 EorzeaUI.lua

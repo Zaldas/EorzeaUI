@@ -70,6 +70,10 @@ local function createButton(parent, spec)
     Style.SetAtlas(border, spec.border.atlas)
     border:SetSize(spec.border.size, spec.border.size)
     border:SetPoint('CENTER', spec.border.offset[1], spec.border.offset[2])
+    if spec.border.color then
+        border:SetDesaturated(true)
+        border:SetVertexColor(Style.Color(spec.border.color))
+    end
 
     local iconFrame = CreateFrame('Frame', nil, button)
     iconFrame:SetSize(spec.icon, spec.icon)
