@@ -195,6 +195,7 @@ SOUNDS = {}
 PlaySound = function(kit) SOUNDS[#SOUNDS + 1] = kit end
 EorzeaUIDB = {
     style = STYLE,
+    party = { playerFrame = 'merged' },
     colors = { [STYLE] = { hp = '#123456FF', reaction = { hostile = '#654321FF' } }, other = { hp = '#ABCDEFFF' } },
 }
 print = function(...) io.write(table.concat({ ... }, ' '), '\n') end

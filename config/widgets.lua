@@ -572,19 +572,36 @@ function Widgets.Color(parent, width, spec)
     return frame
 end
 
+local RESET_WIDTH = 56
+
 -- A section title: Style.Header's centred label between fading lines, in the accent colour.
-function Widgets.Header(parent, width, label, fonts)
+-- reset (optional) = { isDefault(), reset() }: a "reset" button right of the lines, shown while
+-- the section differs from its defaults.
+function Widgets.Header(parent, width, label, fonts, reset)
     local holder = row(parent, width, 30)
     local header = Style.Header(holder, {
         label = label,
         pos = { 0, 10 },
-        width = width,
+        width = width - RESET_WIDTH - 8,
         height = 14,
         txtLabel = { size = 13, color = C.accent, stroke = '#000000FF', outline = '', font = 'header' },
         line = { color = C.accent, alpha = 0.6, height = 1, gap = 8 },
     }, fonts)
     holder.header = header
-    function holder:Refresh() end
+    local button
+    if reset then
+        button = Widgets.Button(holder, 'reset', function()
+            reset.reset()
+        end, RESET_WIDTH)
+        button:SetPoint('RIGHT', -4, -2)
+        setTooltip(button, 'Reset section', string.format('Put every %s setting back to its default.', label))
+    end
+    function holder:Refresh()
+        if button then
+            button:SetShown(not reset.isDefault())
+        end
+    end
+    holder:Refresh()
     return holder
 end
 

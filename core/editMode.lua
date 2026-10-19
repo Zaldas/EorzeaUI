@@ -10,6 +10,7 @@ local movers = {}
 local moverCount = 0
 
 local DEFAULT_POSITIONS = {
+    player = { 'TOPLEFT', 'TOPLEFT', 60, -150 },
     party = { 'TOPLEFT', 'TOPLEFT', 60, -260 },
     raid = { 'TOPLEFT', 'TOPLEFT', 60, -420 },
     assists = { 'RIGHT', 'RIGHT', -120, 120 },

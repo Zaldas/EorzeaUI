@@ -1,7 +1,7 @@
 local _, EUI = ...
 
 -- Fills every frame with fixed sample data for screenshots and Edit Mode positioning.
--- Active while toggled with /eui demo or while Edit Mode is open.
+-- Active while toggled with /ffui demo or while Edit Mode is open.
 
 EUI.Demo = {}
 local Demo = EUI.Demo

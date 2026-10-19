@@ -5,12 +5,18 @@ local _, EUI = ...
 -- client renumbers the party tokens as members leave and the unit watch hides rows whose unit
 -- is gone, so roster changes need no secure work in combat. In a raid a state driver hides rows
 -- 2-5, leaving the player's row as the player frame; the raid list shows the groups.
+-- With style.standalone the player's row has its own anchor (the player frame) and the party
+-- anchor holds rows 2-5, its background hidden while none shows, as Blizzard's PartyFrame. With
+-- style.growUp the party anchor's rows stack up from its bottom edge (PartyList.ApplyLayout).
 
 EUI.PartyList = {}
 local PartyList = EUI.PartyList
 
 local MAX_ROWS = 5
 local rows = {}
+-- Each anchor's list: { anchor, bg, rowsFrame, rows, first (index of its first row), size,
+-- growUp, hideEmpty, demo fields }.
+local lists = {}
 local rowsByUnit = {}
 local petsByUnit = {}
 
@@ -111,10 +117,30 @@ function PartyList.UpdateFormRows()
     end, 'formRows')
 end
 
--- The list's background behind rows stacked from anchor's top-left. Size it with bg.mid:SetHeight
--- (the rows' total height); bg.top and bg.bottom pad it above and below. One fade spans all three.
+-- Anchors a background's pieces (CreateBackground) from anchor's top, or its bottom.
+function PartyList.PlaceBackground(bg, anchor, bgSpec, fromBottom)
+    local top, mid, bottom = bg.top, bg.mid, bg.bottom
+    top:ClearAllPoints()
+    mid:ClearAllPoints()
+    bottom:ClearAllPoints()
+    if fromBottom then
+        -- The same padding around the rows as from the top.
+        local below = bgSpec.pos[2] + bgSpec.top.height + bgSpec.bottom.height
+        bottom:SetPoint('BOTTOMLEFT', anchor, 'BOTTOMLEFT', bgSpec.pos[1], -below)
+        mid:SetPoint('BOTTOMLEFT', bottom, 'TOPLEFT', 0, 0)
+        top:SetPoint('BOTTOMLEFT', mid, 'TOPLEFT', 0, 0)
+    else
+        EUI.Style.Place(top, anchor, bgSpec.pos)
+        mid:SetPoint('TOPLEFT', top, 'BOTTOMLEFT', 0, 0)
+        bottom:SetPoint('TOPLEFT', mid, 'BOTTOMLEFT', 0, 0)
+    end
+end
+
+-- The list's background behind rows stacked from anchor's top-left, or up from its bottom-left
+-- with fromBottom. Size it with bg.mid:SetHeight (the rows' total height); bg.top and bg.bottom
+-- pad it above and below. One fade spans all three.
 -- bgSpec: a style's background, default the party list's.
-function PartyList.CreateBackground(anchor, bgSpec)
+function PartyList.CreateBackground(anchor, bgSpec, fromBottom)
     bgSpec = bgSpec or PartyList.style.background
     local bg = CreateFrame('Frame', nil, anchor)
     bg:SetAllPoints(anchor)
@@ -131,15 +157,13 @@ function PartyList.CreateBackground(anchor, bgSpec)
     local top = bgPiece(bgSpec.top.height)
     local mid = bgPiece()
     local bottom = bgPiece(bgSpec.bottom.height)
-    EUI.Style.Place(top, anchor, bgSpec.pos)
-    mid:SetPoint('TOPLEFT', top, 'BOTTOMLEFT', 0, 0)
-    bottom:SetPoint('TOPLEFT', mid, 'BOTTOMLEFT', 0, 0)
+    bg.top, bg.mid, bg.bottom = top, mid, bottom
+    PartyList.PlaceBackground(bg, anchor, bgSpec, fromBottom)
     local fade = EUI.Style.Fade(bg, { width = bgSpec.width }, 'BACKGROUND')
     fade:SetPoint('TOPLEFT', top, 'TOPLEFT', 0, 0)
     fade:SetPoint('BOTTOMRIGHT', bottom, 'BOTTOMRIGHT', 0, 0)
     EUI.Style.ColorFade(fade, bgSpec.color, bgSpec)
     fade:Show()
-    bg.top, bg.mid, bg.bottom = top, mid, bottom
     return bg
 end
 
@@ -171,13 +195,63 @@ local PET_HOOKS = {
     end,
 }
 
--- Edit Mode handle (EditMode.Register's box): the background, widened left over the class icon
--- and the badges straddling it.
-function PartyList.EditBox()
-    local style, bg = PartyList.style, PartyList.background
+-- Edit Mode handle (EditMode.Register's box) for anchor (the party or player anchor): its
+-- background, widened left over the class icon and the badges straddling it.
+function PartyList.EditBox(anchor)
+    local style = PartyList.style
+    local bg
+    for _, list in ipairs(lists) do
+        if list.anchor == anchor then
+            bg = list.bg
+        end
+    end
     local indicators = style.indicators
     local left = math.min(style.classIcon.pos[1], indicators.role.pos[1], indicators.pvp.pos[1])
     return { topRegion = bg.top, bottomRegion = bg.bottom, left = style.background.pos[1] - left }
+end
+
+-- An anchor holding size rows from row first, with its background and rows frame.
+local function anchorHeight(size)
+    local style = PartyList.style
+    return style.rowHeight * size + style.rowSpacing * (size - 1)
+end
+
+-- key: the anchor's Edit Mode key. followsGrowUp: the list takes style.growUp.
+local function createList(name, key, first, size, followsGrowUp)
+    local style = PartyList.style
+    local growUp = followsGrowUp and style.growUp or false
+    local anchor = CreateFrame('Frame', name, UIParent)
+    anchor:SetSize(style.width, anchorHeight(size))
+    anchor:SetMovable(true)
+    anchor:SetClampedToScreen(true)
+    -- Plain parent of the secure buttons, so the demo can hide them all out of combat.
+    local rowsFrame = CreateFrame('Frame', nil, anchor)
+    rowsFrame:SetAllPoints(anchor)
+    rowsFrame:SetFrameLevel(anchor:GetFrameLevel() + 2)
+    local list = {
+        anchor = anchor, key = key, rowsFrame = rowsFrame, rows = {}, first = first, size = size,
+        growUp = growUp, followsGrowUp = followsGrowUp,
+        bg = PartyList.CreateBackground(anchor, nil, growUp),
+    }
+    lists[#lists + 1] = list
+    return list
+end
+
+-- Stacks button after the list's last row, down or (growUp) up.
+local function placeRow(list, button)
+    local previous = list.rows[#list.rows]
+    local spacing = PartyList.style.rowSpacing
+    if list.growUp then
+        if previous then
+            button:SetPoint('BOTTOMLEFT', previous.button, 'TOPLEFT', 0, spacing)
+        else
+            button:SetPoint('BOTTOMLEFT', list.rowsFrame, 'BOTTOMLEFT', 0, 0)
+        end
+    elseif previous then
+        button:SetPoint('TOPLEFT', previous.button, 'BOTTOMLEFT', 0, -spacing)
+    else
+        button:SetPoint('TOPLEFT', list.rowsFrame, 'TOPLEFT', 0, 0)
+    end
 end
 
 function PartyList.Create(style, fonts)
@@ -185,39 +259,31 @@ function PartyList.Create(style, fonts)
     PartyList.style = partyStyle
     PartyList.fonts = fonts
 
-    local anchor = CreateFrame('Frame', 'EorzeaUIPartyAnchor', UIParent)
-    anchor:SetSize(partyStyle.width, partyStyle.rowHeight * MAX_ROWS + partyStyle.rowSpacing * (MAX_ROWS - 1))
-    anchor:SetMovable(true)
-    anchor:SetClampedToScreen(true)
-    PartyList.anchor = anchor
-
-    local bg = PartyList.CreateBackground(anchor)
-    PartyList.background = bg
-    PartyList.bgMid = bg.mid
-
-    -- Plain parent of the secure buttons, so the demo can hide them all out of combat.
-    local rowsFrame = CreateFrame('Frame', nil, anchor)
-    rowsFrame:SetAllPoints(anchor)
-    rowsFrame:SetFrameLevel(anchor:GetFrameLevel() + 2)
-    PartyList.rowsFrame = rowsFrame
+    local playerList, partyList
+    if partyStyle.standalone then
+        playerList = createList('EorzeaUIPlayerAnchor', 'player', 1, 1, false)
+        partyList = createList('EorzeaUIPartyAnchor', 'party', 2, MAX_ROWS - 1, true)
+        partyList.hideEmpty = true
+        PartyList.playerAnchor = playerList.anchor
+    else
+        partyList = createList('EorzeaUIPartyAnchor', 'party', 1, MAX_ROWS, true)
+        playerList = partyList
+    end
+    PartyList.anchor = partyList.anchor
+    PartyList.partyList = partyList
 
     -- Parent of rows 2-5.
-    local members = CreateFrame('Frame', nil, rowsFrame, 'SecureHandlerStateTemplate')
-    members:SetAllPoints(rowsFrame)
-    members:SetFrameLevel(rowsFrame:GetFrameLevel())
+    local members = CreateFrame('Frame', nil, partyList.rowsFrame, 'SecureHandlerStateTemplate')
+    members:SetAllPoints(partyList.rowsFrame)
+    members:SetFrameLevel(partyList.rowsFrame:GetFrameLevel())
     members:HookScript('OnShow', PartyList.UpdateBackground)
     members:HookScript('OnHide', PartyList.UpdateBackground)
 
-    local previous
     for i = 1, MAX_ROWS do
-        local button = CreateFrame('Button', 'EorzeaUIPartyButton' .. i, i == 1 and rowsFrame or members, 'EorzeaUIPartyButtonTemplate')
+        local list = i == 1 and playerList or partyList
+        local button = CreateFrame('Button', 'EorzeaUIPartyButton' .. i, i == 1 and playerList.rowsFrame or members, 'EorzeaUIPartyButtonTemplate')
         button:SetWidth(partyStyle.width)
-        if previous then
-            button:SetPoint('TOPLEFT', previous, 'BOTTOMLEFT', 0, -partyStyle.rowSpacing)
-        else
-            button:SetPoint('TOPLEFT', rowsFrame, 'TOPLEFT', 0, 0)
-        end
-        previous = button
+        placeRow(list, button)
         button:RegisterForClicks('AnyUp')
         button:SetAttribute('eui-player', i == 1)
         button:SetAttribute('unit', PARTY_UNITS[i])
@@ -229,6 +295,7 @@ function PartyList.Create(style, fonts)
         end
         row.pet = EUI.PetRow.Attach(petButton, row, partyStyle, fonts, PET_HOOKS)
         rows[i] = row
+        list.rows[#list.rows + 1] = row
         button:HookScript('OnShow', PartyList.UpdateBackground)
         button:HookScript('OnHide', PartyList.UpdateBackground)
         watchButton(button)
@@ -241,24 +308,79 @@ function PartyList.Create(style, fonts)
     PartyList.UpdateFormRows()
 end
 
+-- A growUp list's demo frame is as tall as its rows (setListDemo), on the anchor's bottom.
+local function placeDemoFrame(list)
+    local frame = list.demoFrame
+    frame:ClearAllPoints()
+    if list.growUp then
+        frame:SetPoint('BOTTOMLEFT', list.anchor, 'BOTTOMLEFT', 0, 0)
+        frame:SetPoint('BOTTOMRIGHT', list.anchor, 'BOTTOMRIGHT', 0, 0)
+    else
+        frame:SetAllPoints(list.anchor)
+    end
+end
+
+-- Re-stacks the rows and background for style.rowSpacing and style.growUp. The buttons are
+-- protected, so this waits for combat to end.
+function PartyList.ApplyLayout()
+    EUI.RunOutOfCombat(function()
+        local style = PartyList.style
+        for _, list in ipairs(lists) do
+            list.growUp = list.followsGrowUp and style.growUp or false
+            local placed = list.rows
+            list.rows = {}
+            for _, row in ipairs(placed) do
+                row.button:ClearAllPoints()
+                placeRow(list, row.button)
+                list.rows[#list.rows + 1] = row
+            end
+            PartyList.PlaceBackground(list.bg, list.anchor, style.background, list.growUp)
+            if list.demoFrame then
+                placeDemoFrame(list)
+            end
+            EUI.EditMode.ResizeKeepingTopLeft(list.key, list.anchor, style.width, anchorHeight(list.size))
+        end
+        PartyList.UpdateBackground()
+    end, 'partyLayout')
+end
+
+-- Shows members (the whole party's, or nil) on list's demo rows: the entries for its rows, in
+-- stacking order.
+local function setListDemo(list, members)
+    if not list.demoFrame then
+        local frame = CreateFrame('Frame', nil, list.anchor)
+        frame:SetFrameLevel(list.rowsFrame:GetFrameLevel() + 5)
+        list.demoFrame = frame
+        placeDemoFrame(list)
+        list.demoRows = {}
+        for i = 1, list.size do
+            list.demoRows[i] = EUI.PartyRow.CreateDemo(frame, PartyList.style, PartyList.fonts)
+        end
+    end
+    local own
+    if members then
+        own = {}
+        for i = list.first, math.min(#members, list.first + list.size - 1) do
+            table.insert(own, list.growUp and 1 or #own + 1, members[i])
+        end
+    end
+    list.demoCount = own and #own or nil
+    local _, _, height = PartyList.StackDemoRows(list.demoRows, own, list.demoFrame)
+    list.demoHeight = height
+    if list.growUp then
+        list.demoFrame:SetHeight(math.max(1, height))
+    end
+    list.demoFrame:SetShown(members ~= nil)
+    list.rowsFrame:SetShown(members == nil)
+end
+
 -- members: list of demo member tables to show in place of the live rows, or nil to restore them.
 -- The rows are protected, so this runs out of combat only.
 function PartyList.SetDemo(members)
-    if not PartyList.demoFrame then
-        local frame = CreateFrame('Frame', nil, PartyList.anchor)
-        frame:SetAllPoints(PartyList.anchor)
-        frame:SetFrameLevel(PartyList.rowsFrame:GetFrameLevel() + 5)
-        PartyList.demoFrame = frame
-        PartyList.demoRows = {}
-        for i = 1, MAX_ROWS do
-            PartyList.demoRows[i] = EUI.PartyRow.CreateDemo(frame, PartyList.style, PartyList.fonts)
-        end
+    for _, list in ipairs(lists) do
+        setListDemo(list, members)
     end
-    PartyList.demoCount = members and #members or nil
-    local _, _, height = PartyList.StackDemoRows(PartyList.demoRows, members, PartyList.demoFrame)
-    PartyList.demoHeight = height
-    PartyList.demoFrame:SetShown(members ~= nil)
-    PartyList.rowsFrame:SetShown(members == nil)
+    PartyList.demoHeight = PartyList.partyList.demoHeight
     PartyList.UpdateBackground()
 end
 
@@ -345,25 +467,35 @@ function PartyList.OnRosterChanged()
     PartyList.UpdateBackground()
 end
 
-function PartyList.UpdateBackground()
+local function updateListBackground(list)
     local style = PartyList.style
-    if PartyList.demoCount then
-        PartyList.bgMid:SetHeight(math.max(style.rowHeight, PartyList.demoHeight or 0))
+    if list.demoCount then
+        list.bg:SetShown(not (list.hideEmpty and list.demoCount == 0))
+        list.bg.mid:SetHeight(math.max(style.rowHeight, list.demoHeight or 0))
         return
     end
     local shown = 0
-    local extra = EUI.Druid.IsShifted() and style.formRowHeight or 0
-    for _, row in ipairs(rows) do
+    local extra = 0
+    for _, row in ipairs(list.rows) do
         if row.button:IsVisible() then
             shown = shown + 1
+            if row == rows[1] and EUI.Druid.IsShifted() then
+                extra = extra + style.formRowHeight
+            end
             if row.pet and row.pet.button:IsVisible() then
                 extra = extra + style.pet.rowHeight
             end
         end
     end
+    list.bg:SetShown(not (list.hideEmpty and shown == 0))
     shown = math.max(1, shown)
-    local height = shown * style.rowHeight + (shown - 1) * style.rowSpacing + extra
-    PartyList.bgMid:SetHeight(height)
+    list.bg.mid:SetHeight(shown * style.rowHeight + (shown - 1) * style.rowSpacing + extra)
+end
+
+function PartyList.UpdateBackground()
+    for _, list in ipairs(lists) do
+        updateListBackground(list)
+    end
 end
 
 -- Seconds results stay on screen after the check ends: Blizzard's party frames keep them 10, its

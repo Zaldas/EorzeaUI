@@ -4,7 +4,7 @@ local _, EUI = ...
 -- .lua): one button per active totem in its priority order, packed left to right, each a ring
 -- around a round icon with a reverse cooldown swipe and the time left underneath. Right-click
 -- dismisses, hover shows the totem tooltip. Sizes are Blizzard's, in UI units: the anchor scales
--- by /eui scale only, while the "Totems" header takes the root scale like the other labels.
+-- by /ffui scale only, while the "Totems" header takes the root scale like the other labels.
 -- All frames are plain: DestroyTotem is not protected, as Blizzard's own plain buttons show.
 
 EUI.TotemBar = {}

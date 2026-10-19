@@ -1,6 +1,6 @@
 local _, EUI = ...
 
--- The settings window (/eui config): pages from EUI.Config.PAGES (config/options.lua) in a
+-- The settings window (/ffui config): pages from EUI.Config.PAGES (config/options.lua) in a
 -- list on the left, the chosen page's controls in a scrolling column on the right. Options
 -- marked reload are read when the frames are built; changing one shows the reload bar.
 
@@ -61,27 +61,64 @@ end
 local MAX_NAMED = 3
 
 -- 'Reload to apply: Palette, Fonts', or the first MAX_NAMED and a count of the rest.
-local function reloadSummary(labels)
+local function summarize(prefix, labels)
     if #labels <= MAX_NAMED then
-        return 'Reload to apply: ' .. table.concat(labels, ', ')
+        return prefix .. table.concat(labels, ', ')
     end
     local named = {}
     for i = 1, MAX_NAMED do
         named[i] = labels[i]
     end
-    return string.format('Reload to apply: %s and %d more', table.concat(named, ', '), #labels - MAX_NAMED)
+    return string.format('%s%s and %d more', prefix, table.concat(named, ', '), #labels - MAX_NAMED)
 end
 
+-- Labels of options changed in combat that wait for it to end, in change order.
+local combatLabels = {}
+
+-- The footer: reload options changed since the frames were built (gold, with the Reload
+-- button) over options waiting for combat to end (red).
 local function updateReloadBar()
     if not window then
         return
     end
     local labels = pendingLabels()
     window.reloadLabels = labels
-    window.reloadText:SetText(#labels > 0 and reloadSummary(labels) or '')
-    window.reloadBar:SetShown(#labels > 0)
+    window.combatLabels = combatLabels
+    local reload, combat = #labels > 0, #combatLabels > 0
+    window.reloadText:SetText(reload and summarize('Reload to apply: ', labels) or '')
+    window.combatText:SetText(combat and summarize('Applies after combat: ', combatLabels) or '')
+    window.reloadButton:SetShown(reload)
+    window.reloadText:SetPoint('RIGHT', window.reloadBar, 'RIGHT', -110, combat and 7 or 0)
+    window.combatText:SetPoint('RIGHT', window.reloadBar, 'RIGHT', reload and -110 or 0, reload and -7 or 0)
+    window.reloadBar:SetShown(reload or combat)
+    -- Every change passes here; the section resets follow it.
+    local built = currentPage and pages[currentPage]
+    for _, control in ipairs(built and built.controls or {}) do
+        if control.isSectionHeader then
+            control:Refresh()
+        end
+    end
 end
 Config.UpdateReloadBar = updateReloadBar
+
+-- A combat option changed in combat (config/options.lua); listed until combat ends.
+function Config.NoteCombatChange(label)
+    for _, existing in ipairs(combatLabels) do
+        if existing == label then
+            return
+        end
+    end
+    combatLabels[#combatLabels + 1] = label
+    updateReloadBar()
+end
+
+-- After the jobs waiting for combat have run.
+function Config.OnCombatEnded()
+    if #combatLabels > 0 then
+        combatLabels = {}
+        updateReloadBar()
+    end
+end
 
 -- Controls for one registry item; item fields as documented in config/options.lua.
 local function bind(item)
@@ -130,8 +167,62 @@ local function bind(item)
     return spec
 end
 
+-- The saved path an item edits: item.path, or item.pathFn() for items bound through get/set.
+-- nil for items a section reset skips (noReset, or no saved value).
+local function itemPath(item)
+    if item.noReset then
+        return nil
+    end
+    return item.path or (item.pathFn and item.pathFn())
+end
+
+local function itemIsDefault(item)
+    if item.isDefault then
+        return item.isDefault()
+    end
+    local path = itemPath(item)
+    return not path or same(Settings.Get(path), Settings.Default(path))
+end
+
+-- A section's reset for the header: the items up to the next header.
+local function sectionReset(items)
+    local resettable = {}
+    for _, item in ipairs(items) do
+        if (item.isDefault and item.reset) or itemPath(item) then
+            resettable[#resettable + 1] = item
+        end
+    end
+    if #resettable == 0 then
+        return nil
+    end
+    return {
+        isDefault = function()
+            for _, item in ipairs(resettable) do
+                if not itemIsDefault(item) then
+                    return false
+                end
+            end
+            return true
+        end,
+        reset = function()
+            for _, item in ipairs(resettable) do
+                if not itemIsDefault(item) then
+                    if item.reset then
+                        item.reset()
+                    else
+                        Settings.Reset(itemPath(item))
+                    end
+                end
+            end
+            Config.Refresh()
+        end,
+    }
+end
+
 local BUILDERS = {
-    header = function(parent, item) return Widgets.Header(parent, CONTENT_WIDTH, item.label, FONTS) end,
+    header = function(parent, item, section)
+        return Widgets.Header(parent, CONTENT_WIDTH, item.label, FONTS, sectionReset(section or {}))
+    end,
     note = function(parent, item) return Widgets.Note(parent, CONTENT_WIDTH, item.text, item.color, item.shown) end,
     toggle = function(parent, item) return Widgets.Toggle(parent, CONTENT_WIDTH, bind(item)) end,
     choice = function(parent, item) return Widgets.Choice(parent, CONTENT_WIDTH, bind(item)) end,
@@ -176,10 +267,21 @@ local function buildPage(page)
     if type(items) == 'function' then
         items = items()
     end
-    for _, item in ipairs(items) do
+    for i, item in ipairs(items) do
         local build = BUILDERS[item.kind]
+        local section
+        if item.kind == 'header' then
+            section = {}
+            for j = i + 1, #items do
+                if items[j].kind == 'header' then
+                    break
+                end
+                section[#section + 1] = items[j]
+            end
+        end
         if build then
-            local control = build(child, item)
+            local control = build(child, item, section)
+            control.isSectionHeader = item.kind == 'header'
             if item.kind == 'header' and y > 0 then
                 y = y + 8
             end
@@ -373,6 +475,8 @@ local function createWindow()
     reloadBar:SetHeight(28)
     window.reloadText = Widgets.Text(reloadBar, 12, '#FFD966FF')
     window.reloadText:SetPoint('RIGHT', reloadBar, 'RIGHT', -110, 0)
+    window.combatText = Widgets.Text(reloadBar, 12, '#FF5050FF')
+    window.combatText:SetPoint('RIGHT', reloadBar, 'RIGHT', -110, 0)
     local reload = Widgets.Button(reloadBar, 'Reload UI', function()
         if InCombatLockdown() then
             EUI.Print('reload after combat')
@@ -382,15 +486,26 @@ local function createWindow()
     end, 96)
     reload:SetPoint('RIGHT', 0, 0)
     Widgets.SetTooltip(reload, 'Reload UI', 'Reloads the interface so the changes listed here take effect.')
-    -- The full list while hovering the summary.
+    window.reloadButton = reload
+    -- The full lists while hovering the summaries.
     local summary = CreateFrame('Frame', nil, reloadBar)
-    summary:SetAllPoints(window.reloadText)
+    summary:SetPoint('TOPLEFT', reloadBar, 'TOPLEFT', 0, 0)
+    summary:SetPoint('BOTTOMRIGHT', reloadBar, 'BOTTOMRIGHT', -110, 0)
     summary:EnableMouse(true)
     summary:SetScript('OnEnter', function(self)
         GameTooltip:SetOwner(self, 'ANCHOR_TOP')
-        GameTooltip:SetText('Applies after a reload', 1, 1, 1)
-        for _, label in ipairs(window.reloadLabels or {}) do
-            GameTooltip:AddLine(label)
+        local reloadLabels, waiting = window.reloadLabels or {}, window.combatLabels or {}
+        if #reloadLabels > 0 then
+            GameTooltip:AddLine('Applies after a reload', 1, 1, 1)
+            for _, label in ipairs(reloadLabels) do
+                GameTooltip:AddLine(label)
+            end
+        end
+        if #waiting > 0 then
+            GameTooltip:AddLine('Applies once combat ends', 1, 0.31, 0.31)
+            for _, label in ipairs(waiting) do
+                GameTooltip:AddLine(label)
+            end
         end
         GameTooltip:Show()
     end)
@@ -400,7 +515,7 @@ local function createWindow()
 
     local hint = Widgets.Text(window, 11, C.dim)
     hint:SetPoint('BOTTOMLEFT', 20, 22)
-    hint:SetText('/eui config')
+    hint:SetText('/ffui config')
 
     -- Bottom of the page list: every frame's demo at once.
     local function demoLabel()
@@ -411,7 +526,7 @@ local function createWindow()
         self:SetLabel(demoLabel())
     end, NAV_WIDTH - 24)
     demo:SetPoint('BOTTOMLEFT', 30, 60)
-    Widgets.SetTooltip(demo, 'Demo all', 'Fill every frame with sample data, whichever page is open (/eui demo). Each page shows its own frames anyway.')
+    Widgets.SetTooltip(demo, 'Demo all', 'Fill every frame with sample data, whichever page is open (/ffui demo). Each page shows its own frames anyway.')
     window.demoButton = demo
     window.demoLabel = demoLabel
 
@@ -535,7 +650,7 @@ function Config.RegisterBlizzardEntry()
     title:SetText('EorzeaUI')
     local note = Widgets.Text(panel, 12, C.text)
     note:SetPoint('TOPLEFT', title, 'BOTTOMLEFT', 0, -10)
-    note:SetText('Settings live in their own window, also opened with /eui.')
+    note:SetText('Settings live in their own window, also opened with /ffui.')
     local open = Widgets.Button(panel, 'Open settings', function()
         Config.Toggle('general')
     end, 140)

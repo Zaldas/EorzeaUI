@@ -13,7 +13,8 @@ local Kit = EUI.StyleKit
 local defs = {}
 local reloadPaths = {}
 
--- def = { path, default, reload, label, apply(style, value), refresh (REFRESH key), blizzard }
+-- def = { path, default, reload, combat, label, apply(style, value), refresh (REFRESH key), blizzard }
+-- combat: the change moves secure frames, so in combat it waits for combat to end.
 -- blizzard = { cvars, read() }: the value 'blizzard' applies read()'s value, re-read when one of
 -- cvars changes.
 local function option(def)
@@ -117,6 +118,15 @@ local REFRESH = {
     end,
     raidLayout = function()
         EUI.RaidList.ApplyLayoutSize()
+    end,
+    raidSpacing = function()
+        EUI.RaidList.ApplySpacing()
+    end,
+    raidLabels = function()
+        EUI.RaidList.ApplyLabels()
+    end,
+    partyLayout = function()
+        EUI.PartyList.ApplyLayout()
     end,
 }
 
@@ -251,8 +261,14 @@ end })
 option({ path = 'party.notPresentAlpha', default = 0.6, apply = function(style, value)
     style.party.range.notPresentAlpha = value
 end })
-option({ path = 'party.rowSpacing', default = 13, reload = true, label = 'Party row spacing', apply = function(style, value)
+option({ path = 'party.rowSpacing', default = 13, combat = true, refresh = 'partyLayout', label = 'Party row spacing', apply = function(style, value)
     style.party.rowSpacing = value
+end })
+option({ path = 'party.playerFrame', default = 'standalone', reload = true, label = 'Your frame', apply = function(style, value)
+    style.party.standalone = value == 'standalone'
+end })
+option({ path = 'party.growUp', default = false, combat = true, refresh = 'partyLayout', label = 'Party grows upward', apply = function(style, value)
+    style.party.growUp = value
 end })
 option({ path = 'party.dispellable', default = 'blizzard', refresh = 'auraPolicy', apply = function(style, value)
     style.party.auras.dispellableOnly = followValue(value)
@@ -290,13 +306,25 @@ end })
 local RAID_LAYOUT_DEFAULTS = { [10] = 2, [25] = 5, [40] = 4 }
 for _, size in ipairs(EUI.RaidList.SIZES) do
     option({ path = string.format('raid.layouts.%d.groupsPerRow', size), default = RAID_LAYOUT_DEFAULTS[size],
-        refresh = 'raidLayout', apply = function() end })
-    option({ path = string.format('raid.layouts.%d.scale', size), default = 1, refresh = 'raidLayout', apply = function() end })
-    option({ path = string.format('raid.layouts.%d.petsPerColumn', size), default = 10, refresh = 'raidLayout', apply = function() end })
-    option({ path = string.format('raid.layouts.%d.petsScale', size), default = 1, refresh = 'raidLayout', apply = function() end })
+        combat = true, refresh = 'raidLayout', label = 'Raid groups per row', apply = function() end })
+    option({ path = string.format('raid.layouts.%d.scale', size), default = 1, combat = true, refresh = 'raidLayout',
+        label = 'Raid layout scale', apply = function() end })
+    option({ path = string.format('raid.layouts.%d.petsPerColumn', size), default = 10, combat = true, refresh = 'raidLayout',
+        label = 'Pets per column', apply = function() end })
+    option({ path = string.format('raid.layouts.%d.petsScale', size), default = 1, combat = true, refresh = 'raidLayout',
+        label = 'Pets layout scale', apply = function() end })
 end
 option({ path = 'raid.previewSize', default = 40, apply = function() end })
-option({ path = 'raid.groupLabels', default = true, reload = true, label = 'Raid group labels', apply = function(style, value)
+option({ path = 'raid.rowSpacing', default = 4, combat = true, refresh = 'raidSpacing', label = 'Raid cell spacing', apply = function(style, value)
+    style.raid.rowSpacing = value
+end })
+option({ path = 'raid.groupSpacingX', default = 8, combat = true, refresh = 'raidSpacing', label = 'Raid group column gap', apply = function(style, value)
+    style.raid.groupSpacing[1] = value
+end })
+option({ path = 'raid.groupSpacingY', default = 14, combat = true, refresh = 'raidSpacing', label = 'Raid group row gap', apply = function(style, value)
+    style.raid.groupSpacing[2] = value
+end })
+option({ path = 'raid.groupLabels', default = true, refresh = 'raidLabels', label = 'Raid group labels', apply = function(style, value)
     style.raid.groupNumber.hidden = not value
 end })
 -- 'show' / 'hide' force the section; 'blizzard' (nil) follows the raid manager.
@@ -308,10 +336,10 @@ local function sectionShown(value)
     end
     return nil
 end
-option({ path = 'raid.assists', default = 'blizzard', refresh = 'raidSections', apply = function(style, value)
+option({ path = 'raid.assists', default = 'blizzard', combat = true, refresh = 'raidSections', label = 'Assists section', apply = function(style, value)
     style.raid.assists.show = sectionShown(value)
 end })
-option({ path = 'raid.pets', default = 'blizzard', refresh = 'raidSections', apply = function(style, value)
+option({ path = 'raid.pets', default = 'blizzard', combat = true, refresh = 'raidSections', label = 'Pets section', apply = function(style, value)
     style.raid.pets.show = sectionShown(value)
 end })
 -- Per palette (styles/palettes.lua healthColor); only the built palette's applies.
@@ -411,6 +439,7 @@ option({ path = 'colors', reload = true, label = 'Colours' })
 
 -- Per-frame multipliers on the root scale, keyed as the Edit Mode frames.
 local SCALED_FRAMES = {
+    { 'player', 'Player' },
     { 'party', 'Party' },
     { 'raid', 'Raid groups' },
     { 'assists', 'Assists' },
@@ -422,7 +451,8 @@ local SCALED_FRAMES = {
     { 'totems', 'Totems' },
 }
 for _, frame in ipairs(SCALED_FRAMES) do
-    option({ path = 'scales.' .. frame[1], default = 1, refresh = 'scale', apply = function() end })
+    option({ path = 'scales.' .. frame[1], default = 1, combat = true, refresh = 'scale', label = frame[2] .. ' scale',
+        apply = function() end })
 end
 
 ---------------------------------------------------------------------------------------------
@@ -470,13 +500,24 @@ end
 function Config.Initialize(style)
     for _, def in ipairs(defs) do
         if not def.reload and def.apply then
-            Settings.OnChange(def.path, function(value)
-                def.apply(style, value)
+            local function changed()
+                def.apply(style, Settings.Get(def.path))
                 local refresh = def.refresh and REFRESH[def.refresh]
                 if refresh then
                     refresh()
                 end
                 redrawDemo()
+            end
+            Settings.OnChange(def.path, function()
+                if def.combat then
+                    if InCombatLockdown() then
+                        Config.NoteCombatChange(def.label or def.path)
+                    end
+                    -- The style keeps the built value until the frames can follow it.
+                    EUI.RunOutOfCombat(changed, 'option:' .. def.path)
+                else
+                    changed()
+                end
             end)
         end
     end
@@ -488,7 +529,12 @@ function Config.Initialize(style)
         Config.scaleChanged = true
         Config.Refresh()
     end
-    Settings.OnChange('scale', scaleChanged)
+    Settings.OnChange('scale', function()
+        if InCombatLockdown() then
+            Config.NoteCombatChange('Scale')
+        end
+        scaleChanged()
+    end)
     Settings.OnChange('raid.previewSize', Config.Refresh)
     for _, frame in ipairs(SCALED_FRAMES) do
         Settings.OnChange('scales.' .. frame[1], scaleChanged)
@@ -592,6 +638,8 @@ for _, frame in ipairs(SCALED_FRAMES) do
     local text = string.format('Size of the %s frame, times the scale for all frames.', frame[2]:lower())
     if frame[1] == 'raid' then
         text = text .. ' The raid size layouts on the Raid page multiply it again.'
+    elseif frame[1] == 'player' then
+        text = text .. ' Only while your frame is standalone (Party page).'
     end
     scale[#scale + 1] = {
         kind = 'slider', path = path, label = frame[2], min = 0.5, max = 2, step = 0.05, format = '%.2f',
@@ -615,9 +663,15 @@ local party = {
         "Blizzard follows Interface > Party Frames' \"Show only dispellable debuffs\"."),
     choice('party.buffs', 'Buffs shown', BUFFS, 'Which buffs fill the aura slots beside each row.', true),
     { kind = 'header', label = 'Layout' },
+    choice('party.playerFrame', 'Your frame', {
+        { 'standalone', 'Standalone', "Your own frame and mover, as Blizzard's player frame. The party list shows members only and hides with none." },
+        { 'merged', 'In the party list', 'Your row heads the party list and stays alone in a raid.' },
+    }, 'Where your row shows.', true),
+    toggle('party.growUp', 'Grow upward',
+        "Rows stack up from the party list's bottom edge; your row is the bottom one while it is in the list."),
     {
         kind = 'slider', path = 'party.rowSpacing', label = 'Row spacing', min = 0, max = 30, step = 1, format = '%d px',
-        tip = tip('Gap between rows. Below 5 the leader crown overlaps the level number of the row above.', true),
+        tip = 'Gap between rows. Below 5 the leader crown overlaps the level number of the row above.',
     },
     {
         kind = 'slider', path = 'party.farAlpha', label = 'Out of range', min = 0.1, max = 1, step = 0.05, format = percent,
@@ -665,9 +719,21 @@ local raid = {
         "Blizzard follows Interface > Raid Frames' \"Display only dispellable debuffs\"."),
     choice('raid.buffs', 'Buffs shown', BUFFS, 'Which buffs fill the aura line under each cell.', true),
     { kind = 'header', label = 'Layout' },
-    toggle('raid.groupLabels', 'Group labels', tip('The "Group N" headers; the Pets label shares them.', true)),
+    toggle('raid.groupLabels', 'Group labels', 'The "Group N" headers; the Pets label shares them.'),
     choice('raid.assists', 'Assists section', SECTION_SHOW, 'Main tanks and assists with their targets.'),
     choice('raid.pets', 'Pets section', SECTION_SHOW, "Every raid member's pet, in its own block."),
+    {
+        kind = 'slider', path = 'raid.rowSpacing', label = 'Cell spacing', min = 0, max = 20, step = 1, format = '%d px',
+        tip = 'Gap between cells in a group, in Assists and in Pets. Small gaps let the leader crown overlap the level number of the cell above.',
+    },
+    {
+        kind = 'slider', path = 'raid.groupSpacingX', label = 'Group gap across', min = 0, max = 40, step = 1, format = '%d px',
+        tip = 'Gap between groups side by side, and between Pets columns.',
+    },
+    {
+        kind = 'slider', path = 'raid.groupSpacingY', label = 'Group gap down', min = 0, max = 40, step = 1, format = '%d px',
+        tip = 'Gap between a row of groups and the Group N labels of the next.',
+    },
     { kind = 'header', label = 'Layout by raid size' },
     { kind = 'note', text = "A raid uses the layout of the smallest size that holds its members. Sizes are Blizzard's Edit Mode raid sizes: 2, 5 and 8 groups." },
     choice('raid.previewSize', 'Raid size', {
@@ -676,6 +742,8 @@ local raid = {
         { 40, '40 players', 'Edit the 40-player layout; the demo shows 8 groups.' },
     }, "The layout the sliders below edit, and the size the demo and Edit Mode show, as Blizzard's Edit Mode Raid Size."),
 }
+-- Picks which layout the sliders edit; section resets leave it.
+raid[#raid].noReset = true
 -- The sliders edit the layout of the chosen raid size.
 local function layoutPath(key)
     return string.format('raid.layouts.%d.%s', Settings.Get('raid.previewSize'), key)
@@ -685,12 +753,14 @@ raid[#raid + 1] = {
     range = function() return 1, EUI.RaidList.GroupCount() end,
     get = function() return math.min(Settings.Get(layoutPath('groupsPerRow')), EUI.RaidList.GroupCount()) end,
     set = function(value) Settings.Set(layoutPath('groupsPerRow'), value) end,
+    pathFn = function() return layoutPath('groupsPerRow') end,
     tip = 'Groups side by side before the next row starts, in raids of the chosen size: up to 2 for 10 players, 5 for 25, 8 for 40.',
 }
 raid[#raid + 1] = {
     kind = 'slider', label = 'Scale', min = 0.5, max = 2, step = 0.05, format = '%.2f',
     get = function() return Settings.Get(layoutPath('scale')) end,
     set = function(value) Settings.Set(layoutPath('scale'), value) end,
+    pathFn = function() return layoutPath('scale') end,
     tip = 'Size of the raid groups in raids of the chosen size, times the raid scale on the Scale page.',
 }
 raid[#raid + 1] = {
@@ -701,12 +771,14 @@ raid[#raid + 1] = {
         return math.max(low, math.min(high, Settings.Get(layoutPath('petsPerColumn'))))
     end,
     set = function(value) Settings.Set(layoutPath('petsPerColumn'), value) end,
+    pathFn = function() return layoutPath('petsPerColumn') end,
     tip = 'Pets stacked in a column before the next column starts, in raids of the chosen size. At most 8 columns: at least 2 per column for 10 players, 4 for 25, 5 for 40.',
 }
 raid[#raid + 1] = {
     kind = 'slider', label = 'Pets scale', min = 0.5, max = 2, step = 0.05, format = '%.2f',
     get = function() return Settings.Get(layoutPath('petsScale')) end,
     set = function(value) Settings.Set(layoutPath('petsScale'), value) end,
+    pathFn = function() return layoutPath('petsScale') end,
     tip = 'Size of the Pets block in raids of the chosen size, times the raid pets scale on the Scale page.',
 }
 

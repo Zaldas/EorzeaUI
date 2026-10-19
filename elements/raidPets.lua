@@ -181,11 +181,13 @@ local MAX_COLUMNS = 8
 
 local function createColumns(parent)
     local style, spec = RaidPets.style, RaidPets.spec
-    local columns = {}
+    local slots = {}
+    local columns = { slots = slots, parent = parent }
     for column = 1, MAX_COLUMNS do
         local slot = CreateFrame('Frame', nil, parent)
         slot:SetSize(style.width, spec.rowHeight)
         slot:SetPoint('TOPLEFT', parent, 'TOPLEFT', columnX(column), 0)
+        slots[column] = slot
         -- Only the first column carries the label, centred over it; the header's right line
         -- reaches the last column in use (sizeColumns).
         if column == 1 then
@@ -387,6 +389,29 @@ function RaidPets.SizeScale()
 end
 
 local appliedSize
+
+local function placeColumns(columns)
+    for column, slot in ipairs(columns.slots) do
+        slot:ClearAllPoints()
+        slot:SetPoint('TOPLEFT', columns.parent, 'TOPLEFT', columnX(column), 0)
+    end
+end
+
+-- Follows a raid spacing change (RaidList.ApplySpacing); the next ApplyLayoutSize re-lays out
+-- the rows and the anchor. Out of combat only.
+function RaidPets.ApplySpacing()
+    if not RaidPets.header then
+        return
+    end
+    local raidStyle = RaidPets.style
+    RaidPets.header:SetAttribute('yOffset', -raidStyle.rowSpacing)
+    RaidPets.header:SetAttribute('columnSpacing', EUI.RaidList.ColumnStep(raidStyle) - raidStyle.width)
+    placeColumns(RaidPets.columns)
+    if RaidPets.demoColumns then
+        placeColumns(RaidPets.demoColumns)
+    end
+    appliedSize = nil
+end
 
 -- Lays the pets out for the raid size in use (EUI.RaidList.LayoutSize) and sizes the anchor (and so
 -- its Edit Mode box) to that many pets. Out of combat only; RaidList.ApplyLayoutSize calls it.

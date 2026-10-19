@@ -8,6 +8,9 @@ local function applyScale()
     EUI.RunOutOfCombat(function()
         local scale = EUI.Style.FrameScale
         EUI.PartyList.anchor:SetScale(scale('party'))
+        if EUI.PartyList.playerAnchor then
+            EUI.PartyList.playerAnchor:SetScale(scale('player'))
+        end
         EUI.RaidList.anchor:SetScale(scale('raid') * EUI.RaidList.SizeScale())
         EUI.RaidList.assistsAnchor:SetScale(scale('assists'))
         EUI.RaidPets.anchor:SetScale(scale('pets') * EUI.RaidPets.SizeScale())
@@ -100,7 +103,10 @@ local function initialize()
     createPlayerCastBar(style, fonts)
     EUI.TotemBar.Create(style)
 
-    EUI.EditMode.Register('party', EUI.PartyList.anchor, 'Party', EUI.PartyList.EditBox())
+    if EUI.PartyList.playerAnchor then
+        EUI.EditMode.Register('player', EUI.PartyList.playerAnchor, 'Player', EUI.PartyList.EditBox(EUI.PartyList.playerAnchor))
+    end
+    EUI.EditMode.Register('party', EUI.PartyList.anchor, 'Party', EUI.PartyList.EditBox(EUI.PartyList.anchor))
     EUI.EditMode.Register('raid', EUI.RaidList.anchor, 'Raid', EUI.RaidList.EditBox())
     EUI.EditMode.Register('assists', EUI.RaidList.assistsAnchor, 'Assists', EUI.RaidList.EditBox())
     EUI.EditMode.Register('pets', EUI.RaidPets.anchor, 'Pets', EUI.RaidPets.EditBox())
@@ -500,7 +506,7 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
             -- Once per function: a tainted path can repeat it every frame.
             if not warnedActions[arg2] then
                 warnedActions[arg2] = true
-                EUI.Print('|cffff5050Blizzard blocked %s and blamed EorzeaUI (taint).|r Please report it with /eui log.', tostring(arg2))
+                EUI.Print('|cffff5050Blizzard blocked %s and blamed EorzeaUI (taint).|r Please report it with /ffui log.', tostring(arg2))
             end
         end
         return
@@ -510,6 +516,7 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
         EUI.inCombat = event == 'PLAYER_REGEN_DISABLED'
         if not EUI.inCombat then
             EUI.FlushOutOfCombat()
+            EUI.Config.OnCombatEnded()
         end
         if EUI.ready then
             forEachRow('UpdatePlayerState')
@@ -531,11 +538,12 @@ events:SetScript('OnEvent', EUI.Guard('OnEvent', function(_, event, arg1, arg2, 
     end
 end))
 
-SLASH_EORZEAUI1 = '/eui'
+SLASH_EORZEAUI1 = '/eorzeaui'
+SLASH_EORZEAUI2 = '/ffui'
 SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
     msg = (msg or ''):lower()
     if not EUI.ready and not msg:match('^log') then
-        EUI.Print('not set up yet; /eui log shows why')
+        EUI.Print('not set up yet; /ffui log shows why')
         return
     end
     if msg == '' or msg == 'config' or msg == 'options' then
@@ -581,6 +589,9 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
     elseif msg == 'reset' then
         EUI.RunOutOfCombat(function()
             Settings.Reset('positions')
+            if EUI.PartyList.playerAnchor then
+                EUI.EditMode.RestorePosition('player', EUI.PartyList.playerAnchor)
+            end
             EUI.EditMode.RestorePosition('party', EUI.PartyList.anchor)
             EUI.EditMode.RestorePosition('raid', EUI.RaidList.anchor)
             EUI.EditMode.RestorePosition('assists', EUI.RaidList.assistsAnchor)
@@ -592,6 +603,6 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             EUI.EditMode.RestorePosition('totems', EUI.TotemBar.anchor)
         end)
     else
-        EUI.Print('/eui [config] | demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
+        EUI.Print('/ffui [config] | demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
     end
 end)

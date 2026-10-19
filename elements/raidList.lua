@@ -21,6 +21,9 @@ local cells = {}
 -- unit -> set of cells showing it; a main tank shows in its group and in Assists.
 local cellsByUnit = {}
 local targetCells = {}
+-- Every block label (createChrome): { header, spec }.
+local labels = {}
+local placeDemoRows
 
 -- rowHeight (optional) overrides style.rowHeight, for the pet rows.
 local function cellsHeight(style, count, rowHeight)
@@ -71,7 +74,15 @@ local function createChrome(parent, label, bgSpec, labelSpec, fonts)
     local header = Style.Header(bg, labelSpec, fonts)
     header.label:SetText(label)
     header:SetShown(not labelSpec.hidden)
+    labels[#labels + 1] = { header = header, spec = labelSpec }
     return bg, header
+end
+
+-- Shows or hides every label as its spec's hidden flag says.
+function RaidList.ApplyLabels()
+    for _, entry in ipairs(labels) do
+        entry.header:SetShown(not entry.spec.hidden)
+    end
 end
 
 local function sizeChrome(bg, count, style, rowHeight)
@@ -457,6 +468,7 @@ function RaidList.SizeScale()
 end
 
 local appliedGroupCount
+local appliedSpacing
 
 -- Lays the groups out for the current raid size and sizes the anchor (and so its Edit Mode box)
 -- to the groups that size holds; waits for combat to end.
@@ -465,9 +477,11 @@ function RaidList.ApplyLayoutSize()
         local style = RaidList.style
         local count = RaidList.GroupCount()
         local perRow = math.min(layoutSetting('groupsPerRow') or style.groupsPerRow, count)
-        if perRow ~= style.groupsPerRow or count ~= appliedGroupCount then
+        local spacing = string.format('%s,%s,%s', style.rowSpacing, style.groupSpacing[1], style.groupSpacing[2])
+        if perRow ~= style.groupsPerRow or count ~= appliedGroupCount or spacing ~= appliedSpacing then
             style.groupsPerRow = perRow
             appliedGroupCount = count
+            appliedSpacing = spacing
             EUI.EditMode.ResizeKeepingTopLeft('raid', RaidList.anchor, gridSize(style, count))
             slotOrder = nil
             layoutGroups()
@@ -483,6 +497,30 @@ function RaidList.ApplyLayoutSize()
             EUI.ApplyScale()
         end
     end, 'raidLayoutSize')
+end
+
+-- Re-lays out the groups, Assists and Pets for style.rowSpacing and style.groupSpacing. The
+-- headers are protected, so this waits for combat to end.
+function RaidList.ApplySpacing()
+    EUI.RunOutOfCombat(function()
+        local style = RaidList.style
+        local spec = style.assists
+        for _, group in ipairs(groups) do
+            group.header:SetAttribute('yOffset', -style.rowSpacing)
+        end
+        RaidList.assistsBlock.header:SetAttribute('yOffset', -style.rowSpacing)
+        EUI.EditMode.ResizeKeepingTopLeft('assists', RaidList.assistsAnchor,
+            blockSize(style, spec.background, spec.groupNumber, spec.max))
+        for _, block in ipairs(RaidList.demoGroups or {}) do
+            placeDemoRows(block.slot, block.rows)
+        end
+        if RaidList.demoAssists then
+            placeDemoRows(RaidList.demoAssists.slot, RaidList.demoAssists.rows)
+        end
+        EUI.RaidPets.ApplySpacing()
+        RaidList.ApplyLayoutSize()
+        RaidList.RefreshAll()
+    end, 'raidSpacing')
 end
 
 local ROLES = { 'TANK', 'HEALER', 'DAMAGER', 'NONE' }
@@ -621,17 +659,25 @@ function RaidList.OnRosterChanged()
     RaidList.RefreshAll()
 end
 
+placeDemoRows = function(slot, rows)
+    local style = RaidList.style
+    for i, row in ipairs(rows) do
+        row.host:ClearAllPoints()
+        row.host:SetPoint('TOPLEFT', slot, 'TOPLEFT', 0, -(i - 1) * (style.rowHeight + style.rowSpacing))
+    end
+end
+
 local function createDemoRows(slot, count, withTargets)
     local style = RaidList.style
     local rows = {}
     for i = 1, count do
         local row = EUI.PartyRow.CreateDemo(slot, style, RaidList.fonts)
-        row.host:SetPoint('TOPLEFT', slot, 'TOPLEFT', 0, -(i - 1) * (style.rowHeight + style.rowSpacing))
         if withTargets then
             row.targets = { createDemoTargetCell(row, 1), createDemoTargetCell(row, 2) }
         end
         rows[i] = row
     end
+    placeDemoRows(slot, rows)
     return rows
 end
 
