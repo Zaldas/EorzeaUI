@@ -73,27 +73,8 @@ end
 -- reading an addon-written value runs tainted, and its protected calls are then refused, even
 -- unrelated ones such as the gamepad bar's SetPreferredGamepadInteractTarget. Only move,
 -- reparent or hide their frames, from hooksecurefunc post-hooks.
-
-local function placeTotems(totems, anchor)
-    totems:SetParent(UIParent)
-    totems:ClearAllPoints()
-    totems:SetPoint('TOP', anchor, 'BOTTOM', 0, 0)
-end
-
--- Blizzard's totem timers are a child of PlayerFrame, so hiding it hides them. They move under
--- anchor instead, and back there each time the player frame's managed layout reparents them.
-function EUI.Blizzard.KeepTotems(anchor)
-    local totems = TotemFrame
-    if not totems then
-        return
-    end
-    hooksecurefunc(totems, 'SetParent', EUI.Guard('keep totems', function(self, parent)
-        if parent ~= UIParent then
-            placeTotems(self, anchor)
-        end
-    end))
-    placeTotems(totems, anchor)
-end
+-- TotemFrame is a child of PlayerFrame, so it stays hidden with it; elements/totemBar.lua draws
+-- the totems.
 
 -- The raid manager's Edit button moves Blizzard's raid frames, which are hidden. It hides after
 -- each layout of its options; its space stays. None of its buttons are secure, so this is safe

@@ -103,6 +103,15 @@ UnitHealth = function() return 100 end
 UnitHealthMax = function() return 200 end
 UnitPower = function() return 50 end
 GetComboPoints = function() return 3 end
+GetTime = GetTime or function() return 1000 end
+-- Slot 1 holds a totem with 29s left; the rest are empty.
+GetTotemInfo = function(slot)
+    if slot == 1 then return true, 'Searing Totem', 974, 55, 135824 end
+    return false, '', 0, 0, 0
+end
+GetTotemTimeLeft = function(slot) return slot == 1 and 29 or 0 end
+GetTotemCannotDismiss = function() return false end
+SecondsToTimeAbbrev = function(seconds) return '%d s', seconds end
 UnitPowerMax = function() return 100 end
 UnitGUID = function(u) return 'GUID-' .. tostring(u) end
 UnitIsGroupLeader = function() return true end
@@ -837,6 +846,15 @@ onEvent(nil, 'READY_CHECK')
 onEvent(nil, 'READY_CHECK_FINISHED')
 onEvent(nil, 'PARTY_LEADER_CHANGED')
 TICK()
+
+-- Totems: the one active slot gets a button; the bar shows.
+EUI.TotemBar.SetPreview(nil)
+onEvent(nil, 'PLAYER_TOTEM_UPDATE')
+local totemButtons = 0
+for _, button in ipairs(EUI.TotemBar.buttons) do
+    if rawget(button, 'slot') then totemButtons = totemButtons + 1 end
+end
+assert(totemButtons == 1, 'active totem buttons: ' .. totemButtons)
 
 -- The raid frames follow Blizzard's raid manager: group 3 and DPS filtered out, then its Hide.
 CLASS_SORT_ORDER = CLASS_SORT_ORDER or { 'WARRIOR', 'PRIEST' }

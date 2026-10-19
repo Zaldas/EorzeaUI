@@ -283,6 +283,14 @@ local function bosses()
     }
 end
 
+-- A shaman's four totems: { icon, time left, duration }.
+local TOTEMS = {
+    { ICON .. 'Spell_Fire_SearingTotem', 29, 55 },
+    { ICON .. 'Spell_Nature_EarthBindTotem', 95, 120 },
+    { ICON .. 'INV_Spear_04', 47, 60 },
+    { ICON .. 'Spell_Nature_Windfury', 112, 120 },
+}
+
 function Demo.Toggle()
     if InCombatLockdown() then
         EUI.Print('demo mode cannot change in combat')
@@ -352,4 +360,5 @@ function Demo.Refresh()
         bar:SetPreview(bossSamples[i])
     end
     EUI.playerCast:SetPreview(active and 'Flash of Light' or nil, 0.45)
+    EUI.TotemBar.SetPreview(active and TOTEMS or nil)
 end

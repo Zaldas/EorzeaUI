@@ -306,6 +306,25 @@ function Kit.BuildLayout(p)
             compact = true, castNearIcon = true,
         }),
         boss = boss,
+        -- Blizzard's TotemFrame and TotemButtonTemplate (Mainline/TotemFrame.xml) in UI units: 37px
+        -- buttons packed with spacing -6 after leftPadding 15, topPadding -2; the ring atlas at 30px,
+        -- offset (1, -1.5); a 22px round icon; the swipe at 65% black; the time 5px into the icon's
+        -- bottom. durationHeight leaves room for it. The header sits headerGap above the anchor.
+        totems = {
+            button = 37, spacing = -6, leftPadding = 15, topPadding = -2, durationOffset = 5, durationHeight = 10,
+            border = { atlas = 'UI-HUD-UnitFrame-TotemFrame', size = 30, offset = { 1, -1.5 } },
+            icon = 22,
+            swipeColor = '#000000A6',
+            headerGap = 2,
+            header = {
+                label = 'Totems',
+                pos = { 0, 0 },
+                width = 145,
+                height = 14,
+                txtLabel = { size = 14, color = p.label, stroke = p.stroke },
+                line = { color = p.label, alpha = Kit.HEADER_LINE.alpha, height = Kit.HEADER_LINE.height, gap = Kit.HEADER_LINE.gap },
+            },
+        },
         castBar = Kit.castBar(p, castText),
     }
 end

@@ -18,6 +18,7 @@ local DEFAULT_POSITIONS = {
     focus = { 'TOP', 'TOP', 0, -340 },
     boss = { 'RIGHT', 'RIGHT', -120, -280 },
     cast = { 'CENTER', 'CENTER', 0, -148 },
+    totems = { 'CENTER', 'CENTER', 0, -205 },
 }
 
 function EditMode.RestorePosition(key, frame)

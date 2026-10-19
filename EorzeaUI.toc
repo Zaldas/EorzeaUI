@@ -34,5 +34,6 @@ elements\partyList.lua
 elements\raidList.lua
 elements\raidPets.lua
 elements\targetBar.lua
+elements\totemBar.lua
 EorzeaUI.xml
 EorzeaUI.lua

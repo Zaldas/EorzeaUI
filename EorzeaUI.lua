@@ -15,6 +15,7 @@ local function applyScale()
         EUI.TargetBar.focus.anchor:SetScale(scale)
         EUI.TargetBar.bossAnchor:SetScale(scale)
         EUI.castAnchor:SetScale(scale)
+        EUI.TotemBar.ApplyScale()
     end, 'scale')
     if EorzeaUIGallery and EorzeaUIGallery.ApplyScale then
         EorzeaUIGallery.ApplyScale()
@@ -91,6 +92,7 @@ local function initialize()
     EUI.RaidPets.Create(style, fonts)
     EUI.TargetBar.Create(style, fonts)
     createPlayerCastBar(style, fonts)
+    EUI.TotemBar.Create(style)
 
     EUI.EditMode.Register('party', EUI.PartyList.anchor, 'Party', EUI.PartyList.EditBox())
     EUI.EditMode.Register('raid', EUI.RaidList.anchor, 'Raid', EUI.RaidList.EditBox())
@@ -100,6 +102,7 @@ local function initialize()
     EUI.EditMode.Register('focus', EUI.TargetBar.focus.anchor, 'Focus', style.focus.editBox)
     EUI.EditMode.Register('boss', EUI.TargetBar.bossAnchor, 'Boss', style.boss.editBox)
     EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar', style.castBar.editBox)
+    EUI.EditMode.Register('totems', EUI.TotemBar.anchor, 'Totems', { topRegion = EUI.TotemBar.headerHost })
     EUI.EditMode.Initialize()
 
     applyScale()
@@ -129,7 +132,6 @@ local function initialize()
     EUI.ready = true
     -- Last, so a failed setup leaves Blizzard's frames in place.
     EUI.Blizzard.HideReplaced()
-    EUI.Blizzard.KeepTotems(EUI.castAnchor)
     EUI.Blizzard.TrimRaidManager()
     EUI.Blizzard.FollowRaidManager(EUI.RaidList.ApplyManagerFilters)
     EUI.RaidList.ApplyManagerFilters()
@@ -356,6 +358,7 @@ local GLOBAL_ROUTES = {
         EUI.playerCast:Update()
         seedLostUnits()
         EUI.RaidList.ApplyManagerFilters()
+        EUI.TotemBar.Update()
     end,
     PLAYER_TARGET_CHANGED = function()
         checkUnitLost('target')
@@ -397,6 +400,7 @@ local GLOBAL_ROUTES = {
     UPDATE_SHAPESHIFT_FORM = function()
         forEachRow('UpdatePower')
         EUI.PartyList.UpdateBackground()
+        EUI.TotemBar.Update()
     end,
     UI_SCALE_CHANGED = applyScale,
     DISPLAY_SIZE_CHANGED = applyScale,
@@ -418,6 +422,13 @@ local GLOBAL_ROUTES = {
     UNIT_CTR_OPTIONS = updatePresence,
     PLAYER_ROLES_ASSIGNED = updateRoles,
     ROLE_CHANGED_INFORM = updateRoles,
+    -- Blizzard's TotemFrame also updates on these.
+    PLAYER_TOTEM_UPDATE = function()
+        EUI.TotemBar.Update()
+    end,
+    PLAYER_TALENT_UPDATE = function()
+        EUI.TotemBar.Update()
+    end,
     PET_ATTACK_START = function()
         setPetAttacking(true)
     end,
@@ -561,6 +572,7 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)
             EUI.EditMode.RestorePosition('boss', EUI.TargetBar.bossAnchor)
             EUI.EditMode.RestorePosition('cast', EUI.castAnchor)
+            EUI.EditMode.RestorePosition('totems', EUI.TotemBar.anchor)
         end)
     else
         EUI.Print('/eui demo | gallery [target] | style <name> | unlock | lock | scale <n> | reset | log [clear]  (Edit Mode also unlocks)')
