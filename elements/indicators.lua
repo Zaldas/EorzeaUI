@@ -100,11 +100,11 @@ local function useFallback(texture, fallback)
     texture:SetTexCoord(unpack(fallback.coords))
 end
 
--- Blizzard's player-frame rest loop: a 7x6 flipbook of 42 frames over 1.5s.
-local function createRest(parent, spec)
-    local texture = sizedTexture(parent, spec)
+-- Blizzard's player-frame rest loop: a 7x6 flipbook of 42 frames over 1.5s. Returns the
+-- animation group, or nil when texture shows the still fallback.
+function EUI.Indicators.SetRestArt(texture)
     if not Style.SetAtlas(texture, 'UI-HUD-UnitFrame-Player-Rest-Flipbook', REST_FALLBACK) then
-        return texture, nil
+        return nil
     end
     local ok, group = pcall(function()
         local group = texture:CreateAnimationGroup()
@@ -119,12 +119,17 @@ local function createRest(parent, spec)
         return group
     end)
     if ok and group then
-        return texture, group
+        return group
     end
     -- Unanimated, the flipbook atlas shows the whole 42-frame sheet.
     EUI.LogOnce('rest:flipbook', 'rest flipbook animation failed: %s', tostring(group))
     useFallback(texture, REST_FALLBACK)
-    return texture, nil
+    return nil
+end
+
+local function createRest(parent, spec)
+    local texture = sizedTexture(parent, spec)
+    return texture, EUI.Indicators.SetRestArt(texture)
 end
 
 -- parent: frame drawn above the class icon. top: the row's text layer.
@@ -368,4 +373,51 @@ function Indicators:LayoutNameLine(nameText)
     nameText:ClearAllPoints()
     nameText:SetPoint('TOPLEFT', self.top, 'TOPLEFT', nameSpec.pos[1] + shift, -nameSpec.pos[2])
     nameText:SetWidth(nameSpec.width - shift)
+end
+
+-- Cells of the 4x4 raid marker sheet: star (1) and skull (8).
+local STAR_COORDS, SKULL_COORDS = { 0, 0.25, 0, 0.25 }, { 0.75, 1, 0.25, 0.5 }
+
+-- The art each indicator option draws, one entry per look, for the settings window:
+-- { atlas, path, coords, size = { w, h }, color, rest }. An atlas falls back to path and coords.
+function EUI.Indicators.Samples()
+    local function role(icon)
+        return { atlas = icon.atlas, path = ROLE_SHEET, coords = icon.coords }
+    end
+    local function pvp(icon)
+        return { atlas = icon.atlas, path = icon.path, coords = PVP_SHEET_COORDS }
+    end
+    -- The diamond at each threat status, 1 to 3.
+    local threat = {}
+    for status = 1, 3 do
+        local r, g, b = EUI.Indicators.ThreatColor(status)
+        threat[status] = {
+            path = Style.AssetPath('pips/diamondFill-16'), size = { 16, 16 },
+            color = string.format('#%02X%02X%02XFF', math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5),
+                math.floor(b * 255 + 0.5)),
+        }
+    end
+    return {
+        leader = { { atlas = 'UI-HUD-UnitFrame-Player-Group-LeaderIcon', path = LEADER_FALLBACK.path } },
+        assistant = {
+            { path = 'Interface\\GroupFrame\\UI-Group-AssistantIcon' },
+            { path = 'Interface\\GroupFrame\\UI-Group-MasterLooter' },
+        },
+        role = { role(ROLE_ICONS.TANK), role(ROLE_ICONS.HEALER), role(ROLE_ICONS.DAMAGER) },
+        pvp = { pvp(PVP_ICONS.Alliance), pvp(PVP_ICONS.Horde) },
+        raidMarker = { { path = RAID_MARKERS, coords = STAR_COORDS }, { path = RAID_MARKERS, coords = SKULL_COORDS } },
+        flag = { { path = FLAG_ICONS.AFK, size = { 38, 15 } }, { path = FLAG_ICONS.DND, size = { 38, 15 } } },
+        status = {
+            { path = STATUS_ICONS.ready.path },
+            -- The summon atlases carry more padding; drawn larger, as on the frames.
+            { atlas = STATUS_ICONS.summonPending.atlas, size = { 24, 24 } },
+            { atlas = STATUS_ICONS.resurrect.atlas },
+        },
+        -- rest: played through SetRestArt.
+        rest = {
+            { rest = true, size = { 22, 22 } },
+            { atlas = 'UI-HUD-UnitFrame-Player-CombatIcon', path = COMBAT_FALLBACK.path, coords = COMBAT_FALLBACK.coords },
+        },
+        threat = threat,
+    }
 end

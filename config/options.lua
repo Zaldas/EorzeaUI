@@ -548,10 +548,14 @@ end
 ---------------------------------------------------------------------------------------------
 -- Pages
 -- Item kinds: header (label), note (text), toggle / choice / slider / color bound to path, or
--- with get/set; buttons ({ label, run(button), tip, labelFn }). Every control carries a tip;
--- reload items say so in it.
+-- with get/set; buttons ({ label, run(button), tip, labelFn, variant, icon }); palettes; about.
+-- Every control carries a tip, shown under its label; reload items say so in it.
+-- choice.style: 'tabs', or 'font' (a font file per choice, with a sample); else segmented.
+-- slider.final: fn() -> the frame's final scale, for the scale table. art: fn() -> pieces for
+-- the row's tile, as EUI.Indicators.Samples.
+-- enabled (optional): fn() -> whether the control can be used, re-read on Refresh.
 
-local RELOAD_TIP = '|cffffd966Applies after a reload.|r'
+local RELOAD_TIP = '|cfff0ddb3Applies after a reload.|r'
 
 local function tip(text, reload)
     if reload then
@@ -604,10 +608,11 @@ local general = {
     choice('style', 'Palette', styleChoices(), 'Colours for every frame. Colour overrides are kept per palette.', true),
     { kind = 'header', label = 'Frames' },
     {
-        kind = 'buttons',
+        kind = 'buttons', label = 'Positions', tip = 'Unlock to drag frames, then lock again.',
         buttons = {
             {
-                label = 'Move frames', tip = 'Show drag handles on every frame. Opening Edit Mode does the same.',
+                label = 'Move frames', variant = 'primary', icon = 'move',
+                tip = 'Show drag handles on every frame. Opening Edit Mode does the same.',
                 labelFn = function() return EUI.EditMode.unlocked and 'Lock frames' or 'Move frames' end,
                 run = function(button)
                     EUI.EditMode.SetUnlocked(not EUI.EditMode.unlocked)
@@ -627,12 +632,11 @@ local general = {
 local scale = {
     { kind = 'header', label = 'All frames' },
     {
-        kind = 'slider', path = 'scale', label = 'Scale', min = 0.5, max = 2, step = 0.05, format = '%.2f',
-        lead = function() return string.format('%.2f', Settings.Get('scale')) end,
-        tip = "Frames are sized for 1440p and scaled to your screen height; this multiplies that for every frame. WoW's UI Scale slider is ignored.",
+        kind = 'slider', path = 'scale', label = 'Global scale', min = 0.5, max = 2, step = 0.05, format = '%.2f\195\151',
+        width = 320, emphasis = true,
+        tip = "Multiplies every frame below. Frames are sized for 1440p and scaled to your screen height; WoW's UI Scale slider is ignored.",
     },
     { kind = 'header', label = 'Each frame' },
-    { kind = 'note', text = 'The number left of each name is its final scale: the scale above times its own.' },
 }
 for _, frame in ipairs(SCALED_FRAMES) do
     local path = 'scales.' .. frame[1]
@@ -644,12 +648,15 @@ for _, frame in ipairs(SCALED_FRAMES) do
     end
     scale[#scale + 1] = {
         kind = 'slider', path = path, label = frame[2], min = 0.5, max = 2, step = 0.05, format = '%.2f',
-        lead = function() return string.format('%.2f', Settings.Get('scale') * Settings.Get(path)) end,
+        final = function() return Settings.Get('scale') * Settings.Get(path) end,
         tip = text,
     }
+    if frame[1] == 'player' then
+        scale[#scale].enabled = function() return Settings.Get('party.playerFrame') == 'standalone' end
+    end
 end
 scale[#scale + 1] = {
-    kind = 'note', color = '#FFD966FF', shown = function() return Config.scaleChanged end,
+    kind = 'note', color = '#F0DDB3FF', shown = function() return Config.scaleChanged end,
     text = 'Scale changed: frames grow and shrink from their anchor point, so their positions on screen move. Use Move frames on the General page to put them back.',
 }
 
@@ -691,16 +698,65 @@ local INDICATOR_TIPS = {
     raidMarker = 'Raid target marker before the name.',
     flag = 'AFK or DND badge on the name line.',
 }
-local indicators = {
-    { kind = 'header', label = 'Indicators' },
-    { kind = 'note', text = 'Each indicator shows on every frame that draws it: party rows, raid cells, and the target, focus and boss bars.' },
+local INDICATOR_GROUPS = {
+    { 'Identity', { 'leader', 'assistant', 'role', 'pvp', 'raidMarker' } },
+    { 'Status', { 'flag', 'status', 'rest' } },
 }
-for _, entry in ipairs(INDICATORS) do
-    indicators[#indicators + 1] = toggle(entry.def.path, entry[2], entry[3] or INDICATOR_TIPS[entry[1]])
+
+-- The active palette's colour for key, with the user's override.
+local function activeColor(key)
+    local styleName = Settings.Get('style')
+    local palette = Kit.PALETTES[styleName] or {}
+    return Settings.Get(string.format('colors.%s.%s', styleName, key)) or palette[key] or '#FFFFFFFF'
 end
-indicators[#indicators + 1] = toggle('indicators.threat', 'Threat diamond', "On the class icon or portrait, tinted with Blizzard's threat colours.")
-indicators[#indicators + 1] = toggle('indicators.healPrediction', 'Incoming heals and absorbs', 'Heals on the way and shields, past the end of the HP fill.')
-indicators[#indicators + 1] = toggle('indicators.lowHealth', 'Low-health red tint', 'Tints the class icon or portrait red below 20% health.')
+
+-- Art for the indicators drawn without an icon of their own (EUI.Indicators.Samples covers the rest).
+local EXTRA_SAMPLES = {
+    -- A sliver of HP bar with the incoming heals after it.
+    healPrediction = function()
+        return {
+            { fill = activeColor('hp'), size = { 22, 8 }, gap = 0 },
+            { fill = activeColor('heals'), size = { 10, 8 }, gap = 0 },
+            { fill = activeColor('absorbs'), size = { 6, 8 } },
+        }
+    end,
+    -- Your class icon, tinted as below 20% health.
+    lowHealth = function()
+        local _, class = UnitClass('player')
+        local coords = class and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[class]
+        return { {
+            path = 'Interface\\TargetingFrame\\UI-Classes-Circles', coords = coords, size = { 20, 20 },
+            color = Kit.LOW_HEALTH.color,
+        } }
+    end,
+}
+
+-- art: fn() -> the pieces the row's tile shows, read when the page is built.
+local function artToggle(path, label, text, key)
+    local item = toggle(path, label, text)
+    item.art = EXTRA_SAMPLES[key] or function()
+        return EUI.Indicators.Samples()[key]
+    end
+    return item
+end
+local indicators = {}
+for _, group in ipairs(INDICATOR_GROUPS) do
+    indicators[#indicators + 1] = { kind = 'header', label = group[1] }
+    for _, key in ipairs(group[2]) do
+        for _, entry in ipairs(INDICATORS) do
+            if entry[1] == key then
+                indicators[#indicators + 1] = artToggle(entry.def.path, entry[2], entry[3] or INDICATOR_TIPS[key], key)
+            end
+        end
+    end
+end
+indicators[#indicators + 1] = { kind = 'header', label = 'Combat' }
+indicators[#indicators + 1] = artToggle('indicators.threat', 'Threat diamond',
+    "On the class icon or portrait, tinted with Blizzard's threat colours.", 'threat')
+indicators[#indicators + 1] = artToggle('indicators.healPrediction', 'Incoming heals and absorbs',
+    'Heals on the way and shields, past the end of the HP fill.', 'healPrediction')
+indicators[#indicators + 1] = artToggle('indicators.lowHealth', 'Low-health red tint',
+    'Tints the class icon or portrait red below 20% health.', 'lowHealth')
 
 local raid = {
     { kind = 'header', label = 'Cells' },
@@ -745,6 +801,7 @@ local raid = {
 }
 -- Picks which layout the sliders edit; section resets leave it.
 raid[#raid].noReset = true
+raid[#raid].style = 'tabs'
 -- The sliders edit the layout of the chosen raid size.
 local function layoutPath(key)
     return string.format('raid.layouts.%d.%s', Settings.Get('raid.previewSize'), key)
@@ -784,25 +841,24 @@ raid[#raid + 1] = {
 }
 
 local target = {
-    { kind = 'header', label = 'Target, Focus and Boss' },
+    { kind = 'header', label = 'Combat' },
     toggle('target.hostileFilter', "Hide others' debuffs on hostile NPCs",
         "As Blizzard's target frame: your debuffs, debuffs flagged for everyone and NPCs' own. Off shows every debuff."),
     toggle('target.combo', 'Combo points', 'Your combo points beside the target icon. Target bar only.'),
     toggle('target.threatText', 'Threat percent', 'Your threat percent under the HP%.'),
+    { kind = 'header', label = 'Cast bar' },
     choice('target.castBars', 'Cast bars', withBlizzard({
         { 'on', 'On', 'Shown while the unit casts.' },
         { 'off', 'Off', 'Never shown.' },
     }, "Follow Blizzard's Show Target Cast Bar setting."), 'The cast bar above the HP bar.'),
 }
 
-local fontItems = {
-    { kind = 'note', text = 'Applies after a reload.' },
-}
+local fontItems = {}
 for _, group in ipairs(FONT_GROUPS) do
     fontItems[#fontItems + 1] = { kind = 'header', label = group[1] }
     for _, slot in ipairs(group[2]) do
         fontItems[#fontItems + 1] = {
-            kind = 'choice', stacked = true, path = 'fonts.' .. slot[1], label = slot[2], choices = FONT_FILES,
+            kind = 'choice', style = 'font', path = 'fonts.' .. slot[1], label = slot[2], choices = FONT_FILES,
             preview = slot[4], tip = tip(slot[3], true),
         }
     end
@@ -871,17 +927,19 @@ local function colorItems()
     local styleName = Settings.Get('style')
     local palette = Kit.PALETTES[styleName] or {}
     local items = {
-        { kind = 'note', text = string.format('Colours of the %s palette. Applies after a reload.', styleName) },
+        { kind = 'header', label = 'Palette' },
+        {
+            kind = 'palettes', path = 'style', label = 'Palette', choices = styleChoices(), noReset = true,
+            tip = tip('Colours for every frame. Colour overrides are kept per palette.', true),
+        },
+        choice('healthColor.' .. styleName, 'Health colour', withBlizzard({
+            { 'class', 'Class', 'HP bars in the class colour.' },
+            { 'palette', 'Palette', 'HP bars in the Health colour below.' },
+        }, "Follow Blizzard's raid frame Display Class Colors setting."),
+            'HP bar fill and line on party rows and raid cells. Kept per palette; applies at once.'),
     }
-    for i, group in ipairs(COLOR_GROUPS) do
+    for _, group in ipairs(COLOR_GROUPS) do
         items[#items + 1] = { kind = 'header', label = group[1] }
-        if i == 1 then
-            items[#items + 1] = choice('healthColor.' .. styleName, 'Health colour', withBlizzard({
-                { 'class', 'Class', 'HP bars in the class colour.' },
-                { 'palette', 'Palette', 'HP bars in the Health colour below.' },
-            }, "Follow Blizzard's raid frame Display Class Colors setting."),
-                'HP bar fill and line on party rows and raid cells. Kept per palette; applies at once.')
-        end
         for _, entry in ipairs(group[2]) do
             local key, label, text, alpha, fallback = entry[1], entry[2], entry[3], entry[4], entry[5]
             local path = string.format('colors.%s.%s', styleName, key)
@@ -908,15 +966,46 @@ local function colorItems()
     return items
 end
 
--- demo: the demo sections (EUI.Demo.SECTIONS) shown while the page is open.
+local about = {
+    { kind = 'hero' },
+    { kind = 'header', label = 'Slash commands' },
+    { kind = 'command', command = '/ffui', text = 'Open these settings.' },
+    { kind = 'command', command = '/ffui demo', text = 'Fill every frame with sample units.' },
+    { kind = 'command', command = '/ffui unlock', text = 'Show drag handles on every frame; /ffui lock hides them.' },
+    { kind = 'command', command = '/ffui reset', text = 'Put every frame back at its default spot.' },
+    { kind = 'command', command = '/ffui scale <n>', text = 'Set the global scale, as on the Layout & Scale page.' },
+    { kind = 'command', command = '/ffui style <name>', text = 'Switch palette and reload.' },
+    { kind = 'command', command = '/ffui log', text = "List what EorzeaUI recorded: missing game functions, failed reads, blocked actions. /ffui log clear empties it." },
+    { kind = 'header', label = 'Troubleshooting' },
+    { kind = 'faq', label = 'A frame went off screen', text = 'Type /ffui reset, or use Reset positions on the General page.' },
+    { kind = 'faq', label = "A change didn't take effect", text = 'Palette, colours, fonts and buff rules apply after a reload; the footer lists any waiting. Settings changed in combat apply when combat ends.' },
+    { kind = 'faq', label = 'A warning or error showed up', text = '/ffui log lists what EorzeaUI recorded. It is saved with your settings on reload or logout.' },
+    { kind = 'header', label = 'Credits' },
+    { kind = 'note', color = '#A9B6CBFF', text = 'A fan-made addon in the style of Final Fantasy menus. Not affiliated with Blizzard Entertainment or Square Enix. Settings fonts: Inter and Cinzel, under the SIL Open Font License.' },
+}
+
+-- group: the page list heading. icon: assets/settings art. demo: the demo sections
+-- (EUI.Demo.SECTIONS) shown while the page is open. reloadNote: every option on the page applies
+-- after a reload.
 local ALL = EUI.Demo.SECTIONS
 Config.PAGES = {
-    { key = 'general', label = 'General', tip = 'Palette, moving frames, your cast bar.', items = general, demo = { 'cast' } },
-    { key = 'scale', label = 'Scale', tip = 'Size of all frames, and of each frame on its own.', items = scale, demo = ALL },
-    { key = 'party', label = 'Party', tip = 'Party rows: HP text, cast bars, auras, layout.', items = party, demo = { 'party' } },
-    { key = 'raid', label = 'Raid', tip = 'Raid cells, groups, Assists and Pets.', items = raid, demo = { 'raid' } },
-    { key = 'indicators', label = 'Indicators', tip = 'Icons on party rows, raid cells, and the target, focus and boss bars.', items = indicators, demo = { 'party', 'raid', 'target' } },
-    { key = 'target', label = 'Target & Focus', tip = 'Target, focus and boss bars.', items = target, demo = { 'target' } },
-    { key = 'colors', label = 'Colours', tip = 'Every colour of the palette, and the aura edge.', items = colorItems, demo = ALL },
-    { key = 'fonts', label = 'Fonts', tip = 'The font for each kind of text.', items = fontItems, demo = ALL },
+    { key = 'general', group = 'Interface', label = 'General', icon = 'navGeneral', items = general, demo = { 'cast' },
+        tip = 'The overall look of EorzeaUI, moving frames, and your cast bar.' },
+    { key = 'scale', group = 'Interface', label = 'Layout & Scale', icon = 'navLayout', items = scale, demo = ALL,
+        tip = "Size every frame together, then fine-tune each one. A frame's final size is the global scale times its own." },
+    { key = 'target', group = 'Frames', label = 'Target & Focus', icon = 'navTarget', items = target, demo = { 'target' },
+        tip = 'The target bar, its focus twin and the boss bars, each with its target-of-target line.' },
+    { key = 'party', group = 'Frames', label = 'Party', icon = 'navParty', items = party, demo = { 'party' },
+        tip = 'Party rows: health text, cast bars, auras and how the list is laid out.' },
+    { key = 'raid', group = 'Frames', label = 'Raid', icon = 'navRaid', items = raid, demo = { 'raid' },
+        tip = 'Raid cells, groups, the Assists section and pets.' },
+    { key = 'indicators', group = 'Display', label = 'Indicators', icon = 'navIndicators', items = indicators,
+        demo = { 'party', 'raid', 'target' },
+        tip = 'Each indicator shows on every frame that draws it: party rows, raid cells, and the target, focus and boss bars.' },
+    { key = 'colors', group = 'Display', label = 'Colours', icon = 'navColors', items = colorItems, demo = ALL, reloadNote = true,
+        tip = 'Colours of the active palette. Pick a starting point, then adjust any swatch.' },
+    { key = 'fonts', group = 'Display', label = 'Fonts', icon = 'navFonts', items = fontItems, demo = ALL, reloadNote = true,
+        tip = 'The typeface for each kind of text.' },
+    { key = 'about', group = 'Addon', label = 'Support & About', icon = 'navAbout', items = about,
+        tip = 'Version, slash commands and help.' },
 }
