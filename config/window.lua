@@ -1414,12 +1414,15 @@ local function createSidebar()
 end
 
 local function createHeader()
+    Config.CreateHexBar(window)
     local icon = window:CreateTexture(nil, 'ARTWORK')
     icon:SetTexture(string.format('Interface\\AddOns\\%s\\Media\\AddonIcon', addonName))
-    icon:SetSize(30, 30)
-    icon:SetPoint('LEFT', window, 'TOPLEFT', 14, -HEADER / 2)
-    local title = Widgets.Text(window, 17, C.title, 'display')
-    title:SetPoint('LEFT', icon, 'RIGHT', 12, 0)
+    icon:SetSize(34, 34)
+    icon:SetPoint('LEFT', window, 'TOPLEFT', 12, -HEADER / 2)
+    -- The icon's left margin past it. Cinzel's line box carries descender room under its caps,
+    -- so the box sits low for the caps to centre on the icon.
+    local title = Widgets.Text(window, 20, '#B8D8F4FF', 'display')
+    title:SetPoint('LEFT', icon, 'RIGHT', 12, -3)
     title:SetText(addonName)
     local rule = Widgets.FadeLine(window, '#96B4E180', 'both')
     rule:SetPoint('TOPLEFT', 1, -HEADER)

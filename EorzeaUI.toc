@@ -44,6 +44,7 @@ config\widgets.lua
 config\options.lua
 config\crystalData.lua
 config\crystal.lua
+config\hexBar.lua
 config\window.lua
 config\minimapButton.lua
 EorzeaUI.xml
