@@ -232,7 +232,7 @@ function Kit.target(p, castText, size)
     if size.debuffs then
         local function auraRow(order, groups)
             return {
-                pos = { 25, aurasY }, size = auraSize, spacing = 3, perLine = size.perLine, lineSpacing = auraLineSpacing,
+                pos = { 25, aurasY }, size = auraSize, spacing = 4, perLine = size.perLine, lineSpacing = auraLineSpacing,
                 timers = true, border = Kit.AURA_BORDER, sort = 'Default', swipe = true, order = order, groups = groups,
             }
         end
@@ -389,7 +389,7 @@ function Kit.target(p, castText, size)
             click = { pos = { 0, 10 }, size = { size.tot, aurasY - 10 } },
             -- Debuffs under the bar; Blizzard's target-of-target frame shows 4.
             auras = totDebuffs > 0 and {
-                pos = { 20, aurasY }, size = 16, spacing = 2, max = totDebuffs, border = Kit.AURA_BORDER,
+                pos = { 20, aurasY }, size = 16, spacing = 3, max = totDebuffs, border = Kit.AURA_BORDER,
                 dispelBorder = 'dispel', dispelColors = p.dispel, sort = 'Default', swipe = true,
             } or nil,
         },
