@@ -9,7 +9,7 @@ Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
 
 $addonRoot = Split-Path -Parent $PSScriptRoot
 $addonName = Split-Path -Leaf $addonRoot
-$exclude = @('.git', '.gitignore', '.gitattributes', '.vscode', '.luarc.json', 'CLAUDE.md', 'tools')
+$exclude = @('.git', '.gitignore', '.gitattributes', '.vscode', '.luarc.json', 'CLAUDE.md', 'tools', 'docs')
 
 $tocLine = Select-String -Path (Join-Path $addonRoot "$addonName.toc") -Pattern '^## Version:\s*(.+)$' | Select-Object -First 1
 $version = if ($tocLine) { $tocLine.Matches[0].Groups[1].Value.Trim() } else { 'dev' }
