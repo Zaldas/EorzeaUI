@@ -397,7 +397,7 @@ local FONT_FILES = {
     { 'Fonts\\ARIALN.TTF', 'Arial Narrow' },
     { 'Fonts\\MORPHEUS.TTF', 'Morpheus' },
     { 'grammara.ttf', 'Grammara' },
-    { 'consola.ttf', 'Consolas' },
+    { 'Inconsolata-Regular.ttf', 'Inconsolata' },
 }
 -- Kit.FONTS slots by page group: { key, label, tip, sample }. The sample shows one of each kind of
 -- text the slot draws, or two of the one kind it draws.

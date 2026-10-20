@@ -61,7 +61,7 @@ local FONTS = {
     medium = 'Inter-Medium.ttf',
     semibold = 'Inter-SemiBold.ttf',
     display = 'Cinzel-Bold.ttf',
-    mono = 'consola.ttf',
+    mono = 'Inconsolata-Regular.ttf',
     friz = 'Fonts\\FRIZQT__.TTF',
 }
 Widgets.FONTS = FONTS

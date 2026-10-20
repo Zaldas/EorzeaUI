@@ -78,7 +78,7 @@ Kit.FONTS = {
     level = 'Fonts\\FRIZQT__.TTF',
     health = 'grammara.ttf',
     cast = 'grammara.ttf',
-    timer = 'consola.ttf',
+    timer = 'Inconsolata-Regular.ttf',
     count = 'grammara.ttf',
 }
 
