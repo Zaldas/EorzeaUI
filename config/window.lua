@@ -35,6 +35,8 @@ local searching = false
 local results
 -- The row the hover bar and cursor are on, and its help line text.
 local hotRow
+-- Button rows with an active() button, refreshed on every change.
+local activeRows = {}
 
 -- Values of reload options when the frames were built, by path.
 local builtValues = {}
@@ -91,7 +93,7 @@ end
 -- Labels of options changed in combat that wait for it to end, in change order.
 local combatLabels = {}
 
--- The footer status: options waiting for a reload (gold) and for combat to end (red), else Saved.
+-- The footer status: options waiting for a reload (gold) and for combat to end (red).
 local function updateReloadBar()
     if not window then
         return
@@ -106,14 +108,16 @@ local function updateReloadBar()
     if #combatLabels > 0 then
         parts[#parts + 1] = '|cffff7a7aAfter combat \194\183 ' .. summarize(combatLabels) .. '|r'
     end
-    window.status:SetText(#parts > 0 and table.concat(parts, '    ') or 'Saved')
+    window.status:SetText(table.concat(parts, '    '))
     window.reloadButton:SetVariant(#labels > 0 and 'gold' or 'default')
     -- Every change passes here; the section and page resets follow it.
     local built = currentPage and pages[currentPage]
     for _, header in ipairs(built and built.headers or {}) do
         header:Refresh()
     end
-    window.resetPage:Refresh()
+    for _, group in ipairs(activeRows) do
+        group:Refresh()
+    end
 end
 Config.UpdateReloadBar = updateReloadBar
 
@@ -136,9 +140,12 @@ function Config.OnCombatEnded()
     end
 end
 
+-- The help line shows this while nothing hovered has a tip.
+local IDLE_HELP = "I'm here to help explain!"
+
 local function setHelp(text)
     if window then
-        window.help:SetText(text or '')
+        window.help:SetText((text and text ~= '') and text or IDLE_HELP)
     end
 end
 
@@ -312,6 +319,33 @@ local function resetFor(items)
             return changes
         end,
     }
+end
+
+-- Every page's items, built fresh; colour items cover the current palette.
+local function allItems()
+    local items = {}
+    for _, page in ipairs(Config.PAGES) do
+        local list = page.items
+        if type(list) == 'function' then
+            list = list()
+        end
+        for _, item in ipairs(list) do
+            items[#items + 1] = item
+        end
+    end
+    return items
+end
+
+function Config.AllDefault()
+    local reset = resetFor(allItems())
+    return not reset or reset.isDefault()
+end
+
+function Config.ResetAll()
+    local reset = resetFor(allItems())
+    if reset then
+        reset.reset()
+    end
 end
 
 -- Enables or disables every control in frame, recursively.
@@ -693,23 +727,56 @@ end
 -- A row of glass buttons in the control column.
 local function buttonRow(parent, item)
     local group = CreateFrame('Frame', nil, parent)
-    local buttons, labelFns = {}, {}
+    local buttons, defs = {}, {}
     for _, def in ipairs(item.buttons) do
-        local button = Widgets.Button(group, def.label, function(self)
+        local button
+        button = Widgets.Button(group, def.label, function(self)
+            if def.confirm and not rawget(self, 'armed') then
+                self.armed = true
+                self:SetLabel('Click Again')
+                C_Timer.After(3, function()
+                    if rawget(self, 'armed') then
+                        self.armed = nil
+                        self:SetLabel(def.label)
+                    end
+                end)
+                return
+            end
+            self.armed = nil
+            if def.confirm then
+                self:SetLabel(def.label)
+            end
             def.run(self)
             updateReloadBar()
         end, { variant = def.variant, icon = def.icon })
         if def.tip then
             Widgets.SetTooltip(button, def.label, def.tip)
+            if item.bare then
+                button:HookScript('OnEnter', function() setHelp(def.tip) end)
+                button:HookScript('OnLeave', function() setHelp('') end)
+            end
         end
         buttons[#buttons + 1] = button
-        labelFns[#buttons] = def.labelFn
+        defs[#buttons] = def
+    end
+    -- Bare rows give every button the widest one's width.
+    local width = 0
+    if item.bare then
+        for _, button in ipairs(buttons) do
+            width = math.max(width, button:GetWidth())
+        end
+        for _, button in ipairs(buttons) do
+            button:SetWidth(width)
+        end
     end
     function group:Refresh()
         local x = 0
         for i, button in ipairs(buttons) do
-            if labelFns[i] then
-                button:SetLabel(labelFns[i]())
+            if defs[i].labelFn then
+                button:SetLabel(defs[i].labelFn())
+            end
+            if defs[i].active then
+                button:SetActive(defs[i].active())
             end
             button:ClearAllPoints()
             button:SetPoint('LEFT', group, 'LEFT', x, 0)
@@ -718,7 +785,23 @@ local function buttonRow(parent, item)
         group:SetSize(math.max(1, x - 10), 30)
     end
     group:Refresh()
-    return row(parent, item, group)
+    for _, def in ipairs(defs) do
+        if def.active then
+            activeRows[#activeRows + 1] = group
+            break
+        end
+    end
+    if not item.bare then
+        return row(parent, item, group)
+    end
+    local holder = CreateFrame('Frame', nil, parent)
+    holder:SetSize(CONTENT_WIDTH, ROW_HEIGHT + 8)
+    group:SetParent(holder)
+    group:SetPoint('LEFT', holder, 'LEFT', 0, 0)
+    function holder:Refresh()
+        group:Refresh()
+    end
+    return holder
 end
 
 ---------------------------------------------------------------------------------------------
@@ -812,7 +895,7 @@ local function faq(parent, item, relayout)
         relayout()
     end))
     layout()
-    makeHot(holder, holder.tip, label, 22)
+    makeHot(holder, holder.tip, label, 22, 0)
     function holder:Refresh() end
     return holder
 end
@@ -945,7 +1028,6 @@ local function buildPage(page)
             entry.control:SetColumn(column)
         end
     end
-    built.reset = resetFor(items)
     layoutPage(built)
     child:Hide()
     return built
@@ -1163,7 +1245,6 @@ end
 
 local function setSearching(on)
     searching = on
-    window.resetPage:SetShown(not on)
 end
 
 -- A brief highlight behind the control a search result opened.
@@ -1390,8 +1471,10 @@ local function createFooter()
     footer:SetPoint('BOTTOMLEFT', 1, 1)
     footer:SetPoint('BOTTOMRIGHT', -1, 1)
     footer:SetHeight(FOOTER - 1)
-    local marker = Widgets.Pip(footer, 9, C.dim, false)
-    marker:SetPoint('LEFT', 21, 0)
+    local marker = footer:CreateTexture(nil, 'ARTWORK')
+    marker:SetTexture(string.format('Interface\\AddOns\\%s\\Media\\Moogle', addonName))
+    marker:SetSize(26, 26)
+    marker:SetPoint('LEFT', 14, 0)
 
     local reload = Widgets.Button(footer, 'Reload', function()
         if InCombatLockdown() then
@@ -1409,48 +1492,14 @@ local function createFooter()
     end)
     window.reloadButton = reload
 
-    -- Two clicks: the first asks, the second resets.
-    local resetPage
-    resetPage = Widgets.Button(footer, 'Defaults', function(self)
-        local built = currentPage and pages[currentPage]
-        if not (built and built.reset) then
-            return
-        end
-        if rawget(self, 'armed') then
-            self.armed = nil
-            built.reset.reset()
-            self:SetLabel('Defaults')
-            resetPage:Refresh()
-            return
-        end
-        self.armed = true
-        self:SetLabel('Click Again')
-        C_Timer.After(3, function()
-            if rawget(self, 'armed') then
-                self.armed = nil
-                self:SetLabel('Defaults')
-            end
-        end)
-    end)
-    resetPage:SetPoint('RIGHT', reload, 'LEFT', -10, 0)
-    Widgets.SetTooltip(resetPage, 'Defaults', 'Put every setting on this page back to its default.')
-    function resetPage:Refresh()
-        local built = currentPage and pages[currentPage]
-        local reset = built and built.reset
-        self:SetShown(reset ~= nil and not searching)
-        if reset then
-            self:SetActive(not reset.isDefault())
-        end
-    end
-    window.resetPage = resetPage
-
     local status = Widgets.Text(footer, 14, C.dim)
-    status:SetPoint('RIGHT', resetPage, 'LEFT', -16, 0)
+    status:SetPoint('RIGHT', reload, 'LEFT', -16, 0)
     status:SetJustifyH('RIGHT')
     window.status = status
     local help = Widgets.Text(footer, 14, '#A9B6CBFF')
     help:SetPoint('LEFT', marker, 'RIGHT', 12, 0)
     help:SetPoint('RIGHT', status, 'LEFT', -24, 0)
+    help:SetText(IDLE_HELP)
     window.help = help
 
     -- The full lists while hovering the status.

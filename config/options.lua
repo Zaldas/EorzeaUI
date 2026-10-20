@@ -548,7 +548,8 @@ end
 ---------------------------------------------------------------------------------------------
 -- Pages
 -- Item kinds: header (label), note (text), toggle / choice / slider / color bound to path, or
--- with get/set; buttons ({ label, run(button), tip, labelFn, variant, icon }); palettes; about.
+-- with get/set; buttons ({ label, run(button), tip, labelFn, variant, icon, confirm (two clicks),
+-- active (fn) }; bare: equal widths at the page's left edge, no label); palettes; about.
 -- Every control carries a tip, shown under its label; reload items say so in it.
 -- choice.style: 'tabs', or 'font' (a font file per choice, with a sample); else segmented.
 -- slider.final: fn() -> the frame's final scale, for the scale table. art: fn() -> pieces for
@@ -606,12 +607,18 @@ end
 
 local general = {
     {
-        kind = 'buttons', label = 'Frame Positions',
-        tip = 'Put every frame back at its default spot. Move, under Frame Control, shows the drag handles.',
+        kind = 'buttons', bare = true, label = 'Reset Frame Positions, Reset All Settings',
         buttons = {
             {
-                label = 'Reset Positions', tip = 'Put every frame back at its default spot.',
+                label = 'Reset Frame Positions',
+                tip = 'Put every frame back at its default spot. Move, under Frame Control, shows the drag handles.',
                 run = function() SlashCmdList.EORZEAUI('reset') end,
+            },
+            {
+                label = 'Reset All Settings', confirm = true,
+                tip = 'Put every setting in this window back to its default; frame positions stay. Colours reset for the current palette only.',
+                run = function() Config.ResetAll() end,
+                active = function() return not Config.AllDefault() end,
             },
         },
     },
