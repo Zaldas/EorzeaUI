@@ -156,7 +156,7 @@ local SECTION_SHOW = {
 }
 local BUFFS = {
     { 'blizzard', 'Blizzard', "Only buffs you or your pet cast that can go on others, as Blizzard's group frames." },
-    { 'all', 'All buffs', 'Every buff on the unit. 12 party slots fill fast in raids.' },
+    { 'all', 'All Buffs', 'Every buff on the unit. 12 party slots fill fast in raids.' },
 }
 
 local function readCVar(name)
@@ -184,14 +184,14 @@ end
 
 -- Party and raid rows share these indicator toggles, keyed as in Kit.partyIndicators.
 local INDICATORS = {
-    { 'leader', 'Leader crown' },
-    { 'assistant', 'Assistant and master looter', nil, { 'assistant', 'masterLooter' } },
-    { 'role', 'Role icon' },
-    { 'pvp', 'PvP badge', 'On the class icon or portrait. Raid cells have none.' },
-    { 'raidMarker', 'Raid marker' },
-    { 'flag', 'AFK / DND tag' },
-    { 'status', 'Centre status icon', 'Ready check, summon, resurrection, phased and other-group icons.' },
-    { 'rest', 'Resting and combat icons', 'Your own row only.' },
+    { 'leader', 'Leader Crown' },
+    { 'assistant', 'Assistant and Master Looter', nil, { 'assistant', 'masterLooter' } },
+    { 'role', 'Role Icon' },
+    { 'pvp', 'PvP Badge', 'On the class icon or portrait. Raid cells have none.' },
+    { 'raidMarker', 'Raid Marker' },
+    { 'flag', 'AFK / DND Tag' },
+    { 'status', 'Centre Status Icon', 'Ready check, summon, resurrection, phased and other-group icons.' },
+    { 'rest', 'Resting and Combat Icons', 'Your own row only.' },
 }
 for _, entry in ipairs(INDICATORS) do
     local keys = entry[4] or { entry[1] }
@@ -261,20 +261,20 @@ end })
 option({ path = 'party.notPresentAlpha', default = 0.6, apply = function(style, value)
     style.party.range.notPresentAlpha = value
 end })
-option({ path = 'party.rowSpacing', default = 13, combat = true, refresh = 'partyLayout', label = 'Party row spacing', apply = function(style, value)
+option({ path = 'party.rowSpacing', default = 13, combat = true, refresh = 'partyLayout', label = 'Party Row Spacing', apply = function(style, value)
     style.party.rowSpacing = value
 end })
-option({ path = 'party.playerFrame', default = 'standalone', reload = true, label = 'Your frame', apply = function(style, value)
+option({ path = 'party.playerFrame', default = 'standalone', reload = true, label = 'Your Frame', apply = function(style, value)
     style.party.standalone = value == 'standalone'
 end })
-option({ path = 'party.growUp', default = false, combat = true, refresh = 'partyLayout', label = 'Party grows upward', apply = function(style, value)
+option({ path = 'party.growUp', default = false, combat = true, refresh = 'partyLayout', label = 'Party Grows Upward', apply = function(style, value)
     style.party.growUp = value
 end })
 option({ path = 'party.dispellable', default = 'blizzard', refresh = 'auraPolicy', apply = function(style, value)
     style.party.auras.dispellableOnly = followValue(value)
     style.party.pet.auras.dispellableOnly = followValue(value)
 end })
-option({ path = 'party.buffs', default = 'blizzard', reload = true, label = 'Party buffs', apply = function(style, value)
+option({ path = 'party.buffs', default = 'blizzard', reload = true, label = 'Party Buffs', apply = function(style, value)
     for _, auras in ipairs({ style.party.auras, style.party.pet.auras }) do
         auras.groups.buffs.auraType = value ~= 'all' and 'Buff' or nil
     end
@@ -306,25 +306,25 @@ end })
 local RAID_LAYOUT_DEFAULTS = { [10] = 2, [25] = 5, [40] = 4 }
 for _, size in ipairs(EUI.RaidList.SIZES) do
     option({ path = string.format('raid.layouts.%d.groupsPerRow', size), default = RAID_LAYOUT_DEFAULTS[size],
-        combat = true, refresh = 'raidLayout', label = 'Raid groups per row', apply = function() end })
+        combat = true, refresh = 'raidLayout', label = 'Raid Groups per Row', apply = function() end })
     option({ path = string.format('raid.layouts.%d.scale', size), default = 1, combat = true, refresh = 'raidLayout',
-        label = 'Raid layout scale', apply = function() end })
+        label = 'Raid Layout Scale', apply = function() end })
     option({ path = string.format('raid.layouts.%d.petsPerColumn', size), default = 10, combat = true, refresh = 'raidLayout',
-        label = 'Pets per column', apply = function() end })
+        label = 'Pets per Column', apply = function() end })
     option({ path = string.format('raid.layouts.%d.petsScale', size), default = 1, combat = true, refresh = 'raidLayout',
-        label = 'Pets layout scale', apply = function() end })
+        label = 'Pets Layout Scale', apply = function() end })
 end
 option({ path = 'raid.previewSize', default = 40, apply = function() end })
-option({ path = 'raid.rowSpacing', default = 4, combat = true, refresh = 'raidSpacing', label = 'Raid cell spacing', apply = function(style, value)
+option({ path = 'raid.rowSpacing', default = 4, combat = true, refresh = 'raidSpacing', label = 'Raid Cell Spacing', apply = function(style, value)
     style.raid.rowSpacing = value
 end })
-option({ path = 'raid.groupSpacingX', default = 8, combat = true, refresh = 'raidSpacing', label = 'Raid group column gap', apply = function(style, value)
+option({ path = 'raid.groupSpacingX', default = 8, combat = true, refresh = 'raidSpacing', label = 'Raid Group Column Gap', apply = function(style, value)
     style.raid.groupSpacing[1] = value
 end })
-option({ path = 'raid.groupSpacingY', default = 14, combat = true, refresh = 'raidSpacing', label = 'Raid group row gap', apply = function(style, value)
+option({ path = 'raid.groupSpacingY', default = 14, combat = true, refresh = 'raidSpacing', label = 'Raid Group Row Gap', apply = function(style, value)
     style.raid.groupSpacing[2] = value
 end })
-option({ path = 'raid.groupLabels', default = true, refresh = 'raidLabels', label = 'Raid group labels', apply = function(style, value)
+option({ path = 'raid.groupLabels', default = true, refresh = 'raidLabels', label = 'Raid Group Labels', apply = function(style, value)
     style.raid.groupNumber.hidden = not value
 end })
 -- 'show' / 'hide' force the section; 'blizzard' (nil) follows the raid manager.
@@ -336,10 +336,10 @@ local function sectionShown(value)
     end
     return nil
 end
-option({ path = 'raid.assists', default = 'blizzard', combat = true, refresh = 'raidSections', label = 'Assists section', apply = function(style, value)
+option({ path = 'raid.assists', default = 'blizzard', combat = true, refresh = 'raidSections', label = 'Assists Section', apply = function(style, value)
     style.raid.assists.show = sectionShown(value)
 end })
-option({ path = 'raid.pets', default = 'blizzard', combat = true, refresh = 'raidSections', label = 'Pets section', apply = function(style, value)
+option({ path = 'raid.pets', default = 'blizzard', combat = true, refresh = 'raidSections', label = 'Pets Section', apply = function(style, value)
     style.raid.pets.show = sectionShown(value)
 end })
 -- Per palette (styles/palettes.lua healthColor); only the built palette's applies.
@@ -358,7 +358,7 @@ end
 option({ path = 'raid.dispellable', default = 'blizzard', refresh = 'auraPolicy', apply = function(style, value)
     style.raid.auras.dispellableOnly = followValue(value)
 end })
-option({ path = 'raid.buffs', default = 'blizzard', reload = true, label = 'Raid buffs', apply = function(style, value)
+option({ path = 'raid.buffs', default = 'blizzard', reload = true, label = 'Raid Buffs', apply = function(style, value)
     style.raid.auras.groups.buffs.auraType = value ~= 'all' and 'Buff' or nil
 end })
 
@@ -403,21 +403,21 @@ local FONT_FILES = {
 -- text the slot draws, or two of the one kind it draws.
 local FONT_GROUPS = {
     { 'Names and labels', {
-        { 'name', 'Unit names', 'Names on party rows, raid cells, pets, target, focus, boss and their targets.',
+        { 'name', 'Unit Names', 'Names on party rows, raid cells, pets, target, focus, boss and their targets.',
             'Zal-Das   Defias Conjurer' },
-        { 'header', 'Frame labels', 'The Group N, Assists, Pets, Focus, Boss and Totems headers.',
+        { 'header', 'Frame Labels', 'The Group N, Assists, Pets, Focus, Boss and Totems headers.',
             'Group 1   Focus' },
-        { 'level', 'Level numbers', 'The level on each class icon and portrait.', '60   7' },
+        { 'level', 'Level Numbers', 'The level on each class icon and portrait.', '60   7' },
     } },
     { 'Bars', {
-        { 'health', 'Health and power', 'HP and power values, HP%, threat % and Dead / Offline text.',
+        { 'health', 'Health and Power', 'HP and power values, HP%, threat % and Dead / Offline text.',
             '12,480   87%   Dead' },
-        { 'cast', 'Cast bar text', 'Spell names on every cast bar, and Interrupted / Failed.',
-            'Flash of Light   Interrupted' },
+        { 'cast', 'Cast Bar Text', 'Spell names on every cast bar, and Interrupted / Failed.',
+            'Heal   Interrupted' },
     } },
     { 'Auras', {
         { 'timer', 'Countdowns', 'Time left on aura icons.', '28m   6' },
-        { 'count', 'Stack counts', 'Stack counts on aura icons.', '3   10' },
+        { 'count', 'Stack Counts', 'Stack counts on aura icons.', '3   10' },
     } },
 }
 local FONT_SLOTS = {}
@@ -432,7 +432,7 @@ for _, slot in ipairs(FONT_SLOTS) do
     end })
 end
 
-option({ path = 'auraBorder', default = Kit.AURA_BORDER, reload = true, label = 'Aura icon edge' })
+option({ path = 'auraBorder', default = Kit.AURA_BORDER, reload = true, label = 'Aura Icon Edge' })
 -- Defaults in core/settings.lua; read when the style is built.
 option({ path = 'style', reload = true, label = 'Palette' })
 option({ path = 'colors', reload = true, label = 'Colours' })
@@ -441,13 +441,13 @@ option({ path = 'colors', reload = true, label = 'Colours' })
 local SCALED_FRAMES = {
     { 'player', 'Player' },
     { 'party', 'Party' },
-    { 'raid', 'Raid groups' },
+    { 'raid', 'Raid Groups' },
     { 'assists', 'Assists' },
-    { 'pets', 'Raid pets' },
+    { 'pets', 'Raid Pets' },
     { 'target', 'Target' },
     { 'focus', 'Focus' },
     { 'boss', 'Boss' },
-    { 'cast', 'Your cast bar' },
+    { 'cast', 'Your Cast Bar' },
     { 'totems', 'Totems' },
 }
 for _, frame in ipairs(SCALED_FRAMES) do
@@ -554,6 +554,7 @@ end
 -- slider.final: fn() -> the frame's final scale, for the scale table. art: fn() -> pieces for
 -- the row's tile, as EUI.Indicators.Samples.
 -- enabled (optional): fn() -> whether the control can be used, re-read on Refresh.
+-- defaultValue (optional): fn() -> the value a reset returns to, for items without a saved path.
 
 local RELOAD_TIP = '|cfff0ddb3Applies after a reload.|r'
 
@@ -604,39 +605,27 @@ local function styleChoices()
 end
 
 local general = {
-    { kind = 'header', label = 'Look' },
-    choice('style', 'Palette', styleChoices(), 'Colours for every frame. Colour overrides are kept per palette.', true),
-    { kind = 'header', label = 'Frames' },
     {
-        kind = 'buttons', label = 'Positions', tip = 'Unlock to drag frames, then lock again.',
+        kind = 'buttons', label = 'Frame Positions',
+        tip = 'Put every frame back at its default spot. Move, under Frame Control, shows the drag handles.',
         buttons = {
             {
-                label = 'Move frames', variant = 'primary', icon = 'move',
-                tip = 'Show drag handles on every frame. Opening Edit Mode does the same.',
-                labelFn = function() return EUI.EditMode.unlocked and 'Lock frames' or 'Move frames' end,
-                run = function(button)
-                    EUI.EditMode.SetUnlocked(not EUI.EditMode.unlocked)
-                    button:SetLabel(EUI.EditMode.unlocked and 'Lock frames' or 'Move frames')
-                end,
-            },
-            {
-                label = 'Reset positions', tip = 'Put every frame back at its default spot.',
+                label = 'Reset Positions', tip = 'Put every frame back at its default spot.',
                 run = function() SlashCmdList.EORZEAUI('reset') end,
             },
         },
     },
-    { kind = 'header', label = 'Player cast bar' },
-    toggle('castBar.enabled', 'Show your cast bar', 'The cast bar under your character. Off leaves casts to your party row.'),
+    choice('style', 'Palette', styleChoices(), 'Colours for every frame. Colour overrides are kept per palette.', true),
+    toggle('castBar.enabled', 'Player Cast Bar', 'The cast bar under your character. Off leaves casts to your party row.'),
 }
 
 local scale = {
-    { kind = 'header', label = 'All frames' },
     {
-        kind = 'slider', path = 'scale', label = 'Global scale', min = 0.5, max = 2, step = 0.05, format = '%.2f\195\151',
+        kind = 'slider', path = 'scale', label = 'Global Scale', min = 0.5, max = 2, step = 0.05, format = '%.2f\195\151',
         width = 320, emphasis = true,
         tip = "Multiplies every frame below. Frames are sized for 1440p and scaled to your screen height; WoW's UI Scale slider is ignored.",
     },
-    { kind = 'header', label = 'Each frame' },
+    { kind = 'header', label = 'Each Frame' },
 }
 for _, frame in ipairs(SCALED_FRAMES) do
     local path = 'scales.' .. frame[1]
@@ -657,36 +646,36 @@ for _, frame in ipairs(SCALED_FRAMES) do
 end
 scale[#scale + 1] = {
     kind = 'note', color = '#F0DDB3FF', shown = function() return Config.scaleChanged end,
-    text = 'Scale changed: frames grow and shrink from their anchor point, so their positions on screen move. Use Move frames on the General page to put them back.',
+    text = 'Scale changed: frames grow and shrink from their anchor point, so their positions on screen move. Turn on Move, under Frame Control, to put them back.',
 }
 
 local party = {
-    { kind = 'header', label = 'Health and power' },
-    choice('party.hpText', 'HP text', withBlizzard(HP_TEXT, "Follow Blizzard's Status Text setting; Both reads as Current."),
+    { kind = 'header', label = 'Health and Power' },
+    choice('party.hpText', 'HP Text', withBlizzard(HP_TEXT, "Follow Blizzard's Status Text setting; Both reads as Current."),
         'The number on each HP bar.'),
-    toggle('party.castBars', 'Cast bars on member rows', 'Replaces the name line while a member casts.'),
-    toggle('party.petCast', 'Cast bar on your pet row', "Replaces your pet's name line while it casts."),
+    toggle('party.castBars', 'Cast Bars on Member Rows', 'Replaces the name line while a member casts.'),
+    toggle('party.petCast', 'Cast Bar on Your Pet Row', "Replaces your pet's name line while it casts."),
     { kind = 'header', label = 'Auras' },
-    choice('party.dispellable', 'Only dispellable debuffs', FOLLOW,
+    choice('party.dispellable', 'Only Dispellable Debuffs', FOLLOW,
         "Blizzard follows Interface > Party Frames' \"Show only dispellable debuffs\"."),
-    choice('party.buffs', 'Buffs shown', BUFFS, 'Which buffs fill the aura slots beside each row.', true),
+    choice('party.buffs', 'Buffs Shown', BUFFS, 'Which buffs fill the aura slots beside each row.', true),
     { kind = 'header', label = 'Layout' },
-    choice('party.playerFrame', 'Your frame', {
+    choice('party.playerFrame', 'Your Frame', {
         { 'standalone', 'Standalone', "Your own frame and mover, as Blizzard's player frame. The party list shows members only and hides with none." },
-        { 'merged', 'In the party list', 'Your row heads the party list and stays alone in a raid.' },
+        { 'merged', 'In the Party List', 'Your row heads the party list and stays alone in a raid.' },
     }, 'Where your row shows.', true),
-    toggle('party.growUp', 'Grow upward',
+    toggle('party.growUp', 'Grow Upward',
         "Rows stack up from the party list's bottom edge; your row is the bottom one while it is in the list."),
     {
-        kind = 'slider', path = 'party.rowSpacing', label = 'Row spacing', min = 0, max = 30, step = 1, format = '%d px',
+        kind = 'slider', path = 'party.rowSpacing', label = 'Row Spacing', min = 0, max = 30, step = 1, format = '%d px',
         tip = 'Gap between rows. Below 5 the leader crown overlaps the level number of the row above.',
     },
     {
-        kind = 'slider', path = 'party.farAlpha', label = 'Out of range', min = 0.1, max = 1, step = 0.05, format = percent,
+        kind = 'slider', path = 'party.farAlpha', label = 'Out of Range', min = 0.1, max = 1, step = 0.05, format = percent,
         tip = "Opacity of members out of range. Blizzard's raid-style frames use 50%.",
     },
     {
-        kind = 'slider', path = 'party.notPresentAlpha', label = 'Phased / elsewhere', min = 0.1, max = 1, step = 0.05, format = percent,
+        kind = 'slider', path = 'party.notPresentAlpha', label = 'Phased / Elsewhere', min = 0.1, max = 1, step = 0.05, format = percent,
         tip = "Opacity of phased members and members in another group. Blizzard's party frames use 60%.",
     },
 }
@@ -751,49 +740,49 @@ for _, group in ipairs(INDICATOR_GROUPS) do
     end
 end
 indicators[#indicators + 1] = { kind = 'header', label = 'Combat' }
-indicators[#indicators + 1] = artToggle('indicators.threat', 'Threat diamond',
+indicators[#indicators + 1] = artToggle('indicators.threat', 'Threat Diamond',
     "On the class icon or portrait, tinted with Blizzard's threat colours.", 'threat')
-indicators[#indicators + 1] = artToggle('indicators.healPrediction', 'Incoming heals and absorbs',
+indicators[#indicators + 1] = artToggle('indicators.healPrediction', 'Incoming Heals and Absorbs',
     'Heals on the way and shields, past the end of the HP fill.', 'healPrediction')
-indicators[#indicators + 1] = artToggle('indicators.lowHealth', 'Low-health red tint',
+indicators[#indicators + 1] = artToggle('indicators.lowHealth', 'Low-Health Red Tint',
     'Tints the class icon or portrait red below 20% health.', 'lowHealth')
 
 local raid = {
     { kind = 'header', label = 'Cells' },
-    choice('raid.hpText', 'HP text', withBlizzard(HP_TEXT, "Follow Blizzard's raid frame Health Text setting."),
+    choice('raid.hpText', 'HP Text', withBlizzard(HP_TEXT, "Follow Blizzard's raid frame Health Text setting."),
         'The number at the end of the name line.'),
-    choice('raid.power', 'Power bars', withBlizzard({
+    choice('raid.power', 'Power Bars', withBlizzard({
         { 'all', 'All', 'Every member.' },
         { 'healers', 'Healers', 'Only members with the healer role.' },
         { 'none', 'None', 'No power bars.' },
     }, "Follow Blizzard's raid frame power bar settings."), 'The short power bar under each HP bar.'),
     {
-        kind = 'slider', path = 'raid.farAlpha', label = 'Out of range', min = 0.1, max = 1, step = 0.05, format = percent,
+        kind = 'slider', path = 'raid.farAlpha', label = 'Out of Range', min = 0.1, max = 1, step = 0.05, format = percent,
         tip = "Opacity of cells out of range. Blizzard's raid frames use 50%.",
     },
     { kind = 'header', label = 'Auras' },
-    choice('raid.dispellable', 'Only dispellable debuffs', FOLLOW,
+    choice('raid.dispellable', 'Only Dispellable Debuffs', FOLLOW,
         "Blizzard follows Interface > Raid Frames' \"Display only dispellable debuffs\"."),
-    choice('raid.buffs', 'Buffs shown', BUFFS, 'Which buffs fill the aura line under each cell.', true),
+    choice('raid.buffs', 'Buffs Shown', BUFFS, 'Which buffs fill the aura line under each cell.', true),
     { kind = 'header', label = 'Layout' },
-    toggle('raid.groupLabels', 'Group labels', 'The "Group N" headers; the Pets label shares them.'),
-    choice('raid.assists', 'Assists section', SECTION_SHOW, 'Main tanks and assists with their targets.'),
-    choice('raid.pets', 'Pets section', SECTION_SHOW, "Every raid member's pet, in its own block."),
+    toggle('raid.groupLabels', 'Group Labels', 'The "Group N" headers; the Pets label shares them.'),
+    choice('raid.assists', 'Assists Section', SECTION_SHOW, 'Main tanks and assists with their targets.'),
+    choice('raid.pets', 'Pets Section', SECTION_SHOW, "Every raid member's pet, in its own block."),
     {
-        kind = 'slider', path = 'raid.rowSpacing', label = 'Cell spacing', min = 0, max = 20, step = 1, format = '%d px',
+        kind = 'slider', path = 'raid.rowSpacing', label = 'Cell Spacing', min = 0, max = 20, step = 1, format = '%d px',
         tip = 'Gap between cells in a group, in Assists and in Pets. Small gaps let the leader crown overlap the level number of the cell above.',
     },
     {
-        kind = 'slider', path = 'raid.groupSpacingX', label = 'Group gap across', min = 0, max = 40, step = 1, format = '%d px',
+        kind = 'slider', path = 'raid.groupSpacingX', label = 'Group Gap Across', min = 0, max = 40, step = 1, format = '%d px',
         tip = 'Gap between groups side by side, and between Pets columns.',
     },
     {
-        kind = 'slider', path = 'raid.groupSpacingY', label = 'Group gap down', min = 0, max = 40, step = 1, format = '%d px',
+        kind = 'slider', path = 'raid.groupSpacingY', label = 'Group Gap Down', min = 0, max = 40, step = 1, format = '%d px',
         tip = 'Gap between a row of groups and the Group N labels of the next.',
     },
-    { kind = 'header', label = 'Layout by raid size' },
+    { kind = 'header', label = 'Layout by Raid Size' },
     { kind = 'note', text = "A raid uses the layout of the smallest size that holds its members. Sizes are Blizzard's Edit Mode raid sizes: 2, 5 and 8 groups." },
-    choice('raid.previewSize', 'Raid size', {
+    choice('raid.previewSize', 'Raid Size', {
         { 10, '10 players', 'Edit the 10-player layout; the demo shows 2 groups.' },
         { 25, '25 players', 'Edit the 25-player layout; the demo shows 5 groups.' },
         { 40, '40 players', 'Edit the 40-player layout; the demo shows 8 groups.' },
@@ -807,7 +796,7 @@ local function layoutPath(key)
     return string.format('raid.layouts.%d.%s', Settings.Get('raid.previewSize'), key)
 end
 raid[#raid + 1] = {
-    kind = 'slider', label = 'Groups per row', min = 1, max = 8, step = 1, format = '%d',
+    kind = 'slider', label = 'Groups per Row', min = 1, max = 8, step = 1, format = '%d',
     range = function() return 1, EUI.RaidList.GroupCount() end,
     get = function() return math.min(Settings.Get(layoutPath('groupsPerRow')), EUI.RaidList.GroupCount()) end,
     set = function(value) Settings.Set(layoutPath('groupsPerRow'), value) end,
@@ -822,7 +811,7 @@ raid[#raid + 1] = {
     tip = 'Size of the raid groups in raids of the chosen size, times the raid scale on the Scale page.',
 }
 raid[#raid + 1] = {
-    kind = 'slider', label = 'Pets per column', min = 1, max = 40, step = 1, format = '%d',
+    kind = 'slider', label = 'Pets per Column', min = 1, max = 40, step = 1, format = '%d',
     range = function() return EUI.RaidPets.PerColumnRange(Settings.Get('raid.previewSize')) end,
     get = function()
         local low, high = EUI.RaidPets.PerColumnRange(Settings.Get('raid.previewSize'))
@@ -833,25 +822,28 @@ raid[#raid + 1] = {
     tip = 'Pets stacked in a column before the next column starts, in raids of the chosen size. At most 8 columns: at least 2 per column for 10 players, 4 for 25, 5 for 40.',
 }
 raid[#raid + 1] = {
-    kind = 'slider', label = 'Pets scale', min = 0.5, max = 2, step = 0.05, format = '%.2f',
+    kind = 'slider', label = 'Pets Scale', min = 0.5, max = 2, step = 0.05, format = '%.2f',
     get = function() return Settings.Get(layoutPath('petsScale')) end,
     set = function(value) Settings.Set(layoutPath('petsScale'), value) end,
     pathFn = function() return layoutPath('petsScale') end,
     tip = 'Size of the Pets block in raids of the chosen size, times the raid pets scale on the Scale page.',
 }
 
+-- The target, focus and boss bars' options close the General page.
 local target = {
-    { kind = 'header', label = 'Combat' },
-    toggle('target.hostileFilter', "Hide others' debuffs on hostile NPCs",
+    { kind = 'header', label = 'Target, Focus & Boss' },
+    toggle('target.hostileFilter', "Hide Others' Debuffs on Hostile NPCs",
         "As Blizzard's target frame: your debuffs, debuffs flagged for everyone and NPCs' own. Off shows every debuff."),
-    toggle('target.combo', 'Combo points', 'Your combo points beside the target icon. Target bar only.'),
-    toggle('target.threatText', 'Threat percent', 'Your threat percent under the HP%.'),
-    { kind = 'header', label = 'Cast bar' },
-    choice('target.castBars', 'Cast bars', withBlizzard({
+    toggle('target.combo', 'Combo Points', 'Your combo points beside the target icon. Target bar only.'),
+    toggle('target.threatText', 'Threat Percent', 'Your threat percent under the HP%.'),
+    choice('target.castBars', 'Cast Bars', withBlizzard({
         { 'on', 'On', 'Shown while the unit casts.' },
         { 'off', 'Off', 'Never shown.' },
     }, "Follow Blizzard's Show Target Cast Bar setting."), 'The cast bar above the HP bar.'),
 }
+for _, item in ipairs(target) do
+    general[#general + 1] = item
+end
 
 local fontItems = {}
 for _, group in ipairs(FONT_GROUPS) do
@@ -869,26 +861,26 @@ end
 local COLOR_GROUPS = {
     { 'Bars', {
         { 'hp', 'Health', 'HP bar fill and frame on every frame.' },
-        { 'heals', 'Incoming heals', 'Heals on the way, past the end of the HP fill.', true },
+        { 'heals', 'Incoming Heals', 'Heals on the way, past the end of the HP fill.', true },
         { 'absorbs', 'Absorbs', 'Shields, after incoming heals.', true },
-        { 'offline', 'Offline health', 'HP bar of offline members.' },
+        { 'offline', 'Offline Health', 'HP bar of offline members.' },
         { 'powerColors.0', 'Mana', 'Power bar while it shows mana.' },
         { 'powerColors.1', 'Rage', 'Power bar while it shows rage.' },
         { 'powerColors.2', 'Focus', 'Power bar while it shows focus.' },
         { 'powerColors.3', 'Energy', 'Power bar while it shows energy.' },
-        { 'power', 'Other power', 'Power bar frame, and the fill for other power types.' },
+        { 'power', 'Other Power', 'Power bar frame, and the fill for other power types.' },
     } },
     { 'Cast bars', {
         { 'cast', 'Casting', 'Cast bars while a spell is cast.' },
         { 'channel', 'Channeling', 'Cast bars while a spell is channeled.', false, 'cast' },
-        { 'castFailure', 'Interrupted / failed', 'The bar held full after an interrupted or failed cast.' },
+        { 'castFailure', 'Interrupted / Failed', 'The bar held full after an interrupted or failed cast.' },
         { 'uninterruptible', 'Uninterruptible', "Target casts you can't interrupt." },
     } },
     { 'Text', {
-        { 'name', 'Party names', 'Names on party rows and raid cells.' },
+        { 'name', 'Party Names', 'Names on party rows and raid cells.' },
         { 'text', 'Numbers', 'HP and power values and spell names.' },
-        { 'targetText', 'Target text', 'HP% and threat % on target, focus and boss bars.' },
-        { 'label', 'Frame labels', 'Group N, Assists, Pets, Focus, Boss and Totems headers.' },
+        { 'targetText', 'Target Text', 'HP% and threat % on target, focus and boss bars.' },
+        { 'label', 'Frame Labels', 'Group N, Assists, Pets, Focus, Boss and Totems headers.' },
     } },
     { 'Target names by reaction', {
         { 'reaction.party', 'Party members', 'Members of your group.' },
@@ -905,10 +897,10 @@ local COLOR_GROUPS = {
         { 'dispel.Curse', 'Curse edge', 'Edge of Curse debuffs.' },
         { 'dispel.Poison', 'Poison edge', 'Edge of Poison debuffs.' },
         { 'dispel.Disease', 'Disease edge', 'Edge of Disease debuffs.' },
-        { 'stealable', 'Stealable buff edge', 'Edge of buffs you can spellsteal on the target.' },
+        { 'stealable', 'Stealable Buff Edge', 'Edge of buffs you can spellsteal on the target.' },
     } },
     { 'Other', {
-        { 'combo', 'Combo points', 'The combo point diamonds beside the target icon.' },
+        { 'combo', 'Combo Points', 'The combo point diamonds beside the target icon.' },
     } },
 }
 
@@ -952,32 +944,34 @@ local function colorItems()
                 set = function(hex) Settings.Set(path, hex) end,
                 isDefault = function() return Settings.Get(path) == nil end,
                 reset = function() Settings.Set(path, nil) end,
+                defaultValue = default,
             }
         end
     end
-    items[#items + 1] = { kind = 'header', label = 'Every palette' }
+    items[#items + 1] = { kind = 'header', label = 'Every Palette' }
     items[#items + 1] = {
-        kind = 'color', label = 'Aura icon edge', tip = tip('The edge around aura icons without a dispel colour.', true),
+        kind = 'color', label = 'Aura Icon Edge', tip = tip('The edge around aura icons without a dispel colour.', true),
         get = function() return Settings.Get('auraBorder') end,
         set = function(hex) Settings.Set('auraBorder', hex) end,
         isDefault = function() return Settings.Get('auraBorder') == Settings.Default('auraBorder') end,
         reset = function() Settings.Reset('auraBorder') end,
+        defaultValue = function() return Settings.Default('auraBorder') end,
     }
     return items
 end
 
 local about = {
     { kind = 'hero' },
-    { kind = 'header', label = 'Slash commands' },
+    { kind = 'header', label = 'Slash Commands' },
     { kind = 'command', command = '/ffui', text = 'Open these settings.' },
     { kind = 'command', command = '/ffui demo', text = 'Fill every frame with sample units.' },
     { kind = 'command', command = '/ffui unlock', text = 'Show drag handles on every frame; /ffui lock hides them.' },
     { kind = 'command', command = '/ffui reset', text = 'Put every frame back at its default spot.' },
-    { kind = 'command', command = '/ffui scale <n>', text = 'Set the global scale, as on the Layout & Scale page.' },
+    { kind = 'command', command = '/ffui scale <n>', text = 'Set the global scale, as on the Scale page.' },
     { kind = 'command', command = '/ffui style <name>', text = 'Switch palette and reload.' },
     { kind = 'command', command = '/ffui log', text = "List what EorzeaUI recorded: missing game functions, failed reads, blocked actions. /ffui log clear empties it." },
     { kind = 'header', label = 'Troubleshooting' },
-    { kind = 'faq', label = 'A frame went off screen', text = 'Type /ffui reset, or use Reset positions on the General page.' },
+    { kind = 'faq', label = 'A frame went off screen', text = 'Type /ffui reset, or use Reset Positions on the General page.' },
     { kind = 'faq', label = "A change didn't take effect", text = 'Palette, colours, fonts and buff rules apply after a reload; the footer lists any waiting. Settings changed in combat apply when combat ends.' },
     { kind = 'faq', label = 'A warning or error showed up', text = '/ffui log lists what EorzeaUI recorded. It is saved with your settings on reload or logout.' },
     { kind = 'header', label = 'Credits' },
@@ -989,16 +983,14 @@ local about = {
 -- after a reload.
 local ALL = EUI.Demo.SECTIONS
 Config.PAGES = {
-    { key = 'general', group = 'Interface', label = 'General', icon = 'navGeneral', items = general, demo = { 'cast' },
-        tip = 'The overall look of EorzeaUI, moving frames, and your cast bar.' },
-    { key = 'scale', group = 'Interface', label = 'Layout & Scale', icon = 'navLayout', items = scale, demo = ALL,
-        tip = "Size every frame together, then fine-tune each one. A frame's final size is the global scale times its own." },
-    { key = 'target', group = 'Frames', label = 'Target & Focus', icon = 'navTarget', items = target, demo = { 'target' },
-        tip = 'The target bar, its focus twin and the boss bars, each with its target-of-target line.' },
+    { key = 'general', group = 'Frames', label = 'General', icon = 'navGeneral', items = general, demo = { 'cast', 'target' },
+        tip = 'The palette, frame positions, your cast bar, and the target, focus and boss bars.' },
     { key = 'party', group = 'Frames', label = 'Party', icon = 'navParty', items = party, demo = { 'party' },
         tip = 'Party rows: health text, cast bars, auras and how the list is laid out.' },
     { key = 'raid', group = 'Frames', label = 'Raid', icon = 'navRaid', items = raid, demo = { 'raid' },
         tip = 'Raid cells, groups, the Assists section and pets.' },
+    { key = 'scale', group = 'Frames', label = 'Scale', icon = 'navLayout', items = scale, demo = ALL,
+        tip = "Size every frame together, then fine-tune each one. A frame's final size is the global scale times its own." },
     { key = 'indicators', group = 'Display', label = 'Indicators', icon = 'navIndicators', items = indicators,
         demo = { 'party', 'raid', 'target' },
         tip = 'Each indicator shows on every frame that draws it: party rows, raid cells, and the target, focus and boss bars.' },
@@ -1006,6 +998,6 @@ Config.PAGES = {
         tip = 'Colours of the active palette. Pick a starting point, then adjust any swatch.' },
     { key = 'fonts', group = 'Display', label = 'Fonts', icon = 'navFonts', items = fontItems, demo = ALL, reloadNote = true,
         tip = 'The typeface for each kind of text.' },
-    { key = 'about', group = 'Addon', label = 'Support & About', icon = 'navAbout', items = about,
+    { key = 'about', group = 'Addon', label = 'Info', icon = 'navAbout', items = about,
         tip = 'Version, slash commands and help.' },
 }

@@ -1,9 +1,10 @@
 local addonName, EUI = ...
 
--- The settings window (/ffui config): a header with search, the page list on the left grouped as
--- EUI.Config.PAGES (config/options.lua), the chosen page's title over its controls in a scrolling
--- column that runs to the window's right edge, and a footer with the reload status. Options
--- marked reload are read when the frames are built; changing one lists it in the footer.
+-- The settings window (/ffui config), in the in-game look of the settings design: a navy panel
+-- with a silver sprig off two corners, a header with search, the page list on the left grouped as
+-- EUI.Config.PAGES (config/options.lua), the page's rows in a scrolling column that runs to the
+-- window's right edge, and a footer whose help line follows the hovered row. Options marked
+-- reload are read when the frames are built; changing one lists it in the footer status.
 
 local Config = EUI.Config
 local Widgets = EUI.Widgets
@@ -11,14 +12,19 @@ local Style = EUI.Style
 local Settings = EUI.Settings
 local C = Widgets.COLORS
 
-local WIDTH, HEIGHT = 1160, 800
-local HEADER, FOOTER, SIDEBAR = 56, 52, 232
--- Content inset from the page list, and the gap between the content and the scrollbar.
-local PAD, SCROLL_GAP = 32, 32
+local WIDTH, HEIGHT = 1000, 800
+local HEADER, FOOTER, SIDEBAR = 48, 44, 200
+-- Content inset from the page list (room for the row cursor), and the gap before the scrollbar.
+local PAD, SCROLL_GAP = 48, 32
 local CONTENT_WIDTH = WIDTH - SIDEBAR - PAD - SCROLL_GAP
-local ROW_HEIGHT = 46
-local SECTION_GAP = 22
+local ROW_HEIGHT = 30
+-- Controls start in one column after the page's longest label, at least this far in.
+local LABEL_WIDTH = 220
+local LABEL_GAP = 36
+local SECTION_GAP = 18
 local SCROLL_STEP = 60
+local SPRIG_SIZE, SPRIG_ORIGIN = 128, 24
+local SPRIG_TINT = '#B8C4D6FF'
 
 local window
 local pages = {}
@@ -27,6 +33,8 @@ local currentPage
 local searching = false
 -- The search results' scroll child.
 local results
+-- The row the hover bar and cursor are on, and its help line text.
+local hotRow
 
 -- Values of reload options when the frames were built, by path.
 local builtValues = {}
@@ -68,27 +76,22 @@ end
 
 local MAX_NAMED = 3
 
--- 'Reload to apply: Palette, Fonts', or the first MAX_NAMED and a count of the rest.
-local function summarize(prefix, labels)
+-- 'Palette, Fonts', or the first MAX_NAMED and a count of the rest.
+local function summarize(labels)
     if #labels <= MAX_NAMED then
-        return prefix .. table.concat(labels, ', ')
+        return table.concat(labels, ', ')
     end
     local named = {}
     for i = 1, MAX_NAMED do
         named[i] = labels[i]
     end
-    return string.format('%s%s and %d more', prefix, table.concat(named, ', '), #labels - MAX_NAMED)
+    return string.format('%s and %d more', table.concat(named, ', '), #labels - MAX_NAMED)
 end
 
 -- Labels of options changed in combat that wait for it to end, in change order.
 local combatLabels = {}
 
-local IDLE_STATUS = 'Changes save as you make them.'
--- Room for the footer status between the command chip and the buttons.
-local STATUS_WIDTH = 560
-
--- The footer: reload options changed since the frames were built (gold) over options waiting
--- for combat to end (red), else the idle line.
+-- The footer status: options waiting for a reload (gold) and for combat to end (red), else Saved.
 local function updateReloadBar()
     if not window then
         return
@@ -96,13 +99,15 @@ local function updateReloadBar()
     local labels = pendingLabels()
     window.reloadLabels = labels
     window.combatLabels = combatLabels
-    local reload, combat = #labels > 0, #combatLabels > 0
-    window.reloadText:SetText(reload and summarize('Reload to apply: ', labels) or '')
-    window.combatText:SetText(combat and summarize('Applies after combat: ', combatLabels) or '')
-    window.idleText:SetShown(not reload and not combat)
-    window.reloadText:SetPoint('LEFT', window.kbd, 'RIGHT', 12, combat and 8 or 0)
-    window.combatText:SetPoint('LEFT', window.kbd, 'RIGHT', 12, reload and -8 or 0)
-    window.reloadButton:SetVariant(reload and 'gold' or 'default')
+    local parts = {}
+    if #labels > 0 then
+        parts[#parts + 1] = '|cfff0ddb3Reload to apply \194\183 ' .. summarize(labels) .. '|r'
+    end
+    if #combatLabels > 0 then
+        parts[#parts + 1] = '|cffff7a7aAfter combat \194\183 ' .. summarize(combatLabels) .. '|r'
+    end
+    window.status:SetText(#parts > 0 and table.concat(parts, '    ') or 'Saved')
+    window.reloadButton:SetVariant(#labels > 0 and 'gold' or 'default')
     -- Every change passes here; the section and page resets follow it.
     local built = currentPage and pages[currentPage]
     for _, header in ipairs(built and built.headers or {}) do
@@ -131,7 +136,29 @@ function Config.OnCombatEnded()
     end
 end
 
+local function setHelp(text)
+    if window then
+        window.help:SetText(text or '')
+    end
+end
+
+-- Moves the hover bar and cursor to holder (a row from makeHot); its tip becomes the help line.
+local function setHot(holder)
+    if hotRow == holder then
+        return
+    end
+    if hotRow then
+        hotRow:SetHot(false)
+    end
+    hotRow = holder
+    if holder then
+        holder:SetHot(true)
+        setHelp(rawget(holder, 'tip'))
+    end
+end
+
 -- Control spec for one registry item; item fields as documented in config/options.lua.
+-- spec.row.holder is set once the row exists, so parts of the control can claim the hover.
 local function bind(item)
     local spec = {
         label = item.label,
@@ -139,7 +166,12 @@ local function bind(item)
         choices = item.choices,
         min = item.min, max = item.max, step = item.step, format = item.format, range = item.range,
         alpha = item.alpha,
+        row = {},
     }
+    spec.onHelp = function(text)
+        setHot(spec.row.holder)
+        setHelp(text)
+    end
     if item.path then
         spec.get = function()
             local value = Settings.Get(item.path)
@@ -193,7 +225,48 @@ local function itemIsDefault(item)
     return not path or same(Settings.Get(path), Settings.Default(path))
 end
 
--- A reset over items: { isDefault(), reset() }, or nil when none of them can reset.
+-- An item's value as its control shows it: the choice's name, On/Off, the slider's text, a hex.
+local function describe(item, value)
+    if item.kind == 'toggle' then
+        if item.invert then
+            value = not value
+        end
+        return value and 'On' or 'Off'
+    end
+    for _, choice in ipairs(item.choices or {}) do
+        if choice[1] == value then
+            return choice[2]
+        end
+    end
+    if item.kind == 'slider' and type(value) == 'number' then
+        if type(item.format) == 'function' then
+            return item.format(value)
+        end
+        return string.format(item.format or '%d', value)
+    end
+    if type(value) == 'string' and value:match('^#%x+$') then
+        return value:sub(2, 7)
+    end
+    return tostring(value)
+end
+
+local function currentValue(item)
+    if item.get then
+        return item.get()
+    end
+    return Settings.Get(itemPath(item))
+end
+
+local function defaultValue(item)
+    if item.defaultValue then
+        return item.defaultValue()
+    end
+    local path = itemPath(item)
+    return path and Settings.Default(path)
+end
+
+-- A reset over items: { isDefault(), reset(), changes() -> { { label, from, to }, ... } }, or nil
+-- when none of them can reset.
 local function resetFor(items)
     local resettable = {}
     for _, item in ipairs(items) do
@@ -225,6 +298,19 @@ local function resetFor(items)
             end
             Config.Refresh()
         end,
+        changes = function()
+            local changes = {}
+            for _, item in ipairs(resettable) do
+                if not itemIsDefault(item) then
+                    changes[#changes + 1] = {
+                        label = item.label or '',
+                        from = describe(item, currentValue(item)),
+                        to = describe(item, defaultValue(item)),
+                    }
+                end
+            end
+            return changes
+        end,
     }
 end
 
@@ -238,17 +324,73 @@ local function setEnabled(frame, on)
     end
 end
 
+-- Claims the hover for holder while the mouse is over it or any control inside it. Moving
+-- between holder and its controls leaves one and enters the other, so the row stays lit.
+local function hookHover(frame, holder)
+    if frame:IsMouseEnabled() then
+        frame:HookScript('OnEnter', function()
+            setHot(holder)
+        end)
+        frame:HookScript('OnLeave', function()
+            if hotRow == holder then
+                holder:SetHot(false)
+                hotRow = nil
+                setHelp('')
+            end
+        end)
+    end
+    for _, child in ipairs({ frame:GetChildren() }) do
+        hookHover(child, holder)
+    end
+end
+
+-- How far the cursor and the highlight start before their label, and how far the highlight fades
+-- out past the label's end.
+local CURSOR_LEAD, HOT_LEAD, HOT_TAIL = 14, 7, 24
+
+-- Gives holder a highlight sized to label (a font string labelLeft in from holder's left edge)
+-- and the hand cursor in the gutter; tip shows in the footer while it is hot. The highlight holds
+-- its tint over most of the label and fades out just past it. cursorLeft (default labelLeft): the
+-- left edge the cursor points at, for rows with art before the label.
+local function makeHot(holder, tip, label, labelLeft, cursorLeft)
+    holder.tip = tip
+    labelLeft = labelLeft or 0
+    local hover = Widgets.Accent().hover
+    local reach = HOT_LEAD + math.ceil(label:GetStringWidth())
+    local solid = Widgets.Solid(holder, 'BACKGROUND', hover, 2)
+    solid:SetPoint('TOPLEFT', labelLeft - HOT_LEAD, -3)
+    solid:SetPoint('BOTTOMLEFT', labelLeft - HOT_LEAD, 3)
+    solid:SetWidth(reach * 0.8)
+    local fade = Widgets.Solid(holder, 'BACKGROUND', '#FFFFFFFF', 2)
+    fade:SetPoint('TOPLEFT', solid, 'TOPRIGHT')
+    fade:SetPoint('BOTTOMLEFT', solid, 'BOTTOMRIGHT')
+    fade:SetWidth(reach * 0.2 + HOT_TAIL)
+    Widgets.Gradient(fade, 'HORIZONTAL', hover, hover:sub(1, 7) .. '00')
+    solid:Hide()
+    fade:Hide()
+    local cursor = Widgets.Cursor(holder)
+    cursor:SetPoint('RIGHT', holder, 'LEFT', (cursorLeft or labelLeft) - CURSOR_LEAD + 4, 0)
+    Widgets.ShowCursor(cursor, false)
+    function holder:SetHot(on)
+        solid:SetShown(on)
+        fade:SetShown(on)
+        Widgets.ShowCursor(cursor, on)
+    end
+    holder:EnableMouse(true)
+    hookHover(holder, holder)
+end
+
 ---------------------------------------------------------------------------------------------
 -- Rows
 
--- The in-game art an indicator draws, centred in a dark tile; pieces as EUI.Indicators.Samples,
--- plus fill (a colour block). Wide enough for the AFK and DND badges side by side.
+-- The in-game art an indicator draws, centred in a dark glass tile; pieces as
+-- EUI.Indicators.Samples, plus fill (a colour block). Wide enough for the AFK and DND badges.
 local ART_TILE_WIDTH, ART_GAP = 100, 6
 
 local function artTile(parent, pieces)
     local tile = CreateFrame('Frame', nil, parent)
-    tile:SetSize(ART_TILE_WIDTH, 34)
-    Widgets.Box(tile, 7, C.input, '#A0B9DC2E')
+    tile:SetSize(ART_TILE_WIDTH, 32)
+    Widgets.Well(tile, 7)
     local strip = CreateFrame('Frame', nil, tile)
     local x, height = 0, 0
     for i, piece in ipairs(pieces or {}) do
@@ -287,55 +429,45 @@ local function artTile(parent, pieces)
     return tile
 end
 
--- A settings row: optional art tile, label with the item's tip under it, the control on the
--- right. Grows past ROW_HEIGHT for wrapped tips. spec (optional): the control's spec; setting
--- through it refreshes the whole row.
+-- A settings row: optional art tile, the label, the control in the column after the labels.
+-- spec (optional): the control's spec; setting through it refreshes the whole row.
 local function row(parent, item, control, spec)
     local holder = CreateFrame('Frame', nil, parent)
+    local height = item.art and 38 or ROW_HEIGHT
+    holder:SetSize(CONTENT_WIDTH, height)
     local left = 0
-    local tile
     if item.art then
-        tile = artTile(holder, item.art())
+        local tile = artTile(holder, item.art())
+        tile:SetPoint('LEFT', 0, 0)
         left = ART_TILE_WIDTH + 16
     end
-    local textWidth = CONTENT_WIDTH - left - control:GetWidth() - 24
-    local label = Widgets.Text(holder, 13, C.text)
+    local label = Widgets.Text(holder, 14, C.text)
+    label:SetPoint('LEFT', left, 0)
     label:SetText(item.label or '')
-    local hint
-    if item.tip then
-        hint = Widgets.Text(holder, 12, C.dim)
-        hint:SetWidth(textWidth)
-        hint:SetWordWrap(true)
-        hint:SetSpacing(2)
-        hint:SetText(item.tip)
-    end
-    local textHeight = 17 + (hint and (hint:GetStringHeight() + 2) or 0)
-    local height = math.max(ROW_HEIGHT, math.ceil(textHeight) + 16, control:GetHeight() + 12)
-    holder:SetSize(CONTENT_WIDTH, height)
-    label:SetPoint('TOPLEFT', left, -math.floor((height - textHeight) / 2))
-    if hint then
-        hint:SetPoint('TOPLEFT', label, 'BOTTOMLEFT', 0, -2)
-    end
-    if tile then
-        tile:SetPoint('LEFT', 0, 0)
-    end
     control:SetParent(holder)
-    control:ClearAllPoints()
-    control:SetPoint('RIGHT', 0, 0)
-    local separator = Widgets.Solid(holder, 'BACKGROUND', C.lineFaint)
-    separator:SetHeight(1)
-    separator:SetPoint('BOTTOMLEFT')
-    separator:SetPoint('BOTTOMRIGHT')
+    -- Where the label ends and how wide the control is; buildPage picks the page's column.
+    holder.labelRight = left + math.ceil(label:GetStringWidth())
+    holder.controlWidth = control:GetWidth()
+    function holder:SetColumn(x)
+        control:ClearAllPoints()
+        control:SetPoint('LEFT', holder, 'LEFT', x, 0)
+    end
+    holder:SetColumn(LABEL_WIDTH)
+    makeHot(holder, item.tip, label, left, 0)
+    if spec then
+        spec.row.holder = holder
+    end
     function holder:Refresh()
         control:Refresh()
         local enabled = not item.enabled or item.enabled()
         setEnabled(control, enabled)
-        local alpha = enabled and 1 or 0.38
+        local alpha = enabled and 1 or 0.4
         -- Indicator rows dim while their indicator is off.
         if item.art and item.path and not Settings.Get(item.path) then
             alpha = 0.6
         end
-        self:SetAlpha(alpha)
+        label:SetAlpha(alpha)
+        control:SetAlpha(alpha)
     end
     if spec then
         local set = spec.set
@@ -344,27 +476,26 @@ local function row(parent, item, control, spec)
             holder:Refresh()
         end
     end
-    return holder, 0, separator
+    return holder
 end
 
 -- Column titles over the scale table.
-local SCALE_SLIDER_WIDTH, SCALE_FINAL_WIDTH = 318, 64
+local SCALE_LABEL, SCALE_SLIDER, SCALE_FINAL = 220, 290, 70
 
 local function scaleColumns(parent)
     local holder = CreateFrame('Frame', nil, parent)
-    holder:SetSize(CONTENT_WIDTH, 26)
-    local function column(text, x, right)
-        local label = Widgets.Text(holder, 11, C.dim, 'semibold')
-        label:SetText(Widgets.Caps(text))
-        if right then
-            label:SetPoint('BOTTOMRIGHT', 0, 6)
-        else
-            label:SetPoint('BOTTOMLEFT', x, 6)
+    holder:SetSize(CONTENT_WIDTH, 22)
+    local function column(text, x, width)
+        local label = Widgets.Text(holder, 10, C.faint, 'display')
+        label:SetText(text)
+        label:SetPoint('BOTTOMLEFT', x, 4)
+        if width then
+            label:SetWidth(width)
+            label:SetJustifyH('RIGHT')
         end
     end
-    column('Frame', 0)
-    column('Own scale', CONTENT_WIDTH - SCALE_FINAL_WIDTH - 14 - SCALE_SLIDER_WIDTH)
-    column('Final', 0, true)
+    column('OWN', SCALE_LABEL)
+    column('FINAL', SCALE_LABEL + SCALE_SLIDER + 14, SCALE_FINAL)
     function holder:Refresh() end
     return holder
 end
@@ -372,50 +503,40 @@ end
 -- A scale table row: name, slider and value, then the final scale.
 local function scaleRow(parent, item)
     local holder = CreateFrame('Frame', nil, parent)
-    holder:SetSize(CONTENT_WIDTH, 40)
-    local line = Widgets.Solid(holder, 'BACKGROUND', C.lineFaint)
-    line:SetHeight(1)
-    line:SetPoint('TOPLEFT')
-    line:SetPoint('TOPRIGHT')
-    local label = Widgets.Text(holder, 13, C.text)
+    holder:SetSize(CONTENT_WIDTH, ROW_HEIGHT)
+    local label = Widgets.Text(holder, 14, C.text)
     label:SetPoint('LEFT', 0, 0)
     label:SetText(item.label)
-    local hit = CreateFrame('Frame', nil, holder)
-    hit:SetAllPoints(label)
-    hit:EnableMouse(true)
-    Widgets.SetTooltip(hit, item.label, item.tip)
     local spec = bind(item)
-    spec.width = SCALE_SLIDER_WIDTH
+    spec.width = SCALE_SLIDER
     local slider = Widgets.Slider(holder, spec)
-    slider:SetPoint('RIGHT', -(SCALE_FINAL_WIDTH + 14), 0)
-    local final = Widgets.Text(holder, 12, C.dim)
-    final:SetPoint('RIGHT', 0, 0)
-    final:SetWidth(SCALE_FINAL_WIDTH)
+    slider:SetPoint('LEFT', SCALE_LABEL, 0)
+    local final = Widgets.Text(holder, 14, C.dim)
+    final:SetPoint('LEFT', SCALE_LABEL + SCALE_SLIDER + 14, 0)
+    final:SetWidth(SCALE_FINAL)
     final:SetJustifyH('RIGHT')
+    makeHot(holder, item.tip, label, 0)
+    spec.row.holder = holder
     function holder:Refresh()
         slider:Refresh()
         local value = item.final()
         final:SetText(string.format('%.2f\195\151', value))
-        final:SetTextColor(Style.Color(math.abs(value - 1) < 0.001 and C.dim or C.accentPale))
+        final:SetTextColor(Style.Color(math.abs(value - 1) < 0.001 and C.dim or Widgets.Accent().text))
         local enabled = not item.enabled or item.enabled()
         setEnabled(slider, enabled)
-        self:SetAlpha(enabled and 1 or 0.38)
+        label:SetAlpha(enabled and 1 or 0.4)
+        slider:SetAlpha(enabled and 1 or 0.4)
     end
     return holder
 end
 
--- A font row: name, a sample in the chosen font, and the font list.
+-- A font row: name, a sample in the chosen font inside a dark glass frame, and the font list.
 local function fontRow(parent, item)
     local holder = CreateFrame('Frame', nil, parent)
-    holder:SetSize(CONTENT_WIDTH, 58)
-    local label = Widgets.Text(holder, 13, C.text)
+    holder:SetSize(CONTENT_WIDTH, 40)
+    local label = Widgets.Text(holder, 14, C.text)
     label:SetPoint('LEFT', 0, 0)
     label:SetText(item.label)
-    local hit = CreateFrame('Frame', nil, holder)
-    hit:SetPoint('LEFT')
-    hit:SetSize(150, 40)
-    hit:EnableMouse(true)
-    Widgets.SetTooltip(hit, item.label, item.tip)
     local spec = bind(item)
     spec.fontPreview = true
     -- A pick redraws the sample too, not only the dropdown.
@@ -427,41 +548,43 @@ local function fontRow(parent, item)
     local dropdown = Widgets.Dropdown(holder, spec)
     dropdown:SetPoint('RIGHT', 0, 0)
     local sample = CreateFrame('Frame', nil, holder)
-    sample:SetPoint('LEFT', 168, 0)
+    sample:SetPoint('LEFT', 150, 0)
     sample:SetPoint('RIGHT', dropdown, 'LEFT', -18, 0)
-    sample:SetHeight(36)
-    Widgets.Box(sample, 7, C.deep, '#A0B9DC1A')
+    sample:SetHeight(30)
+    Widgets.Well(sample, 8)
     local text = sample:CreateFontString(nil, 'OVERLAY')
-    text:SetPoint('LEFT', 12, 0)
-    text:SetPoint('RIGHT', -12, 0)
+    text:SetPoint('LEFT', 14, 0)
+    text:SetPoint('RIGHT', -14, 0)
     text:SetJustifyH('LEFT')
     text:SetWordWrap(false)
-    local separator = Widgets.Solid(holder, 'BACKGROUND', C.lineFaint)
-    separator:SetHeight(1)
-    separator:SetPoint('BOTTOMLEFT')
-    separator:SetPoint('BOTTOMRIGHT')
+    makeHot(holder, item.tip, label, 0)
+    spec.row.holder = holder
     function holder:Refresh()
         dropdown:Refresh()
-        Style.SetFont(text, spec.get(), 15, 'OUTLINE')
+        Style.SetFont(text, spec.get(), 16, 'OUTLINE')
+        text:SetTextColor(Style.Color(C.bright))
         text:SetText(item.preview)
     end
-    return holder, 0, separator
+    return holder
 end
 
--- Colour cells two to a row.
-local COLOR_COLUMNS, COLOR_GAP = 2, 24
+-- Colour cells two to a row, each a brush stroke of its colour.
+local COLOR_COLUMNS, COLOR_GAP = 2, 40
 
 local function colorGrid(parent, items)
     local holder = CreateFrame('Frame', nil, parent)
     local cellWidth = (CONTENT_WIDTH - COLOR_GAP * (COLOR_COLUMNS - 1)) / COLOR_COLUMNS
     local cells = {}
     for i, item in ipairs(items) do
-        local cell = Widgets.Color(holder, cellWidth, bind(item))
+        local spec = bind(item)
+        local cell = Widgets.Color(holder, cellWidth, spec, i)
         local column, line = (i - 1) % COLOR_COLUMNS, math.floor((i - 1) / COLOR_COLUMNS)
-        cell:SetPoint('TOPLEFT', column * (cellWidth + COLOR_GAP), -line * 44)
+        cell:SetPoint('TOPLEFT', column * (cellWidth + COLOR_GAP), -line * 32)
+        makeHot(cell, item.tip, rawget(cell, 'labelText'), 104)
+        spec.row.holder = cell
         cells[#cells + 1] = cell
     end
-    holder:SetSize(CONTENT_WIDTH, math.ceil(#items / COLOR_COLUMNS) * 44)
+    holder:SetSize(CONTENT_WIDTH, math.ceil(#items / COLOR_COLUMNS) * 32)
     function holder:Refresh()
         for _, cell in ipairs(cells) do
             cell:Refresh()
@@ -470,8 +593,10 @@ local function colorGrid(parent, items)
     return holder
 end
 
--- The swatches a palette card shows, as palette keys.
+-- The swatches a palette card shows, as palette keys, and their stroke lengths and offsets.
 local CARD_KEYS = { 'hp', 'cast', 'powerColors.0', 'name', 'combo' }
+local CARD_LENGTHS = { 196, 176, 188, 168, 182 }
+local CARD_OFFSETS = { 0, 8, 3, 12, 5 }
 
 local function paletteColor(name, key)
     local saved = Settings.Get(string.format('colors.%s.%s', name, key))
@@ -485,62 +610,78 @@ local function paletteColor(name, key)
     return value or '#FFFFFFFF'
 end
 
--- One card per palette: its colours as a strip, its name, and whether it is in use.
+-- One glass card per palette: its colours as a vertical stack of brush strokes, its name and
+-- whether it is in use.
+local CARD_WIDTH, CARD_HEIGHT, CARD_GAP = 240, 156, 22
+
 local function paletteCards(parent, item)
     local holder = CreateFrame('Frame', nil, parent)
     local spec = bind(item)
-    local count = #item.choices
-    local columns = math.min(3, count)
-    local gap = 12
-    local cardWidth = (CONTENT_WIDTH - gap * (columns - 1)) / columns
     local cards = {}
+    local A = Widgets.Accent()
     for i, choice in ipairs(item.choices) do
         local card = CreateFrame('Button', nil, holder)
-        card:SetSize(cardWidth, 70)
-        card:SetPoint('TOPLEFT', ((i - 1) % columns) * (cardWidth + gap), -math.floor((i - 1) / columns) * (70 + gap))
-        card.box = Widgets.Box(card, 10)
+        card:SetSize(CARD_WIDTH, CARD_HEIGHT)
+        card:SetPoint('TOPLEFT', (i - 1) * (CARD_WIDTH + CARD_GAP), -4)
+        local fill = Widgets.Rounded(card, 'BACKGROUND', 10)
+        fill:SetAllPoints()
+        Widgets.Gradient(fill, 'VERTICAL', '#0A142D66', '#3A5A9026')
+        local lit = Widgets.Rounded(card, 'BACKGROUND', 10, A.accent:sub(1, 7) .. '22', false, 1)
+        lit:SetAllPoints()
+        lit:SetBlendMode('ADD')
+        local rim = Widgets.Rounded(card, 'BORDER', 10, nil, true)
+        rim:SetAllPoints()
         local strip = {}
-        local swatchWidth = (cardWidth - 24 - 4 * (#CARD_KEYS - 1)) / #CARD_KEYS
         for k, key in ipairs(CARD_KEYS) do
-            local swatch = Widgets.Rounded(card, 'ARTWORK', 3, paletteColor(choice[1], key))
-            swatch:SetSize(swatchWidth, 18)
-            swatch:SetPoint('TOPLEFT', 12 + (k - 1) * (swatchWidth + 4), -12)
-            strip[k] = swatch
+            local stroke = Widgets.Brush(card, k + i, CARD_LENGTHS[k], 24, paletteColor(choice[1], key))
+            stroke:SetPoint('TOPLEFT', 16 + CARD_OFFSETS[k], -12 - (k - 1) * 20)
+            strip[k] = stroke
         end
-        local name = Widgets.Text(card, 12, C.text, 'medium')
-        name:SetPoint('BOTTOMLEFT', 12, 12)
+        local name = Widgets.Text(card, 15, C.title, 'display')
+        name:SetPoint('BOTTOMLEFT', 16, 12)
         name:SetText(choice[2])
-        card.note = Widgets.Text(card, 11, C.dim)
-        card.note:SetPoint('BOTTOMRIGHT', -12, 12)
-        card.value, card.strip, card.hovered = choice[1], strip, false
-        card:SetScript('OnEnter', function(self)
-            self.hovered = true
+        local note = Widgets.Text(card, 13, C.dim)
+        note:SetPoint('BOTTOMRIGHT', -16, 13)
+        local cursor = Widgets.Cursor(card)
+        cursor:SetPoint('RIGHT', card, 'LEFT', 4, 26)
+        cards[#cards + 1] = { button = card, value = choice[1], strip = strip, rim = rim, lit = lit, note = note,
+            cursor = cursor, hovered = false }
+        local entry = cards[#cards]
+        card:SetScript('OnEnter', function()
+            entry.hovered = true
             holder:Refresh()
+            setHot(nil)
+            setHelp(choice[3] or item.tip)
         end)
-        card:SetScript('OnLeave', function(self)
-            self.hovered = false
+        card:SetScript('OnLeave', function()
+            entry.hovered = false
             holder:Refresh()
+            setHelp('')
         end)
         card:SetScript('OnClick', EUI.Guard('config palette', function()
+            if spec.get() ~= choice[1] then
+                Widgets.Sound('IG_MAINMENU_OPTION')
+            end
             spec.set(choice[1])
             holder:Refresh()
         end))
-        Widgets.SetTooltip(card, choice[2], choice[3] or item.tip)
-        cards[#cards + 1] = card
     end
-    holder:SetSize(CONTENT_WIDTH, math.ceil(count / columns) * (70 + gap) - gap + 10)
+    holder:SetSize(CONTENT_WIDTH, CARD_HEIGHT + 12)
     function holder:Refresh()
         local chosen = spec.get()
         local built = Config.style and Config.style.palette
         for _, card in ipairs(cards) do
             local on = card.value == chosen
-            card.box:SetColors('#0A11208C', (on and '#6FD3E8B3') or (card.hovered and '#A0B9DC66') or '#A0B9DC29')
+            card.rim:SetVertexColor(Style.Color((on and A.rimHot) or (card.hovered and '#AAD7FF80') or '#AAD7FF40'))
+            card.lit:SetShown(on)
+            Widgets.ShowCursor(card.cursor, on)
             if card.value == built then
-                card.note:SetText(on and 'In use' or 'In use until reload')
+                card.note:SetText(on and 'Active' or 'Until Reload')
+                card.note:SetTextColor(Style.Color(A.text))
             else
-                card.note:SetText(on and 'After reload' or '')
+                card.note:SetText(on and 'After Reload' or '')
+                card.note:SetTextColor(Style.Color(C.goldText))
             end
-            card.note:SetTextColor(Style.Color(card.value == built and C.dim or C.goldText))
             for k, key in ipairs(CARD_KEYS) do
                 card.strip[k]:SetVertexColor(Style.Color(paletteColor(card.value, key)))
             end
@@ -549,13 +690,11 @@ local function paletteCards(parent, item)
     return holder
 end
 
--- A row of buttons, labelled as any row.
+-- A row of glass buttons in the control column.
 local function buttonRow(parent, item)
     local group = CreateFrame('Frame', nil, parent)
-    -- Right to left: the last button sits at the right edge.
     local buttons, labelFns = {}, {}
-    for i = #item.buttons, 1, -1 do
-        local def = item.buttons[i]
+    for _, def in ipairs(item.buttons) do
         local button = Widgets.Button(group, def.label, function(self)
             def.run(self)
             updateReloadBar()
@@ -573,17 +712,17 @@ local function buttonRow(parent, item)
                 button:SetLabel(labelFns[i]())
             end
             button:ClearAllPoints()
-            button:SetPoint('RIGHT', group, 'RIGHT', -x, 0)
-            x = x + button:GetWidth() + 8
+            button:SetPoint('LEFT', group, 'LEFT', x, 0)
+            x = x + button:GetWidth() + 10
         end
-        group:SetSize(math.max(1, x - 8), 34)
+        group:SetSize(math.max(1, x - 10), 30)
     end
     group:Refresh()
     return row(parent, item, group)
 end
 
 ---------------------------------------------------------------------------------------------
--- Support & About
+-- About
 
 local function addonMetadata(field)
     local get = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
@@ -592,108 +731,96 @@ end
 
 local function hero(parent)
     local holder = CreateFrame('Frame', nil, parent)
-    holder:SetSize(CONTENT_WIDTH, 132)
-    local tile = holder:CreateTexture(nil, 'ARTWORK')
-    tile:SetTexture(string.format('Interface\\AddOns\\%s\\Media\\AddonIcon', addonName))
-    tile:SetSize(84, 84)
-    tile:SetPoint('TOPLEFT', 0, -4)
-    local kicker = Widgets.Text(holder, 11, C.accentText, 'semibold')
-    kicker:SetPoint('TOPLEFT', tile, 'TOPRIGHT', 24, -2)
-    kicker:SetText(Widgets.Caps('Addon'))
-    local title = Widgets.Text(holder, 30, C.bright, 'display')
-    title:SetPoint('TOPLEFT', kicker, 'BOTTOMLEFT', 0, -6)
+    holder:SetSize(CONTENT_WIDTH, 84)
+    local icon = holder:CreateTexture(nil, 'ARTWORK')
+    icon:SetTexture(string.format('Interface\\AddOns\\%s\\Media\\AddonIcon', addonName))
+    icon:SetSize(72, 72)
+    icon:SetPoint('LEFT', 0, 0)
+    local title = Widgets.Text(holder, 28, C.title, 'display')
+    title:SetPoint('BOTTOMLEFT', icon, 'RIGHT', 18, 2)
     title:SetText(addonName)
-    local notes = Widgets.Text(holder, 13, C.body)
-    notes:SetPoint('TOPLEFT', title, 'BOTTOMLEFT', 0, -6)
-    notes:SetText(addonMetadata('Notes') or '')
-    local chips = {}
+    local parts = {}
     local version = addonMetadata('Version')
     if version then
-        chips[#chips + 1] = 'Version ' .. version
+        parts[#parts + 1] = 'Ver. ' .. version
     end
     if GetBuildInfo then
-        chips[#chips + 1] = 'Game ' .. tostring((GetBuildInfo()))
+        parts[#parts + 1] = 'Client ' .. tostring((GetBuildInfo()))
     end
-    local previous
-    for _, text in ipairs(chips) do
-        local chip = Widgets.Kbd(holder, text)
-        if previous then
-            chip:SetPoint('LEFT', previous, 'RIGHT', 8, 0)
-        else
-            chip:SetPoint('TOPLEFT', notes, 'BOTTOMLEFT', 0, -12)
-        end
-        previous = chip
-    end
-    local line = Widgets.Solid(holder, 'BACKGROUND', '#A0B9DC1A')
-    line:SetHeight(1)
-    line:SetPoint('BOTTOMLEFT')
-    line:SetPoint('BOTTOMRIGHT')
+    local line = Widgets.Text(holder, 14, '#A9B6CBFF')
+    line:SetPoint('TOPLEFT', icon, 'RIGHT', 18, -4)
+    line:SetText(table.concat(parts, ' \194\183 '))
+    local rule = Widgets.FadeLine(holder, '#96B4E18C', 'end')
+    rule:SetPoint('LEFT', title, 'RIGHT', 18, 0)
+    rule:SetPoint('RIGHT', holder, 'RIGHT', 0, 0)
     function holder:Refresh() end
     return holder
 end
 
 local function command(parent, item)
     local holder = CreateFrame('Frame', nil, parent)
-    local text = Widgets.Text(holder, 13, C.body)
-    text:SetWidth(CONTENT_WIDTH - 164)
+    holder:SetSize(CONTENT_WIDTH, ROW_HEIGHT)
+    -- Both start on the first line's centre; long text wraps and grows the row.
+    local lineTop = -(ROW_HEIGHT - 14) / 2
+    local cmd = Widgets.Text(holder, 14, Widgets.Accent().text, 'semibold')
+    cmd:SetPoint('TOPLEFT', 0, lineTop)
+    cmd:SetText(item.command)
+    local text = Widgets.Text(holder, 14, C.body)
+    text:SetPoint('TOPLEFT', 200, lineTop)
+    text:SetWidth(CONTENT_WIDTH - 200)
+    text:SetJustifyH('LEFT')
     text:SetWordWrap(true)
+    text:SetSpacing(3)
     text:SetText(item.text)
-    local height = math.max(40, math.ceil(text:GetStringHeight()) + 18)
-    holder:SetSize(CONTENT_WIDTH, height)
-    local kbd = Widgets.Kbd(holder, item.command)
-    kbd:SetPoint('LEFT', 0, 0)
-    text:SetPoint('LEFT', 164, 0)
-    local separator = Widgets.Solid(holder, 'BACKGROUND', C.lineFaint)
-    separator:SetHeight(1)
-    separator:SetPoint('BOTTOMLEFT')
-    separator:SetPoint('BOTTOMRIGHT')
+    holder:SetHeight(math.max(ROW_HEIGHT, math.ceil(text:GetStringHeight()) - 2 * lineTop))
+    makeHot(holder, 'Type it in chat.', cmd, 0)
     function holder:Refresh() end
-    return holder, 0, separator
+    return holder
 end
 
--- A question that opens to its answer; relayout() restacks the page.
+-- A question that opens to its answer on a diamond marker; relayout() restacks the page.
 local function faq(parent, item, relayout)
     local holder = CreateFrame('Frame', nil, parent)
+    local A = Widgets.Accent()
     local button = CreateFrame('Button', nil, holder)
     button:SetPoint('TOPLEFT')
     button:SetPoint('TOPRIGHT')
-    button:SetHeight(44)
-    local box = Widgets.Box(holder, 10, '#0A11208C', '#A0B9DC24')
-    local label = Widgets.Text(button, 13, C.text)
-    label:SetPoint('LEFT', 16, 0)
+    button:SetHeight(ROW_HEIGHT)
+    local marker = Widgets.Pip(button, 11, '#6C7A91FF', false)
+    marker:SetPoint('LEFT', 0, 0)
+    local label = Widgets.Text(button, 14, C.text)
+    label:SetPoint('LEFT', 22, 0)
     label:SetText(item.label)
-    local chevron = Widgets.Icon(button, 'chevron', 14, C.body)
-    chevron:SetPoint('RIGHT', -14, 0)
-    local answer = Widgets.Text(holder, 13, C.body)
-    answer:SetPoint('TOPLEFT', 16, -44)
-    answer:SetWidth(CONTENT_WIDTH - 32)
+    local answer = Widgets.Text(holder, 14, '#A9B6CBFF')
+    answer:SetPoint('TOPLEFT', 22, -ROW_HEIGHT)
+    answer:SetWidth(620)
     answer:SetWordWrap(true)
     answer:SetSpacing(3)
     answer:SetText(item.text)
     local open = false
     local function layout()
         answer:SetShown(open)
-        chevron:SetRotation(open and 0 or math.pi / 2)
-        holder:SetSize(CONTENT_WIDTH, open and (44 + math.ceil(answer:GetStringHeight()) + 14) or 44)
+        marker:SetVertexColor(Style.Color(open and A.accent or '#6C7A91FF'))
+        holder:SetSize(CONTENT_WIDTH, open and (ROW_HEIGHT + math.ceil(answer:GetStringHeight()) + 10) or ROW_HEIGHT)
+        holder.tip = open and 'Click to close.' or 'Click to open.'
     end
-    button:SetScript('OnEnter', function() label:SetTextColor(Style.Color(C.bright)) end)
-    button:SetScript('OnLeave', function() label:SetTextColor(Style.Color(C.text)) end)
     button:SetScript('OnClick', EUI.Guard('config faq', function()
         open = not open
+        Widgets.Sound('IG_MAINMENU_OPTION')
         layout()
-        box:SetColors('#0A11208C', open and '#A0B9DC38' or '#A0B9DC24')
+        setHelp(holder.tip)
         relayout()
     end))
     layout()
+    makeHot(holder, holder.tip, label, 22)
     function holder:Refresh() end
-    return holder, 8
+    return holder
 end
 
 ---------------------------------------------------------------------------------------------
 -- Pages
 
--- Each builder returns the control, the gap above it (default 0) and the separator line under
--- it, if it has one.
+-- Each builder returns the control and the gap above it (default 0).
 local BUILDERS = {
     header = function(parent, item, section)
         return Widgets.Header(parent, CONTENT_WIDTH, item.label, resetFor(section))
@@ -706,12 +833,11 @@ local BUILDERS = {
         return row(parent, item, Widgets.Toggle(parent, spec), spec)
     end,
     choice = function(parent, item)
-        if item.style == 'tabs' then
-            return Widgets.Tabs(parent, CONTENT_WIDTH, bind(item)), 4
-        elseif item.style == 'font' then
+        if item.style == 'font' then
             return fontRow(parent, item)
         end
-        return row(parent, item, Widgets.Segmented(parent, bind(item)))
+        local spec = bind(item)
+        return row(parent, item, Widgets.Rail(parent, spec), spec)
     end,
     slider = function(parent, item)
         if item.final then
@@ -720,7 +846,7 @@ local BUILDERS = {
         local spec = bind(item)
         spec.width = item.width
         spec.valueColor = item.emphasis and C.bright or nil
-        return row(parent, item, Widgets.Slider(parent, spec))
+        return row(parent, item, Widgets.Slider(parent, spec), spec)
     end,
     buttons = buttonRow,
     palettes = paletteCards,
@@ -729,9 +855,9 @@ local BUILDERS = {
     faq = faq,
 }
 
--- Stacks a page's entries: sections apart, rows flush, a separator between consecutive rows.
+-- Stacks a page's entries: rows flush, sections apart.
 local function layoutPage(built)
-    local y = 20
+    local y = 18 + 40
     for i, entry in ipairs(built.entries) do
         if i > 1 then
             y = y + (entry.header and SECTION_GAP or entry.gap)
@@ -739,19 +865,22 @@ local function layoutPage(built)
         entry.control:ClearAllPoints()
         entry.control:SetPoint('TOPLEFT', PAD, -y)
         entry.top = y
-        y = y + entry.control:GetHeight() + (entry.header and 4 or 0)
-        if entry.separator then
-            local nextEntry = built.entries[i + 1]
-            entry.separator:SetShown(nextEntry ~= nil and nextEntry.separator ~= nil)
-        end
+        y = y + entry.control:GetHeight() + (entry.header and 2 or 0)
     end
-    built.frame:SetHeight(y + 28)
+    built.frame:SetHeight(y + 24)
 end
 
 local function buildPage(page)
     local child = CreateFrame('Frame', nil, window.scroll)
     child:SetWidth(WIDTH - SIDEBAR - 2)
-    -- entries: { control, gap, separator, header, first, last (item indexes), top }.
+    -- The page title on a rule fading right.
+    local title = Widgets.Text(child, 22, C.title, 'display')
+    title:SetPoint('TOPLEFT', PAD, -18)
+    title:SetText(page.label)
+    local rule = Widgets.FadeLine(child, '#96B4E18C', 'end')
+    rule:SetPoint('LEFT', title, 'RIGHT', 14, 0)
+    rule:SetPoint('RIGHT', child, 'LEFT', PAD + CONTENT_WIDTH, 0)
+    -- entries: { control, gap, header, first, last (item indexes), top }.
     local built = { frame = child, controls = {}, headers = {}, entries = {} }
     local items = page.items
     if type(items) == 'function' then
@@ -761,10 +890,8 @@ local function buildPage(page)
     local function relayout()
         layoutPage(built)
     end
-    local function add(control, first, last, gap, separator, header)
-        built.entries[#built.entries + 1] = {
-            control = control, first = first, last = last, gap = gap or 0, separator = separator, header = header,
-        }
+    local function add(control, first, last, gap, header)
+        built.entries[#built.entries + 1] = { control = control, first = first, last = last, gap = gap or 0, header = header }
         built.controls[#built.controls + 1] = control
         if header then
             built.headers[#built.headers + 1] = control
@@ -794,14 +921,28 @@ local function buildPage(page)
                     end
                     section[#section + 1] = items[j]
                 end
-                add(build(child, item, section), i, i, 0, nil, true)
+                add(build(child, item, section), i, i, 0, true)
             elseif build then
-                local control, gap, separator = build(child, item, relayout)
-                add(control, i, i, gap, separator)
+                local control, gap = build(child, item, relayout)
+                add(control, i, i, gap)
             else
                 EUI.LogOnce('config:kind:' .. tostring(item.kind), 'config: unknown item kind %s', tostring(item.kind))
             end
             i = i + 1
+        end
+    end
+    -- One control column per page: past the longest label, but never pushing a control off the edge.
+    local labelRight, controlWidth = 0, 0
+    for _, entry in ipairs(built.entries) do
+        if rawget(entry.control, 'SetColumn') then
+            labelRight = math.max(labelRight, entry.control.labelRight)
+            controlWidth = math.max(controlWidth, entry.control.controlWidth)
+        end
+    end
+    local column = math.min(math.max(LABEL_WIDTH, labelRight + LABEL_GAP), CONTENT_WIDTH - controlWidth)
+    for _, entry in ipairs(built.entries) do
+        if rawget(entry.control, 'SetColumn') then
+            entry.control:SetColumn(column)
         end
     end
     built.reset = resetFor(items)
@@ -833,18 +974,6 @@ local function scrollTo(offset)
     updateScrollbar()
 end
 
--- The fixed title area over the scrolling column.
-local function setPageHeader(kicker, title, description, reloadNote)
-    local header = window.pageHeader
-    header.kicker:SetText(Widgets.Caps(kicker))
-    header.title:SetText(title)
-    header.description:SetText(description or '')
-    local height = 24 + 16 + 4 + 32 + 6 + math.ceil(header.description:GetStringHeight()) + 18
-    header:SetHeight(height)
-    window.scroll:SetPoint('TOPLEFT', window, 'TOPLEFT', SIDEBAR + 1, -(HEADER + height))
-    header.chip:SetShown(reloadNote and true or false)
-end
-
 local function pageByKey(key)
     for _, page in ipairs(Config.PAGES) do
         if page.key == key then
@@ -853,11 +982,21 @@ local function pageByKey(key)
     end
 end
 
-local function showPage(key)
+-- Fades a freshly shown page in over 80ms.
+local function fadeIn(frame)
+    window.fadeTarget, window.fadeTime = frame, 0
+    frame:SetAlpha(0)
+    window.fader:Show()
+end
+
+-- fade: fade the page in (a switch from the page list). Any fade still running stops first, so a
+-- page is never left part-faded by a close or a second switch.
+local function showPage(key, fade)
     Widgets.CloseMenus()
     if results then
         results:Hide()
     end
+    window.fader:Hide()
     for _, page in ipairs(Config.PAGES) do
         local built = pages[page.key]
         if page.key == key then
@@ -870,7 +1009,12 @@ local function showPage(key)
             for _, control in ipairs(built.controls) do
                 control:Refresh()
             end
-            setPageHeader(page.group, page.label, page.tip, page.reloadNote)
+            setHot(nil)
+            setHelp('')
+            built.frame:SetAlpha(1)
+            if fade then
+                fadeIn(built.frame)
+            end
         elseif built then
             built.frame:Hide()
         end
@@ -937,7 +1081,7 @@ local function searchMatches(query)
     return matches
 end
 
-local RESULT_HEIGHT = 50
+local RESULT_HEIGHT = 44
 local openResult
 
 local function resultRow(index)
@@ -947,18 +1091,31 @@ local function resultRow(index)
     end
     button = CreateFrame('Button', nil, results)
     button:SetSize(CONTENT_WIDTH, RESULT_HEIGHT)
-    button.box = Widgets.Box(button, 8)
-    button.label = Widgets.Text(button, 13, C.text)
-    button.label:SetPoint('TOPLEFT', 12, -9)
-    button.crumb = Widgets.Text(button, 12, C.dim)
-    button.crumb:SetPoint('TOPLEFT', button.label, 'BOTTOMLEFT', 0, -3)
-    local arrow = Widgets.Icon(button, 'chevron', 14, C.body)
-    arrow:SetRotation(math.pi / 2)
-    arrow:SetPoint('RIGHT', -12, 0)
-    button:SetScript('OnEnter', function(self) self.box:SetColors('#A0B9DC12', '#A0B9DC29') end)
-    button:SetScript('OnLeave', function(self) self.box:SetColors(nil, nil) end)
+    local bar = Widgets.HoverBar(button)
+    bar:SetPoint('TOPLEFT', -14, -4)
+    bar:SetPoint('BOTTOMLEFT', -14, 4)
+    bar:SetWidth(420)
+    bar:Hide()
+    local cursor = Widgets.Cursor(button)
+    cursor:SetPoint('RIGHT', button, 'LEFT', -10, 0)
+    Widgets.ShowCursor(cursor, false)
+    button.label = Widgets.Text(button, 14, C.text)
+    button.label:SetPoint('TOPLEFT', 0, -6)
+    button.crumb = Widgets.Text(button, 13, C.dim)
+    button.crumb:SetPoint('TOPLEFT', button.label, 'BOTTOMLEFT', 0, -4)
+    button:SetScript('OnEnter', function(self)
+        bar:Show()
+        Widgets.ShowCursor(cursor, true)
+        local match = rawget(self, 'match')
+        setHelp(match and ('Opens ' .. match.crumb .. '.') or '')
+    end)
+    button:SetScript('OnLeave', function()
+        bar:Hide()
+        Widgets.ShowCursor(cursor, false)
+        setHelp('')
+    end)
     button:SetScript('OnClick', EUI.Guard('config search result', function(self)
-        openResult(self.match)
+        openResult(rawget(self, 'match'))
     end))
     results.rows[index] = button
     return button
@@ -969,34 +1126,35 @@ local function showResults(query)
         results = CreateFrame('Frame', nil, window.scroll)
         results:SetWidth(WIDTH - SIDEBAR - 2)
         results.rows = {}
-        results.empty = Widgets.Text(results, 13, C.dim)
-        results.empty:SetPoint('TOPLEFT', PAD, -24)
+        results.title = Widgets.Text(results, 22, C.title, 'display')
+        results.title:SetPoint('TOPLEFT', PAD, -18)
+        results.title:SetText('Search')
+        results.count = Widgets.Text(results, 14, C.dim)
+        results.count:SetPoint('LEFT', results.title, 'RIGHT', 16, -2)
     end
     for _, built in pairs(pages) do
         built.frame:Hide()
     end
+    setHot(nil)
     local matches = searchMatches(query)
     for i, match in ipairs(matches) do
         local button = resultRow(i)
         button.match = match
         button.label:SetText(match.label)
         button.crumb:SetText(match.crumb)
-        button.box:SetColors(nil, nil)
         button:ClearAllPoints()
-        button:SetPoint('TOPLEFT', PAD - 12, -(16 + (i - 1) * (RESULT_HEIGHT + 2)))
-        button:SetWidth(CONTENT_WIDTH + 24)
+        button:SetPoint('TOPLEFT', PAD, -(66 + (i - 1) * (RESULT_HEIGHT + 2)))
         button:Show()
     end
     for i = #matches + 1, #results.rows do
         results.rows[i]:Hide()
     end
-    results.empty:SetShown(#matches == 0)
-    results.empty:SetText(string.format('No settings match \226\128\156%s\226\128\157.', query))
-    results:SetHeight(32 + #matches * (RESULT_HEIGHT + 2))
+    results.count:SetText(#matches == 0 and string.format('Nothing matches \226\128\156%s\226\128\157.', query)
+        or (#matches == 1 and '1 setting' or string.format('%d settings', #matches)))
+    results:SetHeight(84 + #matches * (RESULT_HEIGHT + 2))
     window.scroll:SetScrollChild(results)
     results:Show()
-    setPageHeader('Search', 'Results', #matches == 1 and '1 setting matches.'
-        or string.format('%d settings match.', #matches))
+    setHelp('')
     for _, button in pairs(navButtons) do
         button:SetCurrent(false)
     end
@@ -1024,11 +1182,15 @@ openResult = function(match)
     window.search:SetText('')
     window.search:ClearFocus()
     setSearching(false)
+    Widgets.Sound('IG_ABILITY_PAGE_TURN')
     showPage(match.page.key)
     for _, entry in ipairs(pages[match.page.key].entries) do
         if entry.first and entry.first <= match.index and match.index <= entry.last then
             scrollTo(entry.top - 60)
             flash(entry.control)
+            if rawget(entry.control, 'SetHot') then
+                setHot(entry.control)
+            end
             break
         end
     end
@@ -1038,28 +1200,39 @@ end
 -- The window
 
 local function createNavButton(parent, page)
+    local A = Widgets.Accent()
     local button = CreateFrame('Button', nil, parent)
-    button:SetSize(SIDEBAR - 24, 32)
-    local box = Widgets.Box(button, 7)
-    local pointer = Widgets.Icon(button, 'pointer', 12, C.gold)
-    pointer:SetPoint('LEFT', 2, 0)
-    local icon = Widgets.Icon(button, page.icon, 16, C.body)
-    icon:SetPoint('LEFT', 14, 0)
-    local label = Widgets.Text(button, 13, C.body)
+    button:SetSize(SIDEBAR - 38, 32)
+    local glassTex = Widgets.Rounded(button, 'BACKGROUND', 7)
+    glassTex:SetTexture(Style.AssetPath('settings/glass8'))
+    glassTex:SetAllPoints()
+    if glassTex.SetTextureSliceMargins then
+        glassTex:SetTextureSliceMargins(8, 8, 8, 8)
+    end
+    glassTex:SetVertexColor(Style.Color(A.tint))
+    local hoverFill = Widgets.Rounded(button, 'BACKGROUND', 7, '#A0CDFF1A', false, 1)
+    hoverFill:SetAllPoints()
+    local rim = Widgets.Rounded(button, 'BORDER', 7, nil, true)
+    rim:SetAllPoints()
+    local bar = Widgets.HoverBar(button)
+    bar:SetPoint('TOPLEFT', 2, -3)
+    bar:SetPoint('BOTTOMRIGHT', button, 'BOTTOM', 20, 3)
+    local cursor = Widgets.Cursor(button, 28, 18)
+    cursor:SetPoint('RIGHT', button, 'LEFT', 2, 0)
+    local icon = Widgets.Icon(button, page.icon, 16, '#AEBBD0FF')
+    icon:SetPoint('LEFT', 12, 0)
+    local label = Widgets.Text(button, 14, '#AEBBD0FF')
     label:SetPoint('LEFT', icon, 'RIGHT', 10, 0)
     label:SetText(page.label)
     local current, hovered = false, false
     local function paint()
-        if current then
-            box:SetColors('#6FD3E81C', '#6FD3E847')
-            label:SetTextColor(Style.Color(C.bright))
-            icon:SetVertexColor(Style.Color(C.accentText))
-        else
-            box:SetColors(hovered and '#A0B9DC12' or nil, nil)
-            label:SetTextColor(Style.Color(hovered and C.text or C.body))
-            icon:SetVertexColor(Style.Color(hovered and C.text or C.body))
-        end
-        pointer:SetShown(current)
+        glassTex:SetShown(current)
+        bar:SetShown(current)
+        Widgets.ShowCursor(cursor, current)
+        hoverFill:SetShown(hovered and not current)
+        rim:SetVertexColor(Style.Color((current and A.rimHot) or (hovered and '#AAD7FF29') or '#00000000'))
+        label:SetTextColor(Style.Color((current or hovered) and C.bright or '#AEBBD0FF'))
+        icon:SetVertexColor(Style.Color((current and A.text) or (hovered and C.bright) or '#AEBBD0FF'))
     end
     function button:SetCurrent(on)
         current = on
@@ -1068,10 +1241,12 @@ local function createNavButton(parent, page)
     button:SetScript('OnEnter', function()
         hovered = true
         paint()
+        setHelp(page.tip)
     end)
     button:SetScript('OnLeave', function()
         hovered = false
         paint()
+        setHelp('')
     end)
     button:SetScript('OnClick', function()
         if searching then
@@ -1079,7 +1254,11 @@ local function createNavButton(parent, page)
             window.search:ClearFocus()
             setSearching(false)
         end
-        showPage(page.key)
+        local switching = currentPage ~= page.key
+        if switching then
+            Widgets.Sound('IG_CHARACTER_INFO_TAB')
+        end
+        showPage(page.key, switching)
     end)
     paint()
     return button
@@ -1087,13 +1266,13 @@ end
 
 local function createSidebar()
     local sidebar = CreateFrame('Frame', nil, window)
-    sidebar:SetPoint('TOPLEFT', 1, -HEADER)
-    sidebar:SetPoint('BOTTOMLEFT', 1, FOOTER)
+    sidebar:SetPoint('TOPLEFT', 1, -(HEADER + 1))
+    sidebar:SetPoint('BOTTOMLEFT', 1, FOOTER + 1)
     sidebar:SetWidth(SIDEBAR - 1)
-    local fill = Widgets.Solid(sidebar, 'BACKGROUND', '#090E1BFF')
+    local fill = Widgets.Solid(sidebar, 'BACKGROUND', '#FFFFFFFF')
     fill:SetAllPoints()
-    local edge = Widgets.Solid(sidebar, 'BORDER', '#A0B9DC1F')
-    edge:SetWidth(1)
+    Widgets.Gradient(fill, 'VERTICAL', '#02050C94', '#02050C61')
+    local edge = Widgets.FadeLine(sidebar, '#96B4E166', 'both', true)
     edge:SetPoint('TOPRIGHT')
     edge:SetPoint('BOTTOMRIGHT')
 
@@ -1105,71 +1284,78 @@ local function createSidebar()
                 y = y - 14
             end
             group = page.group
-            local heading = Widgets.Text(sidebar, 10, C.faint, 'semibold')
-            heading:SetPoint('TOPLEFT', 22, y)
-            heading:SetText(Widgets.Caps(group))
+            local heading = Widgets.Text(sidebar, 12, C.faint, 'display')
+            heading:SetPoint('TOPLEFT', 40, y)
+            heading:SetText(group:upper())
             y = y - 20
         end
         local button = createNavButton(sidebar, page)
-        button:SetPoint('TOPLEFT', 12, y)
+        button:SetPoint('TOPLEFT', 28, y)
         navButtons[page.key] = button
         y = y - 33
     end
 
-    -- Bottom: every frame's demo at once.
-    local line = Widgets.Solid(sidebar, 'BORDER', C.lineSoft)
-    line:SetHeight(1)
-    line:SetPoint('BOTTOMLEFT', 12, 64)
-    line:SetPoint('BOTTOMRIGHT', -12, 64)
-    local demoTitle = Widgets.Text(sidebar, 12, C.text)
-    demoTitle:SetPoint('BOTTOMLEFT', 22, 36)
-    demoTitle:SetText('Demo frames')
-    local demoHint = Widgets.Text(sidebar, 11, C.dim)
-    demoHint:SetPoint('TOPLEFT', demoTitle, 'BOTTOMLEFT', 0, -2)
-    demoHint:SetText('Show test units')
-    local demo = Widgets.Toggle(sidebar, {
+    -- Bottom: drag handles on every frame, and every frame's demo at once.
+    local controlHeading = Widgets.Text(sidebar, 12, C.faint, 'display')
+    controlHeading:SetPoint('BOTTOM', sidebar, 'BOTTOMLEFT', SIDEBAR / 2, 86)
+    controlHeading:SetText('FRAME CONTROL')
+    local function sideToggle(label, bottom, spec, help)
+        local title = Widgets.Text(sidebar, 14, C.body)
+        title:SetText(label)
+        local toggle = Widgets.Toggle(sidebar, spec)
+        toggle.title = title
+        toggle.bottom = bottom
+        toggle:HookScript('OnEnter', function() setHelp(help) end)
+        toggle:HookScript('OnLeave', function() setHelp('') end)
+        return toggle
+    end
+    window.moveToggle = sideToggle('Move', 52, {
+        get = function() return EUI.EditMode.unlocked end,
+        set = function(value) EUI.EditMode.SetUnlocked(value) end,
+    }, 'Show drag handles on every frame. Opening Edit Mode does the same; Reset Positions is on General.')
+    window.demoToggle = sideToggle('Demo', 18, {
         get = function() return EUI.Demo.toggled end,
         set = function() EUI.Demo.Toggle() end,
-    })
-    demo:SetPoint('BOTTOMRIGHT', -22, 26)
-    Widgets.SetTooltip(demo, 'Demo frames',
-        'Fill every frame with sample data, whichever page is open (/ffui demo). Each page shows its own frames anyway.')
-    window.demoToggle = demo
+    }, 'Fill every frame with sample data, whichever page is open (/ffui demo). Each page shows its own frames anyway.')
+    -- Labels and toggles centred as one block under the heading; the toggles share a column 24px
+    -- past the longer label.
+    local labelWidth = math.ceil(math.max(window.moveToggle.title:GetStringWidth(),
+        window.demoToggle.title:GetStringWidth()))
+    local blockLeft = math.floor((SIDEBAR - (labelWidth + 24 + window.moveToggle:GetWidth())) / 2)
+    for _, toggle in ipairs({ window.moveToggle, window.demoToggle }) do
+        toggle.title:SetPoint('BOTTOMLEFT', blockLeft, toggle.bottom + 4)
+        toggle:SetPoint('BOTTOMLEFT', blockLeft + labelWidth + 24, toggle.bottom)
+    end
 end
 
 local function createHeader()
-    local fill = Widgets.Rounded(window, 'BACKGROUND', 12, C.bar, false, 1)
-    fill:SetPoint('TOPLEFT')
-    fill:SetPoint('TOPRIGHT')
-    fill:SetHeight(HEADER + 12)
-    local line = Widgets.Solid(window, 'BORDER', C.lineSoft)
-    line:SetHeight(1)
-    line:SetPoint('TOPLEFT', 1, -HEADER)
-    line:SetPoint('TOPRIGHT', -1, -HEADER)
-
-    local logo = window:CreateTexture(nil, 'ARTWORK')
-    logo:SetTexture(string.format('Interface\\AddOns\\%s\\Media\\AddonIcon', addonName))
-    logo:SetSize(36, 36)
-    logo:SetPoint('LEFT', window, 'TOPLEFT', 14, -HEADER / 2)
-    local title = Widgets.Text(window, 18, C.bright, 'display')
-    title:SetPoint('LEFT', logo, 'RIGHT', 12, 0)
+    local icon = window:CreateTexture(nil, 'ARTWORK')
+    icon:SetTexture(string.format('Interface\\AddOns\\%s\\Media\\AddonIcon', addonName))
+    icon:SetSize(30, 30)
+    icon:SetPoint('LEFT', window, 'TOPLEFT', 14, -HEADER / 2)
+    local title = Widgets.Text(window, 17, C.title, 'display')
+    title:SetPoint('LEFT', icon, 'RIGHT', 12, 0)
     title:SetText(addonName)
-    local subtitle = Widgets.Text(window, 11, C.dim, 'medium')
-    subtitle:SetPoint('LEFT', title, 'RIGHT', 14, 0)
-    subtitle:SetText(Widgets.Caps('Settings'))
+    local rule = Widgets.FadeLine(window, '#96B4E180', 'both')
+    rule:SetPoint('TOPLEFT', 1, -HEADER)
+    rule:SetPoint('TOPRIGHT', -1, -HEADER)
 
-    local close = Widgets.Button(window, '', function() window:Hide() end,
-        { variant = 'ghost', icon = 'close', iconSize = 16, width = 34 })
-    close:SetPoint('RIGHT', window, 'TOPRIGHT', -12, -HEADER / 2)
+    local close = CreateFrame('Button', nil, window)
+    close:SetSize(28, 28)
+    close:SetPoint('RIGHT', window, 'TOPRIGHT', -10, -HEADER / 2)
+    local cross = Widgets.Text(close, 20, C.dim)
+    cross:SetPoint('CENTER', 0, 1)
+    cross:SetText('\195\151')
+    close:SetScript('OnEnter', function() cross:SetTextColor(Style.Color(C.bright)) end)
+    close:SetScript('OnLeave', function() cross:SetTextColor(Style.Color(C.dim)) end)
+    close:SetScript('OnClick', function() window:Hide() end)
     Widgets.SetTooltip(close, 'Close', 'Escape also closes the window.')
 
-    local search = Widgets.Input(window, { width = 260, height = 34, inset = 34 })
-    search:SetPoint('RIGHT', close, 'LEFT', -12, 0)
-    local glass = Widgets.Icon(search, 'search', 14, C.dim)
-    glass:SetPoint('LEFT', 12, 0)
-    local placeholder = Widgets.Text(search, 12, C.faint)
-    placeholder:SetPoint('LEFT', 34, 0)
-    placeholder:SetText('Search settings')
+    local search = Widgets.Input(window, { width = 220, height = 30, inset = 12 })
+    search:SetPoint('RIGHT', close, 'LEFT', -10, 0)
+    local placeholder = Widgets.Text(search, 14, '#6C7A91FF', 'regular', '')
+    placeholder:SetPoint('LEFT', 12, 0)
+    placeholder:SetText('Search')
     search:SetScript('OnTextChanged', EUI.Guard('config search', function(self)
         local text = (self:GetText() or ''):gsub('^%s+', ''):gsub('%s+$', '')
         placeholder:SetShown(self:GetText() == '')
@@ -1188,91 +1374,36 @@ local function createHeader()
     search:SetScript('OnEnterPressed', function(self)
         local first = results and results.rows[1]
         if searching and first and first:IsShown() then
-            openResult(first.match)
+            openResult(rawget(first, 'match'))
         end
         self:ClearFocus()
     end)
     window.search = search
 end
 
-local function createPageHeader()
-    local header = CreateFrame('Frame', nil, window)
-    header:SetPoint('TOPLEFT', SIDEBAR, -HEADER)
-    header:SetPoint('TOPRIGHT', -1, -HEADER)
-    header:SetHeight(120)
-    local line = Widgets.Solid(header, 'BORDER', C.lineFaint)
-    line:SetHeight(1)
-    line:SetPoint('BOTTOMLEFT')
-    line:SetPoint('BOTTOMRIGHT')
-    header.kicker = Widgets.Text(header, 11, C.accentText, 'semibold')
-    header.kicker:SetPoint('TOPLEFT', PAD, -24)
-    header.title = Widgets.Text(header, 26, C.bright, 'display')
-    header.title:SetPoint('TOPLEFT', PAD, -44)
-    header.description = Widgets.Text(header, 13, C.body)
-    header.description:SetPoint('TOPLEFT', PAD, -82)
-    header.description:SetWidth(600)
-    header.description:SetWordWrap(true)
-    header.description:SetSpacing(2)
-
-    -- 'Applies after a reload' with its own Reload button, on pages where everything does.
-    local chip = CreateFrame('Frame', nil, header)
-    chip:SetHeight(30)
-    chip:SetPoint('BOTTOMRIGHT', -SCROLL_GAP, 18)
-    Widgets.Box(chip, 15, '#C9A96A14', '#C9A96A66')
-    local text = Widgets.Text(chip, 12, C.goldText)
-    text:SetPoint('LEFT', 14, 0)
-    text:SetText('Applies after a reload')
-    local reload = Widgets.Button(chip, 'Reload', function()
-        if InCombatLockdown() then
-            EUI.Print('reload after combat')
-            return
-        end
-        ReloadUI()
-    end, { variant = 'gold', height = 22, pad = 10 })
-    reload:SetPoint('RIGHT', -4, 0)
-    chip:SetWidth(14 + text:GetStringWidth() + 10 + reload:GetWidth() + 4)
-    header.chip = chip
-    window.pageHeader = header
-end
-
 local function createFooter()
-    local fill = Widgets.Rounded(window, 'BACKGROUND', 12, C.bar, false, 1)
-    fill:SetPoint('BOTTOMLEFT')
-    fill:SetPoint('BOTTOMRIGHT')
-    fill:SetHeight(FOOTER + 12)
-    local line = Widgets.Solid(window, 'BORDER', C.lineSoft)
-    line:SetHeight(1)
-    line:SetPoint('BOTTOMLEFT', 1, FOOTER)
-    line:SetPoint('BOTTOMRIGHT', -1, FOOTER)
+    local rule = Widgets.FadeLine(window, '#96B4E180', 'both')
+    rule:SetPoint('BOTTOMLEFT', 1, FOOTER)
+    rule:SetPoint('BOTTOMRIGHT', -1, FOOTER)
 
     local footer = CreateFrame('Frame', nil, window)
     footer:SetPoint('BOTTOMLEFT', 1, 1)
     footer:SetPoint('BOTTOMRIGHT', -1, 1)
     footer:SetHeight(FOOTER - 1)
-    local kbd = Widgets.Kbd(footer, '/ffui config')
-    kbd:SetPoint('LEFT', 19, 0)
-    window.kbd = kbd
-    window.idleText = Widgets.Text(footer, 12, C.dim)
-    window.idleText:SetPoint('LEFT', kbd, 'RIGHT', 12, 0)
-    window.idleText:SetText(IDLE_STATUS)
-    window.reloadText = Widgets.Text(footer, 12, C.goldText)
-    window.reloadText:SetPoint('LEFT', kbd, 'RIGHT', 12, 0)
-    window.reloadText:SetWidth(STATUS_WIDTH)
-    window.combatText = Widgets.Text(footer, 12, C.red)
-    window.combatText:SetPoint('LEFT', kbd, 'RIGHT', 12, 0)
-    window.combatText:SetWidth(STATUS_WIDTH)
+    local marker = Widgets.Pip(footer, 9, C.dim, false)
+    marker:SetPoint('LEFT', 21, 0)
 
-    local reload = Widgets.Button(footer, 'Reload UI', function()
+    local reload = Widgets.Button(footer, 'Reload', function()
         if InCombatLockdown() then
             EUI.Print('reload after combat')
             return
         end
         ReloadUI()
-    end, { variant = 'default' })
-    reload:SetPoint('RIGHT', -19, 0)
-    Widgets.SetTooltip(reload, 'Reload UI', function()
+    end)
+    reload:SetPoint('RIGHT', -14, 0)
+    Widgets.SetTooltip(reload, 'Reload', function()
         if #(window.reloadLabels or {}) > 0 then
-            return 'Reloads the interface so the changes listed here take effect.'
+            return 'Reloads the interface so the changes waiting for it take effect.'
         end
         return 'Reloads the interface. Nothing is waiting for one.'
     end)
@@ -1280,29 +1411,29 @@ local function createFooter()
 
     -- Two clicks: the first asks, the second resets.
     local resetPage
-    resetPage = Widgets.Button(footer, 'Reset this page', function(self)
+    resetPage = Widgets.Button(footer, 'Defaults', function(self)
         local built = currentPage and pages[currentPage]
         if not (built and built.reset) then
             return
         end
-        if self.armed then
+        if rawget(self, 'armed') then
             self.armed = nil
             built.reset.reset()
-            self:SetLabel('Reset this page')
+            self:SetLabel('Defaults')
             resetPage:Refresh()
             return
         end
         self.armed = true
-        self:SetLabel('Click again to reset')
+        self:SetLabel('Click Again')
         C_Timer.After(3, function()
-            if self.armed then
+            if rawget(self, 'armed') then
                 self.armed = nil
-                self:SetLabel('Reset this page')
+                self:SetLabel('Defaults')
             end
         end)
-    end, { variant = 'ghost' })
-    resetPage:SetPoint('RIGHT', reload, 'LEFT', -8, 0)
-    Widgets.SetTooltip(resetPage, 'Reset this page', 'Put every setting on this page back to its default.')
+    end)
+    resetPage:SetPoint('RIGHT', reload, 'LEFT', -10, 0)
+    Widgets.SetTooltip(resetPage, 'Defaults', 'Put every setting on this page back to its default.')
     function resetPage:Refresh()
         local built = currentPage and pages[currentPage]
         local reset = built and built.reset
@@ -1313,10 +1444,18 @@ local function createFooter()
     end
     window.resetPage = resetPage
 
+    local status = Widgets.Text(footer, 14, C.dim)
+    status:SetPoint('RIGHT', resetPage, 'LEFT', -16, 0)
+    status:SetJustifyH('RIGHT')
+    window.status = status
+    local help = Widgets.Text(footer, 14, '#A9B6CBFF')
+    help:SetPoint('LEFT', marker, 'RIGHT', 12, 0)
+    help:SetPoint('RIGHT', status, 'LEFT', -24, 0)
+    window.help = help
+
     -- The full lists while hovering the status.
     local summary = CreateFrame('Frame', nil, footer)
-    summary:SetPoint('TOPLEFT', kbd, 'TOPRIGHT', 8, 8)
-    summary:SetPoint('BOTTOMRIGHT', resetPage, 'BOTTOMLEFT', -8, -8)
+    summary:SetAllPoints(status)
     summary:EnableMouse(true)
     Widgets.SetTooltip(summary, 'Waiting changes', function()
         local lines = {}
@@ -1328,7 +1467,7 @@ local function createFooter()
             end
         end
         if #waiting > 0 then
-            lines[#lines + 1] = '|cffff6b6bApplies once combat ends|r'
+            lines[#lines + 1] = '|cffff7a7aApplies once combat ends|r'
             for _, label in ipairs(waiting) do
                 lines[#lines + 1] = label
             end
@@ -1338,13 +1477,9 @@ local function createFooter()
 end
 
 local function createScroll()
-    local main = Widgets.Solid(window, 'BACKGROUND', C.main, 2)
-    main:SetPoint('TOPLEFT', SIDEBAR, -HEADER)
-    main:SetPoint('BOTTOMRIGHT', -1, FOOTER)
-
     local scroll = CreateFrame('ScrollFrame', nil, window)
-    scroll:SetPoint('TOPLEFT', SIDEBAR + 1, -(HEADER + 120))
-    scroll:SetPoint('BOTTOMRIGHT', -1, FOOTER)
+    scroll:SetPoint('TOPLEFT', SIDEBAR + 1, -(HEADER + 1))
+    scroll:SetPoint('BOTTOMRIGHT', -1, FOOTER + 1)
     scroll:EnableMouseWheel(true)
     scroll:SetScript('OnMouseWheel', function(self, delta)
         Widgets.CloseMenus()
@@ -1357,33 +1492,34 @@ local function createScroll()
     local thumb = CreateFrame('Button', nil, window)
     thumb:SetWidth(6)
     thumb:SetFrameLevel(scroll:GetFrameLevel() + 20)
-    local bar = Widgets.Rounded(thumb, 'ARTWORK', 3, '#A0B9DC40')
+    local bar = Widgets.Rounded(thumb, 'ARTWORK', 3, '#96B4E14D')
     bar:SetAllPoints()
-    thumb:SetScript('OnEnter', function() bar:SetVertexColor(Style.Color('#A0B9DC73')) end)
-    thumb:SetScript('OnLeave', function(self)
-        if not self.dragging then
-            bar:SetVertexColor(Style.Color('#A0B9DC40'))
+    local dragging
+    thumb:SetScript('OnEnter', function() bar:SetVertexColor(Style.Color('#96B4E180')) end)
+    thumb:SetScript('OnLeave', function()
+        if not dragging then
+            bar:SetVertexColor(Style.Color('#96B4E14D'))
         end
     end)
     thumb:SetScript('OnMouseDown', function(self)
         local _, y = GetCursorPosition()
-        self.dragging = { y = y / self:GetEffectiveScale(), offset = scroll:GetVerticalScroll() }
+        dragging = { y = y / self:GetEffectiveScale(), offset = scroll:GetVerticalScroll() }
     end)
     thumb:SetScript('OnMouseUp', function(self)
-        self.dragging = nil
+        dragging = nil
         if not self:IsMouseOver() then
-            bar:SetVertexColor(Style.Color('#A0B9DC40'))
+            bar:SetVertexColor(Style.Color('#96B4E14D'))
         end
     end)
     thumb:SetScript('OnUpdate', function(self)
-        if not self.dragging then
+        if not dragging then
             return
         end
         local _, y = GetCursorPosition()
         local travel = scroll:GetHeight() - self:GetHeight()
         if travel > 0 then
-            local moved = self.dragging.y - y / self:GetEffectiveScale()
-            scrollTo(self.dragging.offset + moved * scroll:GetVerticalScrollRange() / travel)
+            local moved = dragging.y - y / self:GetEffectiveScale()
+            scrollTo(dragging.offset + moved * scroll:GetVerticalScrollRange() / travel)
         end
     end)
     thumb:Hide()
@@ -1391,8 +1527,8 @@ local function createScroll()
 
     -- The search highlight, fading out.
     local flashFrame = CreateFrame('Frame', nil, scroll)
-    flashFrame.fill = Widgets.Rounded(flashFrame, 'BACKGROUND', 8, '#6FD3E81F')
-    flashFrame.fill:SetAllPoints()
+    local flashFill = Widgets.Rounded(flashFrame, 'BACKGROUND', 8, Widgets.Accent().accent:sub(1, 7) .. '2E')
+    flashFill:SetAllPoints()
     flashFrame:Hide()
     flashFrame:SetScript('OnUpdate', function(self, elapsed)
         self.elapsed = self.elapsed + elapsed
@@ -1404,6 +1540,34 @@ local function createScroll()
         self:SetAlpha(alpha)
     end)
     window.flash = flashFrame
+
+    -- Page change fade.
+    local fader = CreateFrame('Frame', nil, window)
+    fader:Hide()
+    fader:SetScript('OnUpdate', function(self, elapsed)
+        local target = window.fadeTarget
+        window.fadeTime = window.fadeTime + elapsed
+        local alpha = math.min(1, window.fadeTime / 0.08)
+        target:SetAlpha(alpha)
+        if alpha >= 1 then
+            self:Hide()
+        end
+    end)
+    window.fader = fader
+end
+
+-- The silver sprig off the top-left and bottom-right corners, hanging outside the frame.
+local function createSprigs()
+    for _, corner in ipairs({ { 'TOPLEFT', -1, 1, false }, { 'BOTTOMRIGHT', 1, -1, true } }) do
+        local sprig = window:CreateTexture(nil, 'OVERLAY')
+        sprig:SetTexture(Style.AssetPath('settings/sprig'))
+        sprig:SetSize(SPRIG_SIZE, SPRIG_SIZE)
+        sprig:SetVertexColor(Style.Color(SPRIG_TINT))
+        if corner[4] then
+            sprig:SetTexCoord(1, 0, 1, 0)
+        end
+        sprig:SetPoint(corner[1], window, corner[1], corner[2] * SPRIG_ORIGIN, corner[3] * SPRIG_ORIGIN)
+    end
 end
 
 local function createWindow()
@@ -1423,13 +1587,25 @@ local function createWindow()
     if UISpecialFrames then
         table.insert(UISpecialFrames, 'EorzeaUIConfig')
     end
+    -- Accents follow the palette the frames were built with.
+    Widgets.SetAccent(Config.style and Config.style.palette or Settings.Get('style'))
     Widgets.Panel(window)
+    createSprigs()
 
     createHeader()
     createScroll()
     createSidebar()
-    createPageHeader()
     createFooter()
+
+    local ok, opening = pcall(function()
+        local group = window:CreateAnimationGroup()
+        local fade = group:CreateAnimation('Alpha')
+        fade:SetFromAlpha(0)
+        fade:SetToAlpha(1)
+        fade:SetDuration(0.14)
+        fade:SetSmoothing('OUT')
+        return group
+    end)
 
     window:SetScript('OnShow', function()
         window:SetScale(Widgets.Scale())
@@ -1440,13 +1616,19 @@ local function createWindow()
         end
         showPage(currentPage or Config.PAGES[1].key)
         window.demoToggle:Refresh()
+        window.moveToggle:Refresh()
         updateReloadBar()
+        if ok and opening then
+            opening:Play()
+        end
+        Widgets.Sound('IG_MAINMENU_OPEN')
     end)
     window:SetScript('OnHide', function()
         Widgets.CloseMenus()
         Widgets.HideTooltip()
         EUI.Demo.SetPageSections(nil)
         Config.ShowLockPrompt()
+        Widgets.Sound('IG_MAINMENU_CLOSE')
     end)
 end
 
@@ -1457,7 +1639,7 @@ local lockPrompt
 
 local function createLockPrompt()
     local frame = CreateFrame('Frame', 'EorzeaUILockPrompt', UIParent)
-    frame:SetSize(400, 108)
+    frame:SetSize(400, 100)
     frame:SetPoint('TOP', 0, -120)
     frame:SetFrameStrata('DIALOG')
     frame:SetClampedToScreen(true)
@@ -1468,18 +1650,18 @@ local function createLockPrompt()
     frame:SetScript('OnDragStop', frame.StopMovingOrSizing)
     frame:Hide()
     Widgets.Panel(frame)
-    local note = Widgets.Text(frame, 13, C.text)
+    local note = Widgets.Text(frame, 14, C.text)
     note:SetPoint('TOP', 0, -20)
     note:SetText('EorzeaUI frames are unlocked: drag them to move.')
-    local lock = Widgets.Button(frame, 'Lock frames', function()
+    local lock = Widgets.Button(frame, 'Lock Frames', function()
         EUI.EditMode.SetUnlocked(false)
-    end, { variant = 'primary', width = 130 })
-    lock:SetPoint('BOTTOMRIGHT', frame, 'BOTTOM', -4, 18)
-    Widgets.SetTooltip(lock, 'Lock frames', 'Hide the drag handles and keep the frames where they are.')
+    end, { variant = 'primary', width = 140 })
+    lock:SetPoint('BOTTOMRIGHT', frame, 'BOTTOM', -5, 16)
+    Widgets.SetTooltip(lock, 'Lock Frames', 'Hide the drag handles and keep the frames where they are.')
     local settings = Widgets.Button(frame, 'Settings', function()
         Config.Toggle()
-    end, { width = 130 })
-    settings:SetPoint('BOTTOMLEFT', frame, 'BOTTOM', 4, 18)
+    end, { width = 140 })
+    settings:SetPoint('BOTTOMLEFT', frame, 'BOTTOM', 5, 16)
     Widgets.SetTooltip(settings, 'Settings', 'Open the EorzeaUI settings window again.')
     return frame
 end
@@ -1530,6 +1712,7 @@ function Config.Refresh()
             control:Refresh()
         end
         window.demoToggle:Refresh()
+        window.moveToggle:Refresh()
         updateReloadBar()
     end
 end
@@ -1544,13 +1727,13 @@ function Config.RegisterBlizzardEntry()
         return
     end
     local panel = CreateFrame('Frame')
-    local title = Widgets.Text(panel, 20, C.bright, 'display')
+    local title = Widgets.Text(panel, 20, C.title, 'display')
     title:SetPoint('TOPLEFT', 16, -16)
     title:SetText('EorzeaUI')
-    local note = Widgets.Text(panel, 13, C.text)
+    local note = Widgets.Text(panel, 14, C.text)
     note:SetPoint('TOPLEFT', title, 'BOTTOMLEFT', 0, -10)
     note:SetText('Settings live in their own window, also opened with /ffui.')
-    local open = Widgets.Button(panel, 'Open settings', function()
+    local open = Widgets.Button(panel, 'Open Settings', function()
         Config.Toggle('general')
     end, { variant = 'primary' })
     open:SetPoint('TOPLEFT', note, 'BOTTOMLEFT', 0, -14)

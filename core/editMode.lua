@@ -96,11 +96,13 @@ function EditMode.Register(key, frame, label, box)
     box = box or {}
     mover:SetPoint('TOPLEFT', box.topRegion or frame, 'TOPLEFT', -(box.left or 0), box.top or 0)
     mover:SetPoint('BOTTOMRIGHT', box.bottomRegion or frame, 'BOTTOMRIGHT', box.right or 0, -(box.bottom or 0))
-    mover:SetFrameStrata('DIALOG')
+    -- Blizzard's Edit Mode selections' strata and level: above the frames (MEDIUM, from UIParent),
+    -- under the settings window (HIGH).
+    mover:SetFrameStrata('MEDIUM')
     -- Later registrations draw above earlier ones, so a small frame placed over a larger one
     -- (Assists over the raid) can still be grabbed.
     moverCount = moverCount + 1
-    mover:SetFrameLevel(moverCount * 10)
+    mover:SetFrameLevel(1000 + moverCount * 10)
     mover:EnableMouse(true)
     mover:RegisterForDrag('LeftButton')
     mover:Hide()
@@ -159,6 +161,10 @@ function EditMode.SetUnlocked(unlocked)
     end
     if not unlocked and EUI.Config then
         EUI.Config.HideLockPrompt()
+    end
+    -- The settings window's Move toggle follows Edit Mode, the lock prompt and the minimap.
+    if EUI.Config and EUI.Config.Refresh then
+        EUI.Config.Refresh()
     end
     EUI.RunOutOfCombat(EUI.Demo.Refresh, 'demoRefresh')
 end

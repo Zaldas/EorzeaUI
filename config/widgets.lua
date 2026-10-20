@@ -1,38 +1,60 @@
 local _, EUI = ...
 
--- Controls for the settings window, in the settings design's look: Inter text, Cinzel titles,
--- rounded boxes from the 9-slice art in assets/settings (tools/settingsArt.py), crystal-cyan
--- accents. Each control is a frame whose :Refresh() re-reads its value; sizes are design pixels
--- (UI units at UIParent's scale, as Blizzard's own panels).
+-- Controls for the settings window, in the in-game look of the settings design (canvas page
+-- "In-game pass"): Inter text outlined over a navy panel, Cinzel titles, glass buttons, the rail
+-- toggle, the light-pillar choice rail, diamond-thumbed sliders and brush-stroke colour swatches.
+-- Art is in assets/settings (tools/settingsArt.py) plus the HUD's hover bar, cursor and pips. Each
+-- control is a frame whose :Refresh() re-reads its value; sizes are UI units at the window's scale.
 
 EUI.Widgets = {}
 local Widgets = EUI.Widgets
 local Style = EUI.Style
 
 local C = {
-    window = '#0C1424FF',
-    bar = '#0A1120FF',
-    main = '#0E1729FF',
-    input = '#0A1120FF',
-    deep = '#070C16FF',
-    line = '#A0B9DC38',
-    lineSoft = '#A0B9DC24',
-    lineFaint = '#A0B9DC14',
-    sectionLine = '#A0B9DC29',
-    text = '#E6ECF5FF',
-    bright = '#F2F5FAFF',
-    body = '#A9B6CBFF',
+    text = '#DCE4F0FF',
+    bright = '#F4FBFFFF',
+    title = '#EEF3FAFF',
+    body = '#C9D4E5FF',
     dim = '#8E9CB3FF',
     faint = '#7F8DA3FF',
-    value = '#CFD8E6FF',
-    accent = '#6FD3E8FF',
-    accentText = '#8FDDEFFF',
-    accentPale = '#DDF8FFFF',
-    gold = '#C9A96AFF',
+    off = '#8291A8FF',
+    heading = '#9FB0C8FF',
+    value = '#CFE0F2FF',
+    line = '#96B4E180',
+    edgeDark = '#01040AFF',
+    edgeLight = '#96B4E14D',
+    rim = '#AAD7FF6B',
+    well = '#050B16CC',
+    wellRim = '#AAD7FF52',
     goldText = '#F0DDB3FF',
-    red = '#FF6B6BFF',
+    red = '#FF7A7AFF',
 }
 Widgets.COLORS = C
+
+-- Accents follow the palette the frames were built with: Vana'diel's crystal cyan or Azeroth's
+-- gold. hover is the hover bar's tint; tint the cyan-or-gold glass.
+local ACCENTS = {
+    vanadiel = {
+        accent = '#6FD3E8FF', text = '#8FDDEFFF', pale = '#DDF8FFFF', deep = '#2C7487FF',
+        hover = '#6FD3E85C', tint = '#78E1F5FF', rimHot = '#8CE1F5D9',
+    },
+    azeroth = {
+        accent = '#E3B65EFF', text = '#F0D08AFF', pale = '#FFF0CFFF', deep = '#7A5A22FF',
+        hover = '#E3B65E5C', tint = '#F0CD8CFF', rimHot = '#F0D296D9',
+    },
+}
+local A = ACCENTS.vanadiel
+Widgets.ACCENT = A
+
+-- Picks the accent set for palette name (unknown names keep crystal cyan).
+function Widgets.SetAccent(name)
+    A = ACCENTS[name] or ACCENTS.vanadiel
+    Widgets.ACCENT = A
+end
+
+function Widgets.Accent()
+    return A
+end
 
 local FONTS = {
     regular = 'Inter-Regular.ttf',
@@ -64,6 +86,29 @@ function Widgets.Scale()
     return math.min(1, (height - SCREEN_MARGIN) / WINDOW_HEIGHT)
 end
 
+local function playSound(key)
+    local id = SOUNDKIT and SOUNDKIT[key]
+    if id and PlaySound then
+        pcall(PlaySound, id)
+    end
+end
+Widgets.Sound = playSound
+
+-- flags: font flags, 'OUTLINE' by default; '' draws with a drop shadow instead.
+function Widgets.Text(parent, size, color, weight, flags, layer)
+    local text = parent:CreateFontString(nil, layer or 'OVERLAY')
+    flags = flags or 'OUTLINE'
+    Style.SetFont(text, FONTS[weight or 'regular'], size or 14, flags)
+    if flags == '' then
+        text:SetShadowColor(0, 0, 0, 0.85)
+        text:SetShadowOffset(1, -1)
+    end
+    text:SetTextColor(Style.Color(color or C.text))
+    text:SetJustifyH('LEFT')
+    text:SetWordWrap(false)
+    return text
+end
+
 -- Unsnapped, a line thinner than a screen pixel blends across two pixels instead of rounding
 -- away to nothing.
 local function unsnap(texture)
@@ -73,23 +118,6 @@ local function unsnap(texture)
     end
 end
 
-function Widgets.Text(parent, size, color, weight, layer)
-    local text = parent:CreateFontString(nil, layer or 'OVERLAY')
-    Style.SetFont(text, FONTS[weight or 'regular'], size or 13, '')
-    text:SetTextColor(Style.Color(color or C.text))
-    text:SetJustifyH('LEFT')
-    text:SetWordWrap(false)
-    return text
-end
-
--- Caps with the design's letter spacing: WoW has none, so a thin space (0.17em in Inter) follows
--- each character.
-local THIN_SPACE = '\226\128\137'
-function Widgets.Caps(text)
-    local spaced = text:upper():gsub('([%z\1-\127\194-\244][\128-\191]*)', '%1' .. THIN_SPACE)
-    return spaced:sub(1, -#THIN_SPACE - 1)
-end
-
 function Widgets.Solid(parent, layer, color, subLevel)
     local texture = parent:CreateTexture(nil, layer or 'ARTWORK', nil, subLevel)
     texture:SetColorTexture(Style.Color(color))
@@ -97,12 +125,26 @@ function Widgets.Solid(parent, layer, color, subLevel)
     return texture
 end
 
+local function asColor(hex)
+    local r, g, b, a = Style.Color(hex)
+    return CreateColor(r, g, b, a)
+end
+
+-- Two-colour gradient on a texture ('VERTICAL' runs bottom to top); vertex colour from first
+-- where SetGradient is missing.
+function Widgets.Gradient(texture, orientation, first, second)
+    if not pcall(texture.SetGradient, texture, orientation, asColor(first), asColor(second)) then
+        texture:SetVertexColor(Style.Color(first))
+    end
+end
+
 local slicesMissing = false
 
--- A rounded rect of radius (3..12, 15) sliced so the corners keep their size; ring: the 1px edge only.
-function Widgets.Rounded(parent, layer, radius, color, ring, subLevel)
+-- A rounded rect sliced so the corners keep their size; ring: the 1px edge only. art: a texture
+-- name in assets/settings ('fill', 'ring' or 'glass'), radius appended.
+local function sliced(parent, layer, art, radius, color, subLevel)
     local texture = parent:CreateTexture(nil, layer or 'BACKGROUND', nil, subLevel)
-    texture:SetTexture(Style.AssetPath(string.format('settings/%s%d', ring and 'ring' or 'fill', radius)))
+    texture:SetTexture(Style.AssetPath(string.format('settings/%s%d', art, radius)))
     unsnap(texture)
     if texture.SetTextureSliceMargins then
         texture:SetTextureSliceMargins(radius, radius, radius, radius)
@@ -110,22 +152,90 @@ function Widgets.Rounded(parent, layer, radius, color, ring, subLevel)
         slicesMissing = true
         EUI.LogOnce('settings:slices', 'SetTextureSliceMargins missing; settings corners stretch')
     end
-    texture:SetVertexColor(Style.Color(color))
+    if color then
+        texture:SetVertexColor(Style.Color(color))
+    end
     return texture
 end
 
--- Fill and 1px border filling frame (either colour may be nil). box:SetColors(fill, border).
-function Widgets.Box(frame, radius, fill, border, subLevel)
-    local box = {}
-    box.fill = Widgets.Rounded(frame, 'BACKGROUND', radius, fill or '#00000000', false, subLevel)
-    box.fill:SetAllPoints()
-    box.border = Widgets.Rounded(frame, 'BORDER', radius, border or '#00000000', true, subLevel)
-    box.border:SetAllPoints()
-    function box:SetColors(newFill, newBorder)
-        self.fill:SetVertexColor(Style.Color(newFill or '#00000000'))
-        self.border:SetVertexColor(Style.Color(newBorder or '#00000000'))
+function Widgets.Rounded(parent, layer, radius, color, ring, subLevel)
+    return sliced(parent, layer, ring and 'ring' or 'fill', radius, color, subLevel)
+end
+
+-- A dark glass well (search box, font samples, dropdown lists): deep navy fading lighter downward.
+function Widgets.Well(frame, radius)
+    local fill = sliced(frame, 'BACKGROUND', 'fill', radius or 8)
+    fill:SetAllPoints()
+    Widgets.Gradient(fill, 'VERTICAL', '#12203AA0', '#030710C8')
+    local rim = sliced(frame, 'BORDER', 'ring', radius or 8, C.wellRim)
+    rim:SetAllPoints()
+    return fill, rim
+end
+
+-- The window material: a top-lit navy fill inside a dark outer and light inner edge, rounded 4.
+function Widgets.Panel(frame)
+    local fill = sliced(frame, 'BACKGROUND', 'fill', 4)
+    fill:SetAllPoints()
+    Widgets.Gradient(fill, 'VERTICAL', '#0A1121FF', '#1B2846FF')
+    local outer = sliced(frame, 'BORDER', 'ring', 4, C.edgeDark)
+    outer:SetAllPoints()
+    local inner = sliced(frame, 'BORDER', 'ring', 3, C.edgeLight, 1)
+    inner:SetPoint('TOPLEFT', 1, -1)
+    inner:SetPoint('BOTTOMRIGHT', -1, 1)
+    local shine = Widgets.Solid(frame, 'BORDER', '#D6E8FF14', 2)
+    shine:SetHeight(1)
+    shine:SetPoint('TOPLEFT', 4, -2)
+    shine:SetPoint('TOPRIGHT', -4, -2)
+    return fill
+end
+
+-- A 1px line fading out: 'both' ends (header rules) or toward the 'end' (section rules, which
+-- start bright at the label). vertical: runs top to bottom.
+function Widgets.FadeLine(parent, color, mode, vertical)
+    local frame = CreateFrame('Frame', nil, parent)
+    if vertical then
+        frame:SetWidth(1)
+    else
+        frame:SetHeight(1)
     end
-    return box
+    local r, g, b = Style.Color(color or C.line)
+    local clear = string.format('#%02X%02X%02X00', math.floor(r * 255 + 0.5), math.floor(g * 255 + 0.5),
+        math.floor(b * 255 + 0.5))
+    local solid = color or C.line
+    local orientation = vertical and 'VERTICAL' or 'HORIZONTAL'
+    local function piece()
+        local texture = frame:CreateTexture(nil, 'ARTWORK')
+        texture:SetColorTexture(1, 1, 1, 1)
+        unsnap(texture)
+        return texture
+    end
+    if mode == 'end' then
+        local texture = piece()
+        texture:SetAllPoints()
+        if vertical then
+            Widgets.Gradient(texture, orientation, clear, solid)
+        else
+            Widgets.Gradient(texture, orientation, solid, clear)
+        end
+    else
+        local first, second = piece(), piece()
+        if vertical then
+            first:SetPoint('TOPLEFT')
+            first:SetPoint('BOTTOMRIGHT', frame, 'RIGHT', 0, 0)
+            second:SetPoint('TOPLEFT', frame, 'LEFT', 0, 0)
+            second:SetPoint('BOTTOMRIGHT')
+            Widgets.Gradient(first, orientation, solid, clear)
+            Widgets.Gradient(second, orientation, clear, solid)
+        else
+            first:SetPoint('TOPLEFT')
+            first:SetPoint('BOTTOMRIGHT', frame, 'BOTTOM', 0, 0)
+            second:SetPoint('TOPLEFT', frame, 'TOP', 0, 0)
+            second:SetPoint('BOTTOMRIGHT')
+            Widgets.Gradient(first, orientation, clear, solid)
+            Widgets.Gradient(second, orientation, solid, clear)
+        end
+    end
+    return frame
 end
 
 function Widgets.Icon(parent, name, size, color, layer)
@@ -136,87 +246,125 @@ function Widgets.Icon(parent, name, size, color, layer)
     return texture
 end
 
-function Widgets.Disc(parent, layer, size, color, subLevel)
-    local texture = parent:CreateTexture(nil, layer or 'ARTWORK', nil, subLevel)
-    texture:SetTexture(Style.AssetPath('settings/disc'))
+-- The HUD's diamond pip (filled, or the outline when hollow).
+function Widgets.Pip(parent, size, color, hollow, layer, subLevel)
+    local texture = parent:CreateTexture(nil, layer or 'OVERLAY', nil, subLevel)
+    texture:SetTexture(Style.AssetPath(hollow and 'pips/diamondLine-16' or 'pips/diamondFill-16'))
     texture:SetSize(size, size)
     texture:SetVertexColor(Style.Color(color))
     return texture
 end
 
--- A window-style panel: the main fill and the window edge.
-function Widgets.Panel(frame, fill)
-    return Widgets.Box(frame, 12, fill or C.window, C.line)
+function Widgets.Glow(parent, width, height, color, layer, subLevel)
+    local texture = parent:CreateTexture(nil, layer or 'ARTWORK', nil, subLevel)
+    texture:SetTexture(Style.AssetPath('settings/glow'))
+    texture:SetSize(width, height)
+    texture:SetBlendMode('ADD')
+    texture:SetVertexColor(Style.Color(color))
+    return texture
 end
 
----------------------------------------------------------------------------------------------
--- Tooltip: Blizzard's tooltip border atlases on a frame of ours, greyscaled and tinted silver,
--- over a deep blue fill. Without NineSliceUtil or the atlases it falls back to a 1px edge.
-
-local TOOLTIP_LAYOUT = 'TooltipDefaultLayout'
-local TOOLTIP_BORDER = '#A6BCE3FF'
-local TOOLTIP_PAD = 10
-local TOOLTIP_MAX_WIDTH = 260
-local tooltip
-
-local function hasTooltipArt()
-    return NineSliceUtil and NineSliceUtil.ApplyLayout and NineSliceUtil.GetLayout
-        and NineSliceUtil.GetLayout(TOOLTIP_LAYOUT) and Style.HasAtlas('Tooltip-NineSlice-CornerTopLeft')
+-- The HUD's hover bar, tinted with the accent; the selection and hover highlight.
+function Widgets.HoverBar(parent, layer)
+    local texture = parent:CreateTexture(nil, layer or 'BACKGROUND', nil, 2)
+    texture:SetTexture(Style.AssetPath('hud/Hover'))
+    texture:SetVertexColor(Style.Color(A.hover))
+    return texture
 end
 
-local function addFlatEdge(frame)
-    for _, edge in ipairs({
-        { 'TOPLEFT', 'TOPRIGHT', true }, { 'BOTTOMLEFT', 'BOTTOMRIGHT', true },
-        { 'TOPLEFT', 'BOTTOMLEFT', false }, { 'TOPRIGHT', 'BOTTOMRIGHT', false },
-    }) do
-        local line = Widgets.Solid(frame, 'BORDER', '#A6BCE366')
-        line:SetPoint(edge[1])
-        line:SetPoint(edge[2])
-        if edge[3] then
-            line:SetHeight(1)
-        else
-            line:SetWidth(1)
+-- The HUD's hand cursor, bobbing 2px while shown.
+function Widgets.Cursor(parent, width, height)
+    local texture = parent:CreateTexture(nil, 'OVERLAY', nil, 6)
+    texture:SetTexture(Style.AssetPath('hud/Cursor'))
+    texture:SetSize(width or 30, height or 19)
+    local ok, bob = pcall(function()
+        local group = texture:CreateAnimationGroup()
+        group:SetLooping('BOUNCE')
+        local move = group:CreateAnimation('Translation')
+        move:SetOffset(2, 0)
+        move:SetDuration(0.4)
+        move:SetSmoothing('IN_OUT')
+        return group
+    end)
+    if ok and bob then
+        texture.bob = bob
+    end
+    return texture
+end
+
+-- Shows or hides a cursor from Widgets.Cursor, starting or stopping its bob.
+function Widgets.ShowCursor(texture, shown)
+    texture:SetShown(shown)
+    local bob = rawget(texture, 'bob')
+    if bob then
+        if shown and not bob:IsPlaying() then
+            bob:Play()
+        elseif not shown then
+            bob:Stop()
         end
     end
 end
+
+-- A painted brush stroke (variant 1-3) tinted hex.
+function Widgets.Brush(parent, variant, width, height, hex, layer)
+    local texture = parent:CreateTexture(nil, layer or 'ARTWORK')
+    texture:SetTexture(Style.AssetPath('settings/brush' .. ((variant - 1) % 3 + 1)))
+    texture:SetSize(width, height)
+    texture:SetVertexColor(Style.Color(hex))
+    return texture
+end
+
+-- Eases value toward target over duration, calling apply(value) each frame; returns a function
+-- that starts a new move. Snaps when the frame is hidden.
+local function animator(frame, duration, apply)
+    local from, to, elapsed = 0, 0, duration
+    local driver = CreateFrame('Frame', nil, frame)
+    driver:Hide()
+    driver:SetScript('OnUpdate', function(self, dt)
+        elapsed = elapsed + dt
+        local t = math.min(1, elapsed / duration)
+        -- Ease out with a slight overshoot.
+        local eased = 1 + 2.2 * (t - 1) ^ 3 + 1.2 * (t - 1) ^ 2
+        apply(from + (to - from) * eased)
+        if t >= 1 then
+            apply(to)
+            self:Hide()
+        end
+    end)
+    return function(target, instant)
+        if instant or not frame:IsVisible() then
+            from, to, elapsed = target, target, duration
+            driver:Hide()
+            apply(target)
+            return
+        end
+        from, to, elapsed = to, target, 0
+        driver:Show()
+    end
+end
+
+---------------------------------------------------------------------------------------------
+-- Tooltip: the glass panel, the title in the accent colour, above-right of the control.
+
+local TOOLTIP_PAD_X, TOOLTIP_PAD_Y = 12, 10
+local TOOLTIP_MAX_WIDTH = 280
+local tooltip
 
 local function createTooltip()
     local frame = CreateFrame('Frame', 'EorzeaUITooltip', UIParent)
     frame:SetFrameStrata('TOOLTIP')
     frame:SetClampedToScreen(true)
     frame:Hide()
-
-    local fill
-    if hasTooltipArt() then
-        -- Applied to the tooltip itself, so the pieces sit in its BACKGROUND/BORDER layers under the text.
-        NineSliceUtil.ApplyLayout(frame, NineSliceUtil.GetLayout(TOOLTIP_LAYOUT))
-        for _, piece in ipairs({ 'TopLeftCorner', 'TopRightCorner', 'BottomLeftCorner', 'BottomRightCorner',
-            'TopEdge', 'BottomEdge', 'LeftEdge', 'RightEdge' }) do
-            local texture = frame[piece]
-            if texture then
-                texture:SetDesaturated(true)
-                texture:SetVertexColor(Style.Color(TOOLTIP_BORDER))
-            end
-        end
-        -- The fill takes the place of the layout's Center, so it keeps Blizzard's inset.
-        fill = frame.Center
-    else
-        fill = frame:CreateTexture(nil, 'BACKGROUND')
-        fill:SetAllPoints()
-        addFlatEdge(frame)
-    end
-    fill:SetColorTexture(1, 1, 1, 1)
-    if not pcall(fill.SetGradient, fill, 'VERTICAL', CreateColor(0.02, 0.03, 0.06, 0.97), CreateColor(0.07, 0.10, 0.19, 0.97)) then
-        fill:SetVertexColor(0.04, 0.06, 0.12, 0.97)
-    end
-
-    frame.title = Widgets.Text(frame, 13, TOOLTIP_BORDER, 'friz')
-    frame.title:SetShadowColor(0, 0, 0, 0.9)
-    frame.title:SetShadowOffset(1, -1)
-    frame.title:SetPoint('TOPLEFT', TOOLTIP_PAD, -TOOLTIP_PAD)
-    frame.body = Widgets.Text(frame, 12, C.text, 'friz')
-    frame.body:SetShadowColor(0, 0, 0, 0.9)
-    frame.body:SetShadowOffset(1, -1)
+    local fill = sliced(frame, 'BACKGROUND', 'fill', 8)
+    fill:SetAllPoints()
+    Widgets.Gradient(fill, 'VERTICAL', '#0A1121F5', '#1B2846F5')
+    local gloss = sliced(frame, 'BACKGROUND', 'glass', 8, '#8CBEFA60', 1)
+    gloss:SetAllPoints()
+    local rim = sliced(frame, 'BORDER', 'ring', 8, '#AAD7FF73')
+    rim:SetAllPoints()
+    frame.title = Widgets.Text(frame, 13, A.text, 'semibold')
+    frame.title:SetPoint('TOPLEFT', TOOLTIP_PAD_X, -TOOLTIP_PAD_Y)
+    frame.body = Widgets.Text(frame, 13, C.text)
     frame.body:SetPoint('TOPLEFT', frame.title, 'BOTTOMLEFT', 0, -4)
     frame.body:SetWordWrap(true)
     frame.body:SetSpacing(2)
@@ -226,6 +374,7 @@ end
 local function showTooltip(owner, title, body)
     tooltip = tooltip or createTooltip()
     tooltip:SetScale(Widgets.Scale())
+    tooltip.title:SetTextColor(Style.Color(A.text))
     tooltip.title:SetText(title or '')
     tooltip.body:SetText(body)
     tooltip.body:SetWidth(TOOLTIP_MAX_WIDTH)
@@ -233,8 +382,8 @@ local function showTooltip(owner, title, body)
         or TOOLTIP_MAX_WIDTH
     local width = math.min(TOOLTIP_MAX_WIDTH, math.max(unwrapped, tooltip.title:GetStringWidth()))
     tooltip.body:SetWidth(width)
-    tooltip:SetSize(width + TOOLTIP_PAD * 2,
-        tooltip.title:GetStringHeight() + 4 + tooltip.body:GetStringHeight() + TOOLTIP_PAD * 2)
+    tooltip:SetSize(width + TOOLTIP_PAD_X * 2,
+        tooltip.title:GetStringHeight() + 4 + tooltip.body:GetStringHeight() + TOOLTIP_PAD_Y * 2)
     tooltip:ClearAllPoints()
     tooltip:SetPoint('BOTTOMLEFT', owner, 'TOPRIGHT', 0, 0)
     tooltip:Show()
@@ -263,37 +412,47 @@ end
 Widgets.SetTooltip = setTooltip
 
 ---------------------------------------------------------------------------------------------
--- Buttons
+-- Buttons: glass plates, blue by default, accent-tinted for the primary action, gold for a
+-- waiting reload.
 
-local BUTTON_STYLES = {
-    default = { fill = '#A0B9DC0F', border = '#A0B9DC42', text = C.text, hoverFill = '#A0B9DC1F', hoverBorder = '#A0B9DC73' },
-    primary = { fill = '#6FD3E824', border = '#6FD3E899', text = C.accentPale, hoverFill = '#6FD3E83D', hoverBorder = '#6FD3E8B3' },
-    gold = { fill = '#C9A96A1F', border = '#C9A96A99', text = C.goldText, hoverFill = '#C9A96A38', hoverBorder = '#C9A96AB3' },
-    ghost = { text = C.body, hoverFill = '#A0B9DC14', hoverText = C.text },
-}
+local function buttonLook(variant)
+    if variant == 'primary' then
+        return { tint = A.tint, rim = A.rimHot, text = A.pale }
+    elseif variant == 'gold' then
+        return { tint = '#F0CD8CFF', rim = '#E6C88C99', text = '#FFF0CFFF', glow = '#E6C88C' }
+    end
+    return { tint = '#8CBEFAFF', rim = C.rim, text = '#EAF4FFFF' }
+end
 
--- opts = { variant (BUTTON_STYLES key), icon, width, height, size (text) }. onClick(button).
+-- opts = { variant ('default' | 'primary' | 'gold'), icon, width, height, pad }. onClick(button).
 function Widgets.Button(parent, label, onClick, opts)
     opts = type(opts) == 'table' and opts or { width = opts }
-    local look = BUTTON_STYLES[opts.variant or 'default']
-    local height = opts.height or 34
+    local variant = opts.variant or 'default'
+    local look = buttonLook(variant)
+    local height = opts.height or 30
+    local radius = height < 26 and 6 or 8
     local button = CreateFrame('Button', nil, parent)
-    local box = Widgets.Box(button, height < 26 and 11 or 8, look.fill, look.border)
-    button.label = Widgets.Text(button, opts.size or 12, look.text, 'medium')
+    local glassTex = sliced(button, 'BACKGROUND', 'glass', 8)
+    glassTex:SetAllPoints()
+    local shine = sliced(button, 'BACKGROUND', 'fill', radius, '#00000000', 1)
+    shine:SetAllPoints()
+    shine:SetBlendMode('ADD')
+    local rim = sliced(button, 'BORDER', 'ring', radius)
+    rim:SetAllPoints()
+    button.label = Widgets.Text(button, opts.size or 14, look.text, 'medium', '')
     local icon
     if opts.icon then
         icon = Widgets.Icon(button, opts.icon, opts.iconSize or 14, look.text)
     end
-    local pad = opts.pad or 14
+    local pad = opts.pad or 16
     local text = label or ''
     local function layout()
         button.label:ClearAllPoints()
         local textWidth = text ~= '' and button.label:GetStringWidth() or 0
         if icon then
             local gap = textWidth > 0 and 8 or 0
-            local contentWidth = icon:GetWidth() + gap + textWidth
             icon:ClearAllPoints()
-            icon:SetPoint('LEFT', button, 'CENTER', -contentWidth / 2, 0)
+            icon:SetPoint('LEFT', button, 'CENTER', -(icon:GetWidth() + gap + textWidth) / 2, 0)
             button.label:SetPoint('LEFT', icon, 'RIGHT', gap, 0)
         else
             button.label:SetPoint('CENTER')
@@ -309,11 +468,12 @@ function Widgets.Button(parent, label, onClick, opts)
 
     local hovered = false
     local function paint()
-        local textColor = hovered and look.hoverText or look.text
-        box:SetColors(hovered and look.hoverFill or look.fill, hovered and look.hoverBorder or look.border)
-        button.label:SetTextColor(Style.Color(textColor))
+        glassTex:SetVertexColor(Style.Color(look.tint))
+        rim:SetVertexColor(Style.Color(hovered and (look.glow and '#F5D796F2' or A.rimHot) or look.rim))
+        shine:SetVertexColor(Style.Color(hovered and (look.glow and '#E6C88C30' or (A.accent:sub(1, 7) .. '30')) or '#00000000'))
+        button.label:SetTextColor(Style.Color(look.text))
         if icon then
-            icon:SetVertexColor(Style.Color(textColor))
+            icon:SetVertexColor(Style.Color(look.text))
         end
     end
     button:SetScript('OnEnter', function()
@@ -325,6 +485,7 @@ function Widgets.Button(parent, label, onClick, opts)
         paint()
     end)
     button:SetScript('OnClick', EUI.Guard('config button', function(self)
+        playSound('IG_MAINMENU_OPTION')
         onClick(self)
     end))
     function button:SetLabel(newText)
@@ -332,195 +493,181 @@ function Widgets.Button(parent, label, onClick, opts)
         self.label:SetText(text)
         layout()
     end
-    function button:SetVariant(variant)
-        look = BUTTON_STYLES[variant]
+    function button:SetVariant(newVariant)
+        look = buttonLook(newVariant)
         paint()
     end
     function button:SetActive(on)
         self:SetEnabled(on)
-        self:SetAlpha(on and 1 or 0.38)
+        self:SetAlpha(on and 1 or 0.4)
     end
     paint()
     return button
 end
 
--- Plain cyan text button (a section's Reset).
-function Widgets.Link(parent, label, onClick)
-    local button = CreateFrame('Button', nil, parent)
-    button.label = Widgets.Text(button, 12, C.accentText)
-    button.label:SetPoint('CENTER')
-    button.label:SetText(label)
-    button:SetSize(button.label:GetStringWidth() + 8, 22)
-    button:SetScript('OnEnter', function(self) self.label:SetTextColor(Style.Color('#CFF6FFFF')) end)
-    button:SetScript('OnLeave', function(self) self.label:SetTextColor(Style.Color(C.accentText)) end)
-    button:SetScript('OnClick', EUI.Guard('config link', function(self) onClick(self) end))
-    return button
-end
-
--- A key or value chip: mono text in a small dark box.
-function Widgets.Kbd(parent, text)
-    local frame = CreateFrame('Frame', nil, parent)
-    Widgets.Box(frame, 5, C.input, '#A0B9DC3D')
-    frame.text = Widgets.Text(frame, 11, C.value, 'mono')
-    frame.text:SetPoint('CENTER')
-    function frame:SetText(value)
-        self.text:SetText(value)
-        self:SetSize(math.floor(self.text:GetStringWidth() + 14.5), 20)
-    end
-    frame:SetText(text)
-    return frame
-end
 
 ---------------------------------------------------------------------------------------------
--- Controls. spec = { label, tip, get(), set(value) } plus each control's own fields.
+-- Controls. spec = { label, tip, get(), set(value) } plus each control's own fields;
+-- spec.onHelp(text) (optional) receives the tip of the part under the mouse.
 
--- Switch, 40x22.
+-- Rail toggle: a diamond pip slides between two hollow sockets along a rail that lights when on.
+local RAIL_LEFT, RAIL_RIGHT = 8, 44
+
 function Widgets.Toggle(parent, spec)
     local button = CreateFrame('Button', nil, parent)
-    button:SetSize(40, 22)
-    local box = Widgets.Box(button, 11)
-    local glow = button:CreateTexture(nil, 'ARTWORK', nil, 1)
-    glow:SetTexture(Style.AssetPath('settings/glow'))
-    glow:SetSize(30, 30)
-    glow:SetVertexColor(Style.Color('#6FD3E8B3'))
-    local knob = Widgets.Disc(button, 'ARTWORK', 14, C.dim, 2)
-    glow:SetPoint('CENTER', knob, 'CENTER')
+    button:SetSize(52, 22)
+    local rail = Widgets.Solid(button, 'ARTWORK', '#96B4E159')
+    rail:SetHeight(2)
+    rail:SetPoint('LEFT', RAIL_LEFT, 0)
+    rail:SetPoint('RIGHT', -(52 - RAIL_RIGHT), 0)
+    local shadow = Widgets.Solid(button, 'BORDER', C.edgeDark)
+    shadow:SetHeight(1)
+    shadow:SetPoint('TOPLEFT', rail, 'BOTTOMLEFT')
+    shadow:SetPoint('TOPRIGHT', rail, 'BOTTOMRIGHT')
+    for _, x in ipairs({ RAIL_LEFT, RAIL_RIGHT }) do
+        local socket = Widgets.Pip(button, 8, '#3A475EFF', true, 'ARTWORK', 1)
+        socket:SetPoint('CENTER', button, 'LEFT', x, 0)
+    end
+    local glow = Widgets.Glow(button, 26, 26, A.accent, 'OVERLAY', 1)
+    local pip = Widgets.Pip(button, 16, C.dim, false, 'OVERLAY', 2)
+    glow:SetPoint('CENTER', pip, 'CENTER')
     local hovered = false
-    function button:Refresh()
-        local on = spec.get() and true or false
+    local on = false
+    local slide = animator(button, 0.14, function(x)
+        pip:ClearAllPoints()
+        pip:SetPoint('CENTER', button, 'LEFT', x, 0)
+    end)
+    local function paint()
         if on then
-            box:SetColors('#6FD3E833', '#6FD3E8BF')
+            rail:SetColorTexture(1, 1, 1, 1)
+            Widgets.Gradient(rail, 'HORIZONTAL', A.accent:sub(1, 7) .. '26', A.accent)
+            pip:SetVertexColor(Style.Color(A.pale))
         else
-            box:SetColors('#18233AFF', hovered and '#A0B9DC80' or '#A0B9DC47')
+            rail:SetColorTexture(Style.Color('#96B4E159'))
+            pip:SetVertexColor(Style.Color(hovered and C.body or C.dim))
         end
-        knob:ClearAllPoints()
-        knob:SetPoint('LEFT', on and 22 or 4, 0)
-        knob:SetVertexColor(Style.Color(on and '#D4F7FFFF' or C.dim))
         glow:SetShown(on)
     end
-    button:SetScript('OnEnter', function(self)
+    function button:Refresh()
+        local value = spec.get() and true or false
+        local changed = value ~= on
+        on = value
+        slide(on and RAIL_RIGHT or RAIL_LEFT, not changed)
+        paint()
+    end
+    button:SetScript('OnEnter', function()
         hovered = true
-        self:Refresh()
+        paint()
     end)
-    button:SetScript('OnLeave', function(self)
+    button:SetScript('OnLeave', function()
         hovered = false
-        self:Refresh()
+        paint()
     end)
     button:SetScript('OnClick', EUI.Guard('config toggle', function(self)
-        spec.set(not spec.get())
+        local value = not spec.get()
+        playSound(value and 'IG_MAINMENU_OPTION_CHECKBOX_ON' or 'IG_MAINMENU_OPTION_CHECKBOX_OFF')
+        spec.set(value)
         self:Refresh()
     end))
-    button:Refresh()
+    on = spec.get() and true or false
+    slide(on and RAIL_RIGHT or RAIL_LEFT, true)
+    paint()
     return button
 end
 
--- Segmented buttons. spec.choices = { { value, label, tip }, ... }.
-function Widgets.Segmented(parent, spec)
+-- Light-pillar choice rail: options in equal columns over a hairline; a soft column of light
+-- rises from a lit diamond under the chosen one and slides when the choice changes.
+-- spec.choices = { { value, label, tip }, ... }.
+function Widgets.Rail(parent, spec)
+    local count = #spec.choices
+    local column = count > 3 and 92 or (count == 2 and 120 or 100)
     local frame = CreateFrame('Frame', nil, parent)
-    Widgets.Box(frame, 9, C.input, '#A0B9DC29')
-    local buttons = {}
-    local x = 3
-    for _, choice in ipairs(spec.choices) do
-        local button = CreateFrame('Button', nil, frame)
-        local box = Widgets.Box(button, 6)
-        button.text = Widgets.Text(button, 12, C.body, 'medium')
-        button.text:SetPoint('CENTER')
-        button.text:SetText(choice[2])
-        local width = math.floor(button.text:GetStringWidth() + 24.5)
-        button:SetSize(width, 28)
-        button:SetPoint('TOPLEFT', x, -3)
-        x = x + width + 2
-        button.value, button.box, button.hovered = choice[1], box, false
-        button:SetScript('OnEnter', function(self)
-            self.hovered = true
-            frame:Refresh()
-        end)
-        button:SetScript('OnLeave', function(self)
-            self.hovered = false
-            frame:Refresh()
-        end)
-        button:SetScript('OnClick', EUI.Guard('config choice', function()
-            spec.set(choice[1])
-            frame:Refresh()
-        end))
-        setTooltip(button, string.format('%s: %s', spec.label, choice[2]), choice[3])
-        buttons[#buttons + 1] = button
-    end
-    frame:SetSize(x + 1, 34)
-    function frame:Refresh()
-        local value = spec.get()
-        for _, button in ipairs(buttons) do
-            local on = button.value == value
-            if on then
-                button.box:SetColors('#6FD3E826', '#6FD3E880')
-                button.text:SetTextColor(Style.Color(C.accentPale))
-            elseif button.hovered then
-                button.box:SetColors('#A0B9DC14', nil)
-                button.text:SetTextColor(Style.Color(C.text))
-            else
-                button.box:SetColors(nil, nil)
-                button.text:SetTextColor(Style.Color(C.body))
-            end
-        end
-    end
-    frame:Refresh()
-    return frame
-end
+    frame:SetSize(column * count, 30)
+    local hairline = Widgets.FadeLine(frame, '#96B4E173', 'both')
+    hairline:SetPoint('BOTTOMLEFT')
+    hairline:SetPoint('BOTTOMRIGHT')
 
--- Underlined tabs across width. spec.choices as Segmented.
-function Widgets.Tabs(parent, width, spec)
-    local frame = CreateFrame('Frame', nil, parent)
-    frame:SetSize(width, 40)
-    local base = Widgets.Solid(frame, 'BORDER', C.lineSoft)
-    base:SetHeight(1)
-    base:SetPoint('BOTTOMLEFT')
-    base:SetPoint('BOTTOMRIGHT')
+    local light = CreateFrame('Frame', nil, frame)
+    light:SetSize(column, 30)
+    -- The glows use the top half of the glow texture, so the light rises from the hairline only.
+    local pillar = Widgets.Glow(light, column * 0.8, 30, A.accent:sub(1, 7) .. '8C', 'BACKGROUND')
+    pillar:SetTexCoord(0, 1, 0, 0.5)
+    pillar:SetPoint('BOTTOM', light, 'BOTTOM', 0, 0)
+    local bar = Widgets.Solid(light, 'ARTWORK', A.pale, 1)
+    bar:SetHeight(2)
+    bar:SetPoint('BOTTOMLEFT', column * 0.18, 0)
+    bar:SetPoint('BOTTOMRIGHT', -column * 0.18, 0)
+    local barGlow = Widgets.Glow(light, column * 0.8, 8, A.accent:sub(1, 7) .. 'D9', 'ARTWORK')
+    barGlow:SetTexCoord(0, 1, 0, 0.5)
+    barGlow:SetPoint('BOTTOM', bar, 'BOTTOM', 0, 0)
+    local gem = Widgets.Pip(light, 12, A.pale, false, 'OVERLAY', 3)
+    gem:SetPoint('CENTER', light, 'BOTTOM', 0, 0)
+    local slide = animator(frame, 0.22, function(x)
+        light:ClearAllPoints()
+        light:SetPoint('BOTTOMLEFT', frame, 'BOTTOMLEFT', x, 0)
+    end)
+
     local buttons = {}
-    local x = 0
-    for _, choice in ipairs(spec.choices) do
+    for i, choice in ipairs(spec.choices) do
         local button = CreateFrame('Button', nil, frame)
-        button.text = Widgets.Text(button, 13, C.body)
+        button:SetSize(column, 30)
+        button:SetPoint('BOTTOMLEFT', (i - 1) * column, 0)
+        button:SetFrameLevel(frame:GetFrameLevel() + 2)
+        button.text = Widgets.Text(button, 14, C.off)
         button.text:SetPoint('CENTER', 0, 1)
         button.text:SetText(choice[2])
-        local w = math.floor(button.text:GetStringWidth() + 28.5)
-        button:SetSize(w, 40)
-        button:SetPoint('BOTTOMLEFT', x, 0)
-        x = x + w + 4
-        button.underline = Widgets.Solid(button, 'ARTWORK', C.accent)
-        button.underline:SetHeight(2)
-        button.underline:SetPoint('BOTTOMLEFT')
-        button.underline:SetPoint('BOTTOMRIGHT')
-        button.value, button.hovered = choice[1], false
+        button.value, button.index, button.hovered = choice[1], i, false
         button:SetScript('OnEnter', function(self)
             self.hovered = true
-            frame:Refresh()
+            frame:Paint()
+            if spec.onHelp then
+                spec.onHelp(choice[3] or spec.tip)
+            end
         end)
         button:SetScript('OnLeave', function(self)
             self.hovered = false
-            frame:Refresh()
+            frame:Paint()
         end)
-        button:SetScript('OnClick', EUI.Guard('config tab', function()
+        button:SetScript('OnClick', EUI.Guard('config choice', function()
+            if spec.get() ~= choice[1] then
+                playSound('IG_MAINMENU_OPTION')
+            end
             spec.set(choice[1])
             frame:Refresh()
         end))
-        setTooltip(button, choice[2], choice[3])
         buttons[#buttons + 1] = button
+    end
+    local selected = 1
+    function frame:Paint()
+        for _, button in ipairs(buttons) do
+            local on = button.index == selected
+            button.text:SetTextColor(Style.Color((on and C.bright) or (button.hovered and C.text) or C.off))
+        end
     end
     function frame:Refresh()
         local value = spec.get()
+        local index
         for _, button in ipairs(buttons) do
-            local on = button.value == value
-            button.underline:SetShown(on)
-            button.text:SetTextColor(Style.Color((on and C.bright) or (button.hovered and C.text) or C.body))
+            if button.value == value then
+                index = button.index
+            end
         end
+        light:SetShown(index ~= nil)
+        if index then
+            local moved = index ~= selected
+            selected = index
+            slide((index - 1) * column, not moved)
+        end
+        self:Paint()
     end
     frame:Refresh()
+    slide((selected - 1) * column, true)
     return frame
 end
 
--- Slider with a value column. spec = { min, max, step, format (pattern or fn(value)), range
--- (fn() -> min, max, re-read on Refresh), width (whole control, default 280), valueColor }.
--- set runs when a drag ends, not on every pixel of it.
+-- Slider: a recessed groove filled in the accent up to a diamond thumb, the value after it.
+-- spec = { min, max, step, format (pattern or fn(value)), range (fn() -> min, max, re-read on
+-- Refresh), width (whole control, default 280), valueColor }. set runs when a drag ends.
 local VALUE_WIDTH = 56
 
 function Widgets.Slider(parent, spec)
@@ -535,34 +682,36 @@ function Widgets.Slider(parent, spec)
     slider:SetValueStep(spec.step)
     slider:SetObeyStepOnDrag(true)
     slider:EnableMouse(true)
-    local track = Widgets.Solid(slider, 'BACKGROUND', '#22304BFF')
-    track:SetHeight(4)
-    track:SetPoint('LEFT')
-    track:SetPoint('RIGHT')
+    -- The groove draws on the slider itself: a child frame would draw over the thumb's diamond.
+    local grooveFill = sliced(slider, 'BACKGROUND', 'fill', 3)
+    grooveFill:SetPoint('LEFT')
+    grooveFill:SetPoint('RIGHT')
+    grooveFill:SetHeight(8)
+    Widgets.Gradient(grooveFill, 'VERTICAL', '#0B1324FF', '#050A14FF')
+    local grooveRim = sliced(slider, 'BORDER', 'ring', 3, '#96B4E14D')
+    grooveRim:SetAllPoints(grooveFill)
     local thumb = slider:CreateTexture(nil, 'OVERLAY')
     thumb:SetColorTexture(0, 0, 0, 0)
     thumb:SetSize(14, 22)
     slider:SetThumbTexture(thumb)
-    local fill = Widgets.Solid(slider, 'BORDER', '#5CC3DAFF')
-    fill:SetHeight(4)
-    fill:SetPoint('LEFT', track, 'LEFT')
+    local fill = Widgets.Solid(slider, 'ARTWORK', '#FFFFFFFF')
+    fill:SetPoint('TOPLEFT', grooveFill, 'TOPLEFT', 1, -1)
+    fill:SetPoint('BOTTOM', grooveFill, 'BOTTOM', 0, 1)
     fill:SetPoint('RIGHT', thumb, 'CENTER')
-    local halo = Widgets.Disc(slider, 'OVERLAY', 22, '#6FD3E824', 1)
-    halo:SetPoint('CENTER', thumb, 'CENTER')
-    local ring = Widgets.Disc(slider, 'OVERLAY', 14, C.accent, 2)
-    ring:SetPoint('CENTER', thumb, 'CENTER')
-    local core = Widgets.Disc(slider, 'OVERLAY', 10, '#EAF6FFFF', 3)
-    core:SetPoint('CENTER', thumb, 'CENTER')
+    Widgets.Gradient(fill, 'HORIZONTAL', A.deep, A.accent)
+    local glow = Widgets.Glow(slider, 24, 24, A.accent:sub(1, 7) .. 'B3', 'OVERLAY', 1)
+    glow:SetPoint('CENTER', thumb, 'CENTER')
+    local gem = Widgets.Pip(slider, 18, '#EAF6FFFF', false, 'OVERLAY', 2)
+    gem:SetPoint('CENTER', thumb, 'CENTER')
     slider:SetScript('OnEnter', function()
-        halo:SetSize(26, 26)
-        halo:SetVertexColor(Style.Color('#6FD3E838'))
+        glow:SetSize(30, 30)
+        if spec.onHelp then
+            spec.onHelp(spec.tip)
+        end
     end)
-    slider:SetScript('OnLeave', function()
-        halo:SetSize(22, 22)
-        halo:SetVertexColor(Style.Color('#6FD3E824'))
-    end)
+    slider:SetScript('OnLeave', function() glow:SetSize(24, 24) end)
 
-    local value = Widgets.Text(frame, 12, spec.valueColor or C.value, spec.valueColor and 'semibold' or 'regular')
+    local value = Widgets.Text(frame, 14, spec.valueColor or C.value, spec.valueColor and 'semibold' or 'regular')
     value:SetPoint('RIGHT')
     value:SetWidth(VALUE_WIDTH)
     value:SetJustifyH('RIGHT')
@@ -594,9 +743,12 @@ function Widgets.Slider(parent, spec)
     end))
     slider:SetScript('OnMouseDown', function()
         dragging = true
+        glow:SetVertexColor(Style.Color(A.accent))
     end)
     slider:SetScript('OnMouseUp', EUI.Guard('config slider', function()
         dragging = false
+        glow:SetVertexColor(Style.Color(A.accent:sub(1, 7) .. 'B3'))
+        playSound('U_CHAT_SCROLL_BUTTON')
         commit()
     end))
 
@@ -615,8 +767,8 @@ function Widgets.Slider(parent, spec)
 end
 
 ---------------------------------------------------------------------------------------------
--- Dropdown: a box showing the choice, opening a list under it. spec.choices as Segmented;
--- spec.fontPreview: each choice value is a font file, drawn in its own face.
+-- Dropdown: a glass button showing the choice, opening a dark glass list under it. spec.choices
+-- as Rail; spec.fontPreview: each choice value is a font file, drawn in its own face.
 
 local menu
 
@@ -626,7 +778,11 @@ local function createMenu()
     frame:SetClampedToScreen(true)
     frame:EnableMouse(true)
     frame:Hide()
-    Widgets.Box(frame, 8, C.window, C.line)
+    local fill = sliced(frame, 'BACKGROUND', 'fill', 10)
+    fill:SetAllPoints()
+    Widgets.Gradient(fill, 'VERTICAL', '#0A1121F8', '#28406AF5')
+    local rim = sliced(frame, 'BORDER', 'ring', 10, '#AAD7FF66')
+    rim:SetAllPoints()
     -- Clicking anywhere else closes the list.
     local catcher = CreateFrame('Button', nil, UIParent)
     catcher:SetFrameStrata('FULLSCREEN')
@@ -645,41 +801,54 @@ local function menuRow(index)
         return row
     end
     row = CreateFrame('Button', nil, menu)
-    row:SetHeight(30)
-    row.box = Widgets.Box(row, 6)
-    row.text = Widgets.Text(row, 12, C.text)
-    row.text:SetPoint('LEFT', 10, 0)
-    row:SetScript('OnEnter', function(self) self.box:SetColors('#A0B9DC14', nil) end)
-    row:SetScript('OnLeave', function(self) self.box:SetColors(nil, nil) end)
+    row:SetHeight(28)
+    row.bar = Widgets.HoverBar(row)
+    row.bar:SetPoint('TOPLEFT', 20, -3)
+    row.bar:SetPoint('BOTTOMRIGHT', -4, 3)
+    row.cursor = Widgets.Cursor(row, 26, 17)
+    row.cursor:SetPoint('LEFT', 0, 0)
+    row.text = Widgets.Text(row, 14, C.text)
+    row.text:SetPoint('LEFT', 32, 0)
+    row.current = false
+    row:SetScript('OnEnter', function(self)
+        self.bar:SetShown(true)
+        if not self.current then
+            self.bar:SetAlpha(0.45)
+        end
+    end)
+    row:SetScript('OnLeave', function(self)
+        self.bar:SetShown(self.current)
+        self.bar:SetAlpha(1)
+    end)
     menu.rows[index] = row
     return row
 end
 
 local function openMenu(owner, spec, onPick)
     menu = menu or createMenu()
-    if menu:IsShown() and menu.owner == owner then
+    if menu:IsShown() and rawget(menu, 'owner') == owner then
         menu:Hide()
         return
     end
     menu.owner = owner
     menu:SetScale(owner:GetEffectiveScale() / UIParent:GetEffectiveScale())
     local current = spec.get()
-    local width = owner:GetWidth()
     for i, choice in ipairs(spec.choices) do
         local row = menuRow(i)
         row:ClearAllPoints()
-        row:SetPoint('TOPLEFT', 4, -4 - (i - 1) * 30)
-        row:SetPoint('TOPRIGHT', -4, -4 - (i - 1) * 30)
-        if spec.fontPreview then
-            Style.SetFont(row.text, choice[1], 14, '')
-        else
-            Style.SetFont(row.text, FONTS.regular, 12, '')
-        end
+        row:SetPoint('TOPLEFT', 4, -4 - (i - 1) * 28)
+        row:SetPoint('TOPRIGHT', -4, -4 - (i - 1) * 28)
+        Style.SetFont(row.text, spec.fontPreview and choice[1] or FONTS.regular, spec.fontPreview and 15 or 14, 'OUTLINE')
         row.text:SetText(choice[2])
-        row.text:SetTextColor(Style.Color(choice[1] == current and C.accentText or C.text))
-        row.box:SetColors(nil, nil)
+        row.current = choice[1] == current
+        row.text:SetTextColor(Style.Color(row.current and C.bright or '#AEBBD0FF'))
+        row.bar:SetVertexColor(Style.Color(A.hover))
+        row.bar:SetShown(row.current)
+        row.bar:SetAlpha(1)
+        Widgets.ShowCursor(row.cursor, row.current)
         row:SetScript('OnClick', EUI.Guard('config dropdown', function()
             menu:Hide()
+            playSound('IG_MAINMENU_OPTION')
             onPick(choice[1])
         end))
         row:Show()
@@ -687,7 +856,7 @@ local function openMenu(owner, spec, onPick)
     for i = #spec.choices + 1, #menu.rows do
         menu.rows[i]:Hide()
     end
-    menu:SetSize(width, #spec.choices * 30 + 8)
+    menu:SetSize(owner:GetWidth(), #spec.choices * 28 + 8)
     menu:ClearAllPoints()
     menu:SetPoint('TOPLEFT', owner, 'BOTTOMLEFT', 0, -4)
     menu:Show()
@@ -700,31 +869,27 @@ function Widgets.CloseMenus()
 end
 
 function Widgets.Dropdown(parent, spec)
-    local button = CreateFrame('Button', nil, parent)
-    button:SetSize(spec.width or 190, 34)
-    local box = Widgets.Box(button, 8, C.input, '#A0B9DC3D')
-    button.text = Widgets.Text(button, 12, C.text)
-    button.text:SetPoint('LEFT', 12, 0)
-    button.text:SetPoint('RIGHT', -32, 0)
-    local chevron = Widgets.Icon(button, 'chevron', 14, C.body)
-    chevron:SetPoint('RIGHT', -10, 0)
-    button:SetScript('OnEnter', function() box:SetColors(C.input, '#A0B9DC73') end)
-    button:SetScript('OnLeave', function() box:SetColors(C.input, '#A0B9DC3D') end)
-    button:SetScript('OnClick', EUI.Guard('config dropdown', function(self)
+    local button = Widgets.Button(parent, '', function(self)
         openMenu(self, spec, function(value)
             spec.set(value)
             self:Refresh()
         end)
-    end))
+    end, { width = spec.width or 200 })
+    button.label:ClearAllPoints()
+    button.label:SetPoint('LEFT', 12, 0)
+    button.label:SetPoint('RIGHT', -28, 0)
+    button.label:SetJustifyH('LEFT')
+    local marker = Widgets.Pip(button, 9, C.dim, false, 'OVERLAY')
+    marker:SetPoint('RIGHT', -12, 0)
     function button:Refresh()
         local value = spec.get()
         for _, choice in ipairs(spec.choices) do
             if choice[1] == value then
-                self.text:SetText(choice[2])
+                self.label:SetText(choice[2])
                 return
             end
         end
-        self.text:SetText(tostring(value))
+        self.label:SetText(tostring(value))
     end
     button:Refresh()
     return button
@@ -789,23 +954,23 @@ local function applyHexText(text)
     colorChanged()
 end
 
--- A text input in the design's box. opts = { width, height, inset (left text inset) }.
+-- A text input in a dark glass well. opts = { width, height, inset (left text inset), font, size }.
 function Widgets.Input(parent, opts)
     local box = CreateFrame('EditBox', nil, parent)
-    box:SetSize(opts.width or 120, opts.height or 34)
+    box:SetSize(opts.width or 120, opts.height or 30)
     box:SetAutoFocus(false)
-    Style.SetFont(box, opts.font or FONTS.regular, opts.size or 12, '')
+    Style.SetFont(box, opts.font or FONTS.regular, opts.size or 14, '')
     box:SetTextColor(Style.Color(C.text))
     box:SetTextInsets(opts.inset or 12, 10, 0, 0)
-    local frame = Widgets.Box(box, 8, C.input, '#A0B9DC3D')
-    box:SetScript('OnEditFocusGained', function() frame:SetColors(C.input, '#6FD3E8B3') end)
-    box:SetScript('OnEditFocusLost', function() frame:SetColors(C.input, '#A0B9DC3D') end)
+    local _, rim = Widgets.Well(box, 8)
+    box:SetScript('OnEditFocusGained', function() rim:SetVertexColor(Style.Color(A.rimHot)) end)
+    box:SetScript('OnEditFocusLost', function() rim:SetVertexColor(Style.Color(C.wellRim)) end)
     return box
 end
 
 local function createPicker()
     local frame = CreateFrame('Frame', 'EorzeaUIColorPicker', UIParent)
-    frame:SetSize(300, 268)
+    frame:SetSize(300, 272)
     frame:SetFrameStrata('DIALOG')
     frame:SetToplevel(true)
     frame:SetClampedToScreen(true)
@@ -819,13 +984,13 @@ local function createPicker()
         table.insert(UISpecialFrames, 'EorzeaUIColorPicker')
     end
     Widgets.Panel(frame)
-    frame.title = Widgets.Text(frame, 13, C.bright, 'semibold')
+    frame.title = Widgets.Text(frame, 15, C.title, 'display')
     frame.title:SetPoint('TOPLEFT', 18, -16)
 
     -- Wheel, brightness and (when editing alpha) opacity, laid out as Blizzard's picker.
     local select = CreateFrame('ColorSelect', nil, frame)
     select:SetSize(248, 128)
-    select:SetPoint('TOPLEFT', 18, -44)
+    select:SetPoint('TOPLEFT', 18, -46)
     local wheel = select:CreateTexture(nil, 'ARTWORK')
     wheel:SetSize(128, 128)
     wheel:SetPoint('TOPLEFT')
@@ -883,7 +1048,7 @@ local function createPicker()
     setTooltip(hexBox, 'Hex colour', 'Type RRGGBB, or RRGGBBAA with opacity, and press Enter.')
     frame.hexBox = hexBox
 
-    local cancel = Widgets.Button(frame, 'Cancel', function() frame:Hide() end, { variant = 'ghost' })
+    local cancel = Widgets.Button(frame, 'Cancel', function() frame:Hide() end)
     cancel:SetPoint('BOTTOMRIGHT', -14, 14)
     setTooltip(cancel, 'Cancel', 'Back to the colour before the picker opened. Escape does the same.')
     local okay = Widgets.Button(frame, 'Okay', function()
@@ -945,129 +1110,235 @@ local function pickColor(hex, hasAlpha, onChange, onCancel, title)
 end
 Widgets.PickColor = pickColor
 
--- A colour cell: swatch, label, hex and a reset icon while the colour differs from its default.
--- spec = { label, tip, alpha (bool), get() -> hex, set(hex), isDefault(), reset() }
-function Widgets.Color(parent, width, spec)
-    local button = CreateFrame('Button', nil, parent)
-    button:SetSize(width, 42)
-    local hover = Widgets.Rounded(button, 'BACKGROUND', 8, '#A0B9DC0D')
-    hover:SetAllPoints()
-    hover:Hide()
-    local swatch = CreateFrame('Frame', nil, button)
-    swatch:SetSize(34, 24)
-    swatch:SetPoint('LEFT', 10, 0)
-    local checker = Widgets.Rounded(swatch, 'BACKGROUND', 4, '#202020FF')
-    checker:SetPoint('TOPLEFT', 3, -3)
-    checker:SetPoint('BOTTOMRIGHT', -3, 3)
-    local color = Widgets.Rounded(swatch, 'ARTWORK', 4, '#FFFFFFFF')
-    color:SetAllPoints(checker)
-    local edge = Widgets.Rounded(swatch, 'BORDER', 6, '#A0B9DC4D', true)
-    edge:SetAllPoints()
-    local label = Widgets.Text(button, 13, C.text)
+-- A colour cell: a brush stroke of the colour, its label, the hex and a reset glyph while the
+-- colour differs from its default. variant: which of the three stroke shapes.
+-- spec = { label, tip, alpha (bool), get() -> hex, set(hex), isDefault(), reset(), onHelp }
+function Widgets.Color(parent, width, spec, variant)
+    local frame = CreateFrame('Frame', nil, parent)
+    frame:SetSize(width, 32)
+    local swatch = CreateFrame('Button', nil, frame)
+    swatch:SetSize(92, 24)
+    swatch:SetPoint('LEFT', 0, 0)
+    local stroke = Widgets.Brush(swatch, variant or 1, 92, 24, '#FFFFFFFF')
+    stroke:SetAllPoints()
+    local label = Widgets.Text(frame, 14, C.text)
     label:SetPoint('LEFT', swatch, 'RIGHT', 12, 0)
     label:SetText(spec.label)
-    local hex = Widgets.Text(button, 11, C.body, 'mono')
-    hex:SetPoint('RIGHT', -44, 0)
+    frame.labelText = label
+    local hex = Widgets.Text(frame, 12, C.faint, 'mono')
+    hex:SetPoint('RIGHT', -26, 0)
 
-    local reset = CreateFrame('Button', nil, button)
-    reset:SetSize(24, 24)
-    reset:SetPoint('RIGHT', -10, 0)
-    local resetBox = Widgets.Rounded(reset, 'BACKGROUND', 5, '#6FD3E81F')
-    resetBox:SetAllPoints()
-    resetBox:Hide()
-    local resetIcon = Widgets.Icon(reset, 'reset', 14, C.accentText)
+    local reset = CreateFrame('Button', nil, frame)
+    reset:SetSize(18, 18)
+    reset:SetPoint('RIGHT', 0, 0)
+    local resetIcon = Widgets.Icon(reset, 'reset', 14, A.text)
     resetIcon:SetPoint('CENTER')
-    reset:SetScript('OnEnter', function() resetBox:Show() end)
-    reset:SetScript('OnLeave', function() resetBox:Hide() end)
+    reset:SetScript('OnEnter', function() resetIcon:SetVertexColor(Style.Color(A.pale)) end)
+    reset:SetScript('OnLeave', function() resetIcon:SetVertexColor(Style.Color(A.text)) end)
     reset:SetScript('OnClick', EUI.Guard('config colour reset', function()
+        playSound('IG_MAINMENU_OPTION')
         spec.reset()
-        button:Refresh()
+        frame:Refresh()
     end))
-    setTooltip(reset, 'Reset', string.format("Back to the palette's %s colour.", spec.label:lower()))
 
-    button:SetScript('OnEnter', function()
-        hover:Show()
-        edge:SetVertexColor(Style.Color('#A0B9DC99'))
+    swatch:SetScript('OnEnter', function()
+        stroke:SetAlpha(1)
+        if spec.onHelp then
+            spec.onHelp(spec.tip)
+        end
     end)
-    button:SetScript('OnLeave', function()
-        hover:Hide()
-        edge:SetVertexColor(Style.Color('#A0B9DC4D'))
-    end)
-    setTooltip(button, spec.label, spec.tip)
 
-    function button:Refresh()
+    function frame:Refresh()
         local value = spec.get()
-        color:SetVertexColor(Style.Color(value))
+        stroke:SetVertexColor(Style.Color(value))
         hex:SetText(value:sub(2, (spec.alpha and 9) or 7))
         reset:SetShown(not spec.isDefault())
     end
-    button:SetScript('OnClick', EUI.Guard('config colour', function()
+    swatch:SetScript('OnClick', EUI.Guard('config colour', function()
+        playSound('IG_MAINMENU_OPTION')
         local start, wasDefault = spec.get(), spec.isDefault()
         pickColor(start, spec.alpha, function(newHex)
             spec.set(newHex)
-            button:Refresh()
+            frame:Refresh()
         end, function()
             if wasDefault then
                 spec.reset()
             else
                 spec.set(start)
             end
-            button:Refresh()
+            frame:Refresh()
         end, spec.label)
     end))
-    button:Refresh()
-    return button
+    frame:Refresh()
+    return frame
 end
 
 ---------------------------------------------------------------------------------------------
 -- Layout pieces
 
--- A section title: a cyan diamond, the label in spaced caps and a line to the right edge.
--- reset (optional) = { isDefault(), reset() }: a Reset link after the line while the section
--- differs from its defaults.
+-- A section title: Cinzel caps and a rule fading to the right. reset (optional) =
+-- { isDefault(), reset() }: a Reset link after the rule while the section differs from its defaults.
+-- The section reset: "N changed · Reset" inside a half C that opens toward the section rule, its
+-- lines and glow fading in from the rule and closing on a diamond at the right end. reset =
+-- { isDefault(), reset(), changes() -> { { label, from, to }, ... } }. Hovering the count lists
+-- what differs; hovering Reset lists what each option returns to. :Refresh() returns whether anything differs.
+local CAP_WIDTH, C_HEIGHT = 13, 26
+
+local function resetC(parent, label, reset)
+    local accent = A.accent:sub(1, 7)
+    local button = CreateFrame('Button', nil, parent)
+    button:SetHeight(C_HEIGHT)
+    local capFill = button:CreateTexture(nil, 'BACKGROUND')
+    capFill:SetTexture(Style.AssetPath('settings/resetCapFill'))
+    capFill:SetSize(CAP_WIDTH, C_HEIGHT)
+    capFill:SetPoint('RIGHT', -7, 0)
+    local capRing = button:CreateTexture(nil, 'BORDER')
+    capRing:SetTexture(Style.AssetPath('settings/resetCapRing'))
+    capRing:SetAllPoints(capFill)
+    local fill = Widgets.Solid(button, 'BACKGROUND', '#FFFFFFFF')
+    fill:SetPoint('TOPRIGHT', capFill, 'TOPLEFT')
+    fill:SetPoint('BOTTOMRIGHT', capFill, 'BOTTOMLEFT')
+    local top = Widgets.Solid(button, 'BORDER', '#FFFFFFFF')
+    top:SetHeight(1)
+    top:SetPoint('TOPRIGHT', capFill, 'TOPLEFT')
+    local bottom = Widgets.Solid(button, 'BORDER', '#FFFFFFFF')
+    bottom:SetHeight(1)
+    bottom:SetPoint('BOTTOMRIGHT', capFill, 'BOTTOMLEFT')
+    local hollow = Widgets.Pip(button, 9, A.accent, true, 'OVERLAY', 1)
+    hollow:SetPoint('CENTER', button, 'RIGHT', -7, 0)
+    local solid = Widgets.Pip(button, 9, A.accent, false, 'OVERLAY', 2)
+    solid:SetPoint('CENTER', hollow, 'CENTER')
+    local shadow = Widgets.Pip(button, 11, '#0E1729FF', false, 'OVERLAY', 0)
+    shadow:SetPoint('CENTER', hollow, 'CENTER')
+    local resetText = Widgets.Text(button, 13, A.text)
+    resetText:SetText('Reset')
+    resetText:SetPoint('RIGHT', -22, 0)
+    local sep = Widgets.Text(button, 13, '#5A667AFF')
+    sep:SetText('\194\183')
+    sep:SetPoint('RIGHT', resetText, 'LEFT', -7, 0)
+    local count = Widgets.Text(button, 13, C.goldText)
+    count:SetPoint('RIGHT', sep, 'LEFT', -7, 0)
+    -- The count is its own hover target, for the list of what changed; clicking it resets too.
+    local countHit = CreateFrame('Button', nil, button)
+    countHit:SetAllPoints(count)
+
+    local enabled, hovered = false, false
+    local function paint()
+        local k = enabled and accent or '#6E7D96'
+        local strength = (hovered and enabled) and 0.38 or (enabled and 0.22 or 0.08)
+        local edge = enabled and 'B3' or '59'
+        capFill:SetVertexColor(Style.Color(k .. string.format('%02X', math.floor(strength * 255))))
+        capRing:SetVertexColor(Style.Color(k .. edge))
+        Widgets.Gradient(fill, 'HORIZONTAL', k .. '00', k .. string.format('%02X', math.floor(strength * 255)))
+        Widgets.Gradient(top, 'HORIZONTAL', k .. '00', k .. edge)
+        Widgets.Gradient(bottom, 'HORIZONTAL', k .. '00', k .. edge)
+        hollow:SetVertexColor(Style.Color(enabled and A.accent or '#4E5B70FF'))
+        solid:SetShown(enabled and hovered)
+        resetText:SetTextColor(Style.Color((not enabled and '#4E5B70FF') or (hovered and C.bright) or A.text))
+    end
+    local function layout()
+        local textWidth = resetText:GetStringWidth()
+        if count:IsShown() then
+            textWidth = textWidth + 7 + sep:GetStringWidth() + 7 + count:GetStringWidth()
+        end
+        local width = math.ceil(16 + textWidth + 22)
+        button:SetWidth(width)
+        -- The C spans the right 78% of the button, as the design.
+        local open = width * 0.22
+        fill:SetPoint('LEFT', button, 'LEFT', open, 0)
+        top:SetPoint('LEFT', button, 'LEFT', open, 0)
+        bottom:SetPoint('LEFT', button, 'LEFT', open, 0)
+    end
+    local function doReset()
+        if not enabled then
+            return
+        end
+        playSound('IG_MAINMENU_OPTION')
+        reset.reset()
+    end
+    button:SetScript('OnClick', EUI.Guard('config section reset', doReset))
+    countHit:SetScript('OnClick', EUI.Guard('config section reset', doReset))
+    for _, frame in ipairs({ button, countHit }) do
+        frame:HookScript('OnEnter', function()
+            hovered = true
+            paint()
+        end)
+        frame:HookScript('OnLeave', function()
+            hovered = false
+            paint()
+        end)
+    end
+    setTooltip(countHit, 'Changed', function()
+        local lines = {}
+        for _, change in ipairs(reset.changes()) do
+            lines[#lines + 1] = string.format('%s: |cfff0ddb3%s|r', change.label, change.from)
+        end
+        return #lines > 0 and table.concat(lines, '\n') or nil
+    end)
+    setTooltip(button, 'Reset ' .. label, function()
+        local lines = {}
+        for _, change in ipairs(reset.changes()) do
+            lines[#lines + 1] = string.format('%s: %s \226\134\146 |cffffffff%s|r', change.label, change.from, change.to)
+        end
+        return #lines > 0 and table.concat(lines, '\n') or nil
+    end)
+
+    function button:Refresh()
+        local changes = reset.changes()
+        enabled = #changes > 0
+        count:SetText(string.format('%d changed', #changes))
+        count:SetShown(enabled)
+        sep:SetShown(enabled)
+        countHit:SetShown(enabled)
+        self:EnableMouse(enabled)
+        layout()
+        paint()
+        return enabled
+    end
+    button:Refresh()
+    return button
+end
+
+-- A section title: Cinzel caps and a rule fading to the right, ending at the section reset (when
+-- reset is given; see resetC).
 function Widgets.Header(parent, width, label, reset)
     local holder = CreateFrame('Frame', nil, parent)
-    holder:SetSize(width, 24)
-    local diamond = Widgets.Icon(holder, 'diamond', 10, C.accent)
-    diamond:SetPoint('LEFT', 0, 0)
-    local text = Widgets.Text(holder, 11, C.body, 'semibold')
-    text:SetPoint('LEFT', diamond, 'RIGHT', 10, 0)
-    text:SetText(Widgets.Caps(label))
-    local line = Widgets.Solid(holder, 'ARTWORK', C.sectionLine)
-    line:SetHeight(1)
-    local lineLeft = 20 + math.ceil(text:GetStringWidth()) + 12
+    holder:SetSize(width, 26)
+    local text = Widgets.Text(holder, 14, C.heading, 'display')
+    text:SetPoint('LEFT', 0, 0)
+    text:SetText(label:upper())
+    local rule = Widgets.FadeLine(holder, '#96B4E18C', 'end')
+    local ruleLeft = math.ceil(text:GetStringWidth()) + 12
     local button
     if reset then
-        button = Widgets.Link(holder, 'Reset', function()
-            reset.reset()
-        end)
+        button = resetC(holder, label, reset)
         button:SetPoint('RIGHT', 0, 0)
-        setTooltip(button, 'Reset section', string.format('Put every %s setting back to its default.', label))
     end
     function holder:Refresh()
-        local shown = button and not reset.isDefault()
+        -- The reset shows only while the section differs from its defaults.
+        local shown = button and button:Refresh() or false
         if button then
             button:SetShown(shown)
         end
-        line:ClearAllPoints()
-        line:SetPoint('TOPLEFT', holder, 'TOPLEFT', lineLeft, -12)
-        line:SetPoint('TOPRIGHT', holder, 'TOPRIGHT', shown and -(button:GetWidth() + 12) or 0, -12)
+        rule:ClearAllPoints()
+        rule:SetPoint('TOPLEFT', holder, 'TOPLEFT', ruleLeft, -13)
+        rule:SetPoint('TOPRIGHT', holder, 'TOPRIGHT', shown and -(button:GetWidth() + 6) or 0, -13)
     end
     holder:Refresh()
     return holder
 end
 
--- Wrapped 12px text. color (optional): the text colour. shown (optional): fn() -> whether the
+-- Wrapped 14px text. color (optional): the text colour. shown (optional): fn() -> whether the
 -- note shows, re-read on each Refresh; it keeps its height while hidden.
 function Widgets.Note(parent, width, text, color, shown)
     local holder = CreateFrame('Frame', nil, parent)
-    local note = Widgets.Text(holder, 12, color or C.dim)
+    local note = Widgets.Text(holder, 14, color or C.dim)
     note:SetPoint('TOPLEFT', 0, -4)
     note:SetWidth(width)
     note:SetWordWrap(true)
     note:SetSpacing(3)
     note:SetText(text)
-    holder:SetSize(width, math.max(20, math.ceil(note:GetStringHeight()) + 12))
+    holder:SetSize(width, math.max(22, math.ceil(note:GetStringHeight()) + 10))
     function holder:Refresh()
         if shown then
             note:SetShown(shown() and true or false)
