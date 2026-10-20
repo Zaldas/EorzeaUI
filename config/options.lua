@@ -547,7 +547,7 @@ end
 
 ---------------------------------------------------------------------------------------------
 -- Pages
--- Item kinds: header (label), note (text), toggle / choice / slider / color bound to path, or
+-- Item kinds: header (label), note (text; quips: help lines picked at random on hover), toggle / choice / slider / color bound to path, or
 -- with get/set; buttons ({ label, run(button), tip, labelFn, variant, icon, confirm (two clicks),
 -- active (fn) }; bare: equal widths at the page's left edge, no label); palettes; about.
 -- Every control carries a tip, shown under its label; reload items say so in it.
@@ -981,8 +981,21 @@ local about = {
     { kind = 'faq', label = 'A frame went off screen', text = 'Type /ffui reset, or use Reset Positions on the General page.' },
     { kind = 'faq', label = "A change didn't take effect", text = 'Palette, colours, fonts and buff rules apply after a reload; the footer lists any waiting. Settings changed in combat apply when combat ends.' },
     { kind = 'faq', label = 'A warning or error showed up', text = '/ffui log lists what EorzeaUI recorded. It is saved with your settings on reload or logout.' },
-    { kind = 'header', label = 'Credits' },
-    { kind = 'note', color = '#A9B6CBFF', text = 'A fan-made addon in the style of Final Fantasy menus. Not affiliated with Blizzard Entertainment or Square Enix. Settings fonts: Inter and Cinzel, under the SIL Open Font License.' },
+    { kind = 'header', label = 'Credits \194\183 Zaldas' },
+    { kind = 'note', color = '#A9B6CBFF', text = 'Lv. 99 Programmer, Gamer (sub), Degenerate (mastered). The knees creak too much for the long grind these days, but the wisdom stat is maxed: Zaldas called the commands, and Claude, the trusty summon, did the heavy lifting. Forged over late nights and far too many Monster Energy drinks (Ultra Strawberry Dreams, the favourite). A fan-made love letter to Final Fantasy menus; not affiliated with Blizzard Entertainment or Square Enix.',
+        quips = {
+            'Zaldas? Kupo! Saw that one fight a hex grid for three hours and win, kupo.',
+            'Shh, kupo... Zaldas is debugging. Bring a Strawberry Dreams and back away slowly.',
+            'Level 99 in everything except bedtime, kupo.',
+            "Zaldas says 'just one more tweak', kupo. Zaldas has said that forty times today.",
+            'This moogle was hired for moral support, kupo. Payment is in pom polish.',
+            'Kupo! The knees may creak, but the keybinds are flawless.',
+            'Ask Zaldas about Final Fantasy and clear your schedule, kupo.',
+            'Somewhere a raid is wiping because Zaldas is moving a frame two pixels left, kupo.',
+            'Zaldas gives the orders, Claude does the casting, and I take the credit, kupo!',
+            'Kupo... is that the smell of a fresh Monster can? Zaldas must be close.',
+        },
+    },
 }
 
 -- group: the page list heading. icon: assets/settings art. demo: the demo sections

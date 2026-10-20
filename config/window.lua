@@ -25,6 +25,8 @@ local SECTION_GAP = 18
 local SCROLL_STEP = 60
 local SPRIG_SIZE, SPRIG_ORIGIN = 128, 24
 local SPRIG_TINT = '#B8C4D6FF'
+-- The addon's name, in the top bar and on the Info page.
+local NAME_COLOR = '#B8D8F4FF'
 
 local window
 local pages = {}
@@ -819,7 +821,7 @@ local function hero(parent)
     icon:SetTexture(string.format('Interface\\AddOns\\%s\\Media\\AddonIcon', addonName))
     icon:SetSize(72, 72)
     icon:SetPoint('LEFT', 0, 0)
-    local title = Widgets.Text(holder, 28, C.title, 'display')
+    local title = Widgets.Text(holder, 28, NAME_COLOR, 'display')
     title:SetPoint('BOTTOMLEFT', icon, 'RIGHT', 18, 2)
     title:SetText(addonName)
     local parts = {}
@@ -909,7 +911,22 @@ local BUILDERS = {
         return Widgets.Header(parent, CONTENT_WIDTH, item.label, resetFor(section))
     end,
     note = function(parent, item)
-        return Widgets.Note(parent, CONTENT_WIDTH, item.text, item.color, item.shown)
+        local holder = Widgets.Note(parent, CONTENT_WIDTH, item.text, item.color, item.shown)
+        if item.quips then
+            -- A random quip in the help line on each hover, never the same one twice running.
+            local last
+            holder:EnableMouse(true)
+            holder:SetScript('OnEnter', function()
+                local pick
+                repeat
+                    pick = math.random(#item.quips)
+                until pick ~= last or #item.quips == 1
+                last = pick
+                setHelp(item.quips[pick])
+            end)
+            holder:SetScript('OnLeave', function() setHelp('') end)
+        end
+        return holder
     end,
     toggle = function(parent, item)
         local spec = bind(item)
@@ -1421,7 +1438,7 @@ local function createHeader()
     icon:SetPoint('LEFT', window, 'TOPLEFT', 12, -HEADER / 2)
     -- The icon's left margin past it. Cinzel's line box carries descender room under its caps,
     -- so the box sits low for the caps to centre on the icon.
-    local title = Widgets.Text(window, 20, '#B8D8F4FF', 'display')
+    local title = Widgets.Text(window, 20, NAME_COLOR, 'display')
     title:SetPoint('LEFT', icon, 'RIGHT', 12, -3)
     title:SetText(addonName)
     local rule = Widgets.FadeLine(window, '#96B4E180', 'both')
