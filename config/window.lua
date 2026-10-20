@@ -614,7 +614,7 @@ local function colorGrid(parent, items)
         local cell = Widgets.Color(holder, cellWidth, spec, i)
         local column, line = (i - 1) % COLOR_COLUMNS, math.floor((i - 1) / COLOR_COLUMNS)
         cell:SetPoint('TOPLEFT', column * (cellWidth + COLOR_GAP), -line * 32)
-        makeHot(cell, item.tip, rawget(cell, 'labelText'), 104)
+        makeHot(cell, item.tip, rawget(cell, 'labelText'), 104, 0)
         spec.row.holder = cell
         cells[#cells + 1] = cell
     end
@@ -1346,14 +1346,18 @@ local function createNavButton(parent, page)
 end
 
 local function createSidebar()
+    local crystal = Config.CreateCrystal(window)
     local sidebar = CreateFrame('Frame', nil, window)
     sidebar:SetPoint('TOPLEFT', 1, -(HEADER + 1))
     sidebar:SetPoint('BOTTOMLEFT', 1, FOOTER + 1)
     sidebar:SetWidth(SIDEBAR - 1)
+    -- The backdrop draws under the sidebar's shade, as the design.
+    crystal:SetAllPoints(sidebar)
+    sidebar:SetFrameLevel(crystal:GetFrameLevel() + 1)
     local fill = Widgets.Solid(sidebar, 'BACKGROUND', '#FFFFFFFF')
     fill:SetAllPoints()
-    Widgets.Gradient(fill, 'VERTICAL', '#02050C94', '#02050C61')
-    local edge = Widgets.FadeLine(sidebar, '#96B4E166', 'both', true)
+    Widgets.Gradient(fill, 'VERTICAL', '#02050C4D', '#02050C26')
+    local edge = Widgets.FadeLine(sidebar, '#96B4E138', 'both', true)
     edge:SetPoint('TOPRIGHT')
     edge:SetPoint('BOTTOMRIGHT')
 
