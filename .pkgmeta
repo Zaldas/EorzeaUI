@@ -1,0 +1,5 @@
+package-as: EorzeaUI
+
+ignore:
+  - docs
+  - tools
