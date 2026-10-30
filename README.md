@@ -32,7 +32,7 @@ Open with `/ffui` or the minimap button. Pick a palette, colour health bars by p
 
 ## Install
 
-Download the latest release, unzip it, and drop the `EorzeaUI` folder into `World of Warcraft\_classic_beta_\Interface\AddOns\`.
+Download the latest release, unzip it, and drop the `EorzeaUI` folder into `World of Warcraft\_forever_\Interface\AddOns\`.
 
 ## Commands
 
