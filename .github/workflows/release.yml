@@ -24,8 +24,9 @@ jobs:
 
       - uses: BigWigsMods/packager@v2
 
-      # The packager names the release after the bare tag.
-      - name: Set release title
+      # The packager publishes the release under the bare tag; this renames it and
+      # turns it back into a draft for review before publishing by hand.
+      - name: Title the release and make it a draft
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "EorzeaUI.$GITHUB_REF_NAME"
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "EorzeaUI.$GITHUB_REF_NAME" --draft
