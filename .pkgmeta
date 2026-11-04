@@ -1,5 +1,10 @@
 package-as: EorzeaUI
 
+# Becomes the release notes; holds only the current release.
+manual-changelog:
+  filename: CHANGELOG.md
+  markup-type: markdown
+
 ignore:
   - docs
   - tools

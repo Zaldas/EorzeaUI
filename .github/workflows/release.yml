@@ -23,3 +23,9 @@ jobs:
           fetch-depth: 0
 
       - uses: BigWigsMods/packager@v2
+
+      # The packager names the release after the bare tag.
+      - name: Set release title
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --title "EorzeaUI.$GITHUB_REF_NAME"
