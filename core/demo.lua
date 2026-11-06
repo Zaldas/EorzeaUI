@@ -252,6 +252,15 @@ local function focus()
     }
 end
 
+-- The mob your attacks hit while a friend is your target.
+local function soft()
+    return {
+        name = 'Riverpaw Mystic', level = 14, colorKey = 'hostile', portraitUnit = 'player', hpPercent = 46,
+        threat = 1, castName = 'Healing Wave', castProgress = 0.5,
+        totName = playerDisplayName(), totColorKey = 'party', totPercent = 92,
+    }
+end
+
 -- An encounter filling every slot: the boss casting on its tank, a lieutenant on a healer, two
 -- adds, and a dead one.
 local function bosses()
@@ -372,6 +381,7 @@ local SHOW = {
         for i, bar in ipairs(EUI.TargetBar.bosses) do
             bar:SetPreview(bossSamples[i])
         end
+        EUI.TargetBar.SetSoftPreview(on and soft() or nil)
     end,
     cast = function(on)
         EUI.playerCast:SetPreview(on and 'Flash of Light' or nil, 0.45)

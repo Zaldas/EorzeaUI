@@ -108,6 +108,9 @@ RegisterStateDriver = function(frame, state, condition)
     STATE_DRIVERS[#STATE_DRIVERS + 1] = { frame = frame, state = state, condition = condition }
     if state == 'druidform' then STATE_DRIVER = condition end
 end
+UnregisterStateDriver = function(frame, state)
+    STATE_DRIVERS[#STATE_DRIVERS + 1] = { frame = frame, state = state }
+end
 UnitHealth = function() return 100 end
 UnitHealthMax = function() return 200 end
 UnitPower = function() return 50 end
@@ -315,8 +318,9 @@ local petButton1 = _G.EorzeaUIPartyPetButton1
 local petButton2 = _G.EorzeaUIPartyPetButton2
 assert(owner1 and owner2 and petButton1 and petButton2, 'party buttons not created')
 -- 5 rows, 5 pet buttons, the target, focus and 5 boss bars' click areas and their mini bars',
--- and 8 Assists cells' target and target-of-target buttons.
-assert(#WATCHED == 40, 'party buttons not unit-watched: ' .. #WATCHED)
+-- the soft target bar's (no mini bar by default), and 8 Assists cells' target and
+-- target-of-target buttons.
+assert(#WATCHED == 41, 'party buttons not unit-watched: ' .. #WATCHED)
 assert(owner1:GetAttribute('unit') == 'player', 'row 1 unit: ' .. tostring(owner1:GetAttribute('unit')))
 assert(owner2:GetAttribute('unit') == 'party1', 'row 2 unit: ' .. tostring(owner2:GetAttribute('unit')))
 assert(petButton1:GetAttribute('unit') == 'pet', 'player pet unit: ' .. tostring(petButton1:GetAttribute('unit')))
@@ -403,15 +407,17 @@ assert(EUI.TargetBar.ForUnit('target') == EUI.TargetBar.target, 'live target bar
 assert(EUI.TargetBar.ForUnit('focus') == EUI.TargetBar.focus, 'live focus bar not routed')
 local liveBars = 0
 EUI.TargetBar.ForEach(function() liveBars = liveBars + 1 end)
-assert(liveBars == 7, 'demo target bars registered as live: ' .. liveBars)
+assert(EUI.TargetBar.ForUnit('softenemy') == EUI.TargetBar.soft, 'soft target bar not routed')
+assert(liveBars == 8, 'demo target bars registered as live: ' .. liveBars)
 assert(EUI.TargetBar.ForUnit('boss5') == EUI.TargetBar.bosses[5], 'boss bar not routed')
-for _, unit in ipairs({ 'target', 'focus', 'boss1' }) do
+for _, unit in ipairs({ 'target', 'focus', 'boss1', 'softenemy' }) do
     onEvent(nil, 'UNIT_HEALTH', unit)
     onEvent(nil, 'UNIT_SPELLCAST_INTERRUPTED', unit)
     onEvent(nil, 'UNIT_FLAGS', unit)
 end
 onEvent(nil, 'PLAYER_FLAGS_CHANGED', 'party1')
 onEvent(nil, 'PLAYER_FOCUS_CHANGED')
+onEvent(nil, 'PLAYER_SOFT_ENEMY_CHANGED')
 onEvent(nil, 'RAID_TARGET_UPDATE')
 TICK()
 assert(#CHAT == 0, 'gallery printed: ' .. tostring(CHAT[1]))
@@ -455,9 +461,11 @@ local spied = {
     target = EUI.TargetBar.target,
     focus = EUI.TargetBar.focus,
     boss1 = EUI.TargetBar.bosses[1],
+    softenemy = EUI.TargetBar.soft,
     targetCast = EUI.TargetBar.target.cast,
     focusCast = EUI.TargetBar.focus.cast,
     boss1Cast = EUI.TargetBar.bosses[1].cast,
+    softCast = EUI.TargetBar.soft.cast,
     rowCast = EUI.PartyList.RowForUnit('player').cast,
     party1Cast = EUI.PartyList.RowForUnit('party1').cast,
     petCast = EUI.PartyList.PetForUnit('pet').cast,
@@ -485,7 +493,7 @@ local function route(event, unit)
     table.sort(calls)
     return table.concat(calls, ' ')
 end
-local ROUTE_UNITS = { 'player', 'party1', 'pet', 'target', 'focus', 'boss1' }
+local ROUTE_UNITS = { 'player', 'party1', 'pet', 'target', 'focus', 'boss1', 'softenemy' }
 local UNIT_ROUTE_EVENTS = {
     'UNIT_HEALTH', 'UNIT_MAXHEALTH', 'UNIT_POWER_UPDATE', 'UNIT_MAXPOWER', 'UNIT_DISPLAYPOWER',
     'UNIT_NAME_UPDATE', 'UNIT_LEVEL', 'UNIT_TARGET', 'UNIT_SPELLCAST_START', 'UNIT_SPELLCAST_STOP',
@@ -502,7 +510,7 @@ local GLOBAL_ROUTE_EVENTS = {
     'READY_CHECK_FINISHED', 'RAID_TARGET_UPDATE', 'PLAYER_ROLES_ASSIGNED', 'ROLE_CHANGED_INFORM',
     'PARTY_LOOT_METHOD_CHANGED', 'UPDATE_SHAPESHIFT_FORM', 'PET_UI_UPDATE', 'PLAYER_FOCUS_CHANGED',
     'COMBO_TARGET_CHANGED', 'INSTANCE_ENCOUNTER_ENGAGE_UNIT', 'PARTY_MEMBER_ENABLE', 'PARTY_MEMBER_DISABLE',
-    'UNIT_CTR_OPTIONS', 'PET_ATTACK_START', 'PET_ATTACK_STOP', 'CVAR_UPDATE',
+    'UNIT_CTR_OPTIONS', 'PET_ATTACK_START', 'PET_ATTACK_STOP', 'CVAR_UPDATE', 'PLAYER_SOFT_ENEMY_CHANGED',
 }
 local cases = {}
 for _, event in ipairs(UNIT_ROUTE_EVENTS) do
@@ -987,6 +995,22 @@ exerciseOptions()
 EUI.Demo.Toggle()
 exerciseOptions()
 EUI.Demo.Toggle()
+
+-- Soft target bar: the gate's driver follows soft.*; the demo shows it whatever the rule.
+local softGate = EUI.TargetBar.soft.gate
+local SOFT_RULE = '[@target,noexists] hide; [@target,harm,nodead] hide; [@softenemy,exists] show; hide'
+assert(lastDriver(softGate) == SOFT_RULE, 'soft target driver: ' .. tostring(lastDriver(softGate)))
+EUI.Settings.Set('soft.noTarget', true)
+assert(lastDriver(softGate) == '[@target,harm,nodead] hide; [@softenemy,exists] show; hide', 'soft no-target driver')
+EUI.Settings.Set('soft.enabled', false)
+assert(lastDriver(softGate) == 'hide', 'disabled soft target driver: ' .. tostring(lastDriver(softGate)))
+EUI.Demo.Toggle()
+assert(lastDriver(softGate) == nil, 'soft target driver kept during the demo')
+EUI.Demo.Toggle()
+assert(lastDriver(softGate) == 'hide', 'soft target driver not restored after the demo')
+EUI.Settings.Set('soft.enabled', true)
+EUI.Settings.Set('soft.noTarget', false)
+assert(lastDriver(softGate) == SOFT_RULE, 'soft target driver not restored')
 local styleName = EUI.Settings.Get('style')
 EUI.Settings.Set('colors.' .. styleName .. '.powerColors.0', '#112233FF')
 EUI.Config.Toggle('colors')

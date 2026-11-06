@@ -60,6 +60,7 @@ local function forTargets(style, fn)
     fn(style.target)
     fn(style.focus)
     fn(style.boss)
+    fn(style.soft)
 end
 
 -- Gives each section its own copy of tables the layout shares across sections and styles.
@@ -112,6 +113,9 @@ local REFRESH = {
     end,
     playerCast = function()
         EUI.playerCast:Update()
+    end,
+    soft = function()
+        EUI.TargetBar.UpdateSoftDriver()
     end,
     scale = function()
         EUI.ApplyScale()
@@ -210,10 +214,10 @@ for _, entry in ipairs(INDICATORS) do
         path = 'indicators.' .. entry[1],
         default = true,
         refresh = 'rowsAndBars',
-        -- Target, focus and boss bars carry the leader, PvP, raid marker and flag specs at their
-        -- top level; the target-of-target name has its own marker.
+        -- Target, focus, boss and soft target bars carry the leader, PvP, raid marker and flag
+        -- specs at their top level; the target-of-target name has its own marker.
         apply = function(style, value)
-            local sections = { style.party.indicators, style.raid.indicators, style.target, style.focus, style.boss }
+            local sections = { style.party.indicators, style.raid.indicators, style.target, style.focus, style.boss, style.soft }
             for _, section in ipairs(sections) do
                 for _, key in ipairs(keys) do
                     if section[key] then
@@ -397,13 +401,36 @@ option({ path = 'target.castBars', default = 'on', refresh = 'bars',
     blizzard = { cvars = { 'showTargetCastbar' }, read = function()
         return readCVar('showTargetCastbar') == '0' and 'off' or 'on'
     end },
+    -- The soft target bar has its own toggle (soft.castBar).
     apply = function(style, value)
-        forTargets(style, function(spec)
+        for _, spec in ipairs({ style.target, style.focus, style.boss }) do
             spec.cast.disabled = value == 'off'
-        end)
+        end
     end })
 option({ path = 'castBar.enabled', default = true, refresh = 'playerCast', apply = function(style, value)
     style.castBar.disabled = not value
+end })
+
+-- Soft target bar: whether it shows, when, and what it draws.
+option({ path = 'soft.enabled', default = true, combat = true, refresh = 'soft', label = 'Soft Target Bar',
+    apply = function(style, value)
+        style.soft.enabled = value
+    end })
+option({ path = 'soft.noTarget', default = false, combat = true, refresh = 'soft', label = 'Soft Target With No Target',
+    apply = function(style, value)
+        style.soft.noTarget = value
+    end })
+option({ path = 'soft.castBar', default = false, refresh = 'bars', apply = function(style, value)
+    style.soft.cast.disabled = not value
+end })
+-- Without the mini bar, the anchor and header end at the HP bar.
+option({ path = 'soft.tot', default = false, reload = true, label = "Soft Target's Target", apply = function(style, value)
+    local spec = style.soft
+    spec.tot.hidden = not value
+    if not value then
+        spec.width = spec.attention.pos[1]
+        spec.header.width = spec.attention.pos[1] - spec.header.pos[1]
+    end
 end })
 
 local FONT_FILES = {
@@ -461,6 +488,7 @@ local SCALED_FRAMES = {
     { 'target', 'Target' },
     { 'focus', 'Focus' },
     { 'boss', 'Boss' },
+    { 'soft', 'Soft Target' },
     { 'cast', 'Your Cast Bar' },
     { 'totems', 'Totems' },
 }
@@ -860,7 +888,14 @@ local target = {
     choice('target.castBars', 'Cast Bars', withBlizzard({
         { 'on', 'On', 'Shown while the unit casts.' },
         { 'off', 'Off', 'Never shown.' },
-    }, "Follow Blizzard's Show Target Cast Bar setting."), 'The cast bar above the HP bar.'),
+    }, "Follow Blizzard's Show Target Cast Bar setting."), 'The cast bar above the HP bar. The soft target bar has its own.'),
+    { kind = 'header', label = 'Soft Target' },
+    toggle('soft.enabled', 'Soft Target Bar',
+        "The enemy your attacks hit while a friend is your target. Soft targeting is on with a gamepad, or with Blizzard's Enable Action Targeting."),
+    toggle('soft.noTarget', 'Show With No Target',
+        'Also while you have no target. Your first harmful spell makes it your target.'),
+    toggle('soft.castBar', 'Cast Bar', 'Replaces the name line while it casts.'),
+    { kind = 'toggle', path = 'soft.tot', label = "Soft Target's Target", tip = tip('A mini bar for the unit it targets.', true) },
 }
 for _, item in ipairs(target) do
     general[#general + 1] = item
@@ -1018,7 +1053,7 @@ local about = {
 local ALL = EUI.Demo.SECTIONS
 Config.PAGES = {
     { key = 'general', group = 'Frames', label = 'General', icon = 'navGeneral', items = general, demo = { 'cast', 'target' },
-        tip = 'The palette, frame positions, your cast bar, and the target, focus and boss bars.' },
+        tip = 'The palette, frame positions, your cast bar, and the target, focus, boss and soft target bars.' },
     { key = 'party', group = 'Frames', label = 'Party', icon = 'navParty', items = party, demo = { 'party' },
         tip = 'Party rows: health text, cast bars, auras and how the list is laid out.' },
     { key = 'raid', group = 'Frames', label = 'Raid', icon = 'navRaid', items = raid, demo = { 'raid' },

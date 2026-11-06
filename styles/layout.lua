@@ -45,6 +45,11 @@ function Kit.BuildLayout(p)
     })
     boss.count = 5
     boss.spacing = 6
+    -- The soft enemy target ('softenemy'), on a boss-sized bar under its own header.
+    local soft = Kit.target(p, bossCastText, {
+        bar = 268, icon = 40, name = 15, hpp = 13, cast = 182, tot = 180, totName = 14,
+        height = 54, totDebuffs = 0, label = 'Soft Target', castHidesName = true, compact = true, castNearIcon = true,
+    })
 
     return {
         fonts = Kit.FONTS,
@@ -308,6 +313,7 @@ function Kit.BuildLayout(p)
             compact = true, castNearIcon = true,
         }),
         boss = boss,
+        soft = soft,
         -- Blizzard's TotemFrame and TotemButtonTemplate (Mainline/TotemFrame.xml) in UI units: 37px
         -- buttons packed with spacing -6 after leftPadding 15, topPadding -2; the ring atlas at 30px,
         -- offset (1, -1.5); a 22px round icon; the swipe at 65% black; the time 5px into the icon's

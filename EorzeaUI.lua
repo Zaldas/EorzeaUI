@@ -17,6 +17,7 @@ local function applyScale()
         EUI.TargetBar.target.anchor:SetScale(scale('target'))
         EUI.TargetBar.focus.anchor:SetScale(scale('focus'))
         EUI.TargetBar.bossAnchor:SetScale(scale('boss'))
+        EUI.TargetBar.softAnchor:SetScale(scale('soft'))
         EUI.castAnchor:SetScale(scale('cast'))
         EUI.TotemBar.ApplyScale()
     end, 'scale')
@@ -113,6 +114,7 @@ local function initialize()
     EUI.EditMode.Register('target', EUI.TargetBar.target.anchor, 'Target', style.target.editBox)
     EUI.EditMode.Register('focus', EUI.TargetBar.focus.anchor, 'Focus', style.focus.editBox)
     EUI.EditMode.Register('boss', EUI.TargetBar.bossAnchor, 'Boss', style.boss.editBox)
+    EUI.EditMode.Register('soft', EUI.TargetBar.softAnchor, 'Soft Target', style.soft.editBox)
     EUI.EditMode.Register('cast', EUI.castAnchor, 'Cast bar', style.castBar.editBox)
     EUI.EditMode.Register('totems', EUI.TotemBar.anchor, 'Totems', { topRegion = EUI.TotemBar.headerHost })
     EUI.EditMode.Initialize()
@@ -140,6 +142,10 @@ local function initialize()
             bar:UpdateThreat()
             bar:UpdateTargetOfTarget()
         end)
+        -- In case the client sends no UNIT_HEALTH for the 'softenemy' token.
+        if EUI.TargetBar.soft.gate:IsVisible() then
+            EUI.TargetBar.soft:UpdateHealth(true)
+        end
     end))
 
     EUI.ready = true
@@ -397,6 +403,9 @@ local GLOBAL_ROUTES = {
         checkUnitLost('focus')
         EUI.TargetBar.focus:Refresh()
     end,
+    PLAYER_SOFT_ENEMY_CHANGED = function()
+        EUI.TargetBar.soft:Refresh()
+    end,
     -- The boss1.. units changed.
     INSTANCE_ENCOUNTER_ENGAGE_UNIT = function()
         EUI.TargetBar.RefreshBosses()
@@ -599,6 +608,7 @@ SlashCmdList.EORZEAUI = EUI.Guard('slash', function(msg)
             EUI.EditMode.RestorePosition('target', EUI.TargetBar.target.anchor)
             EUI.EditMode.RestorePosition('focus', EUI.TargetBar.focus.anchor)
             EUI.EditMode.RestorePosition('boss', EUI.TargetBar.bossAnchor)
+            EUI.EditMode.RestorePosition('soft', EUI.TargetBar.softAnchor)
             EUI.EditMode.RestorePosition('cast', EUI.castAnchor)
             EUI.EditMode.RestorePosition('totems', EUI.TotemBar.anchor)
         end)

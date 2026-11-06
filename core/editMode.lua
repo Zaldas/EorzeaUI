@@ -18,6 +18,7 @@ local DEFAULT_POSITIONS = {
     target = { 'TOP', 'TOP', 0, -140 },
     focus = { 'TOP', 'TOP', 0, -340 },
     boss = { 'RIGHT', 'RIGHT', -120, -280 },
+    soft = { 'TOP', 'TOP', 0, -480 },
     cast = { 'CENTER', 'CENTER', 0, -148 },
     totems = { 'CENTER', 'CENTER', 0, -205 },
 }

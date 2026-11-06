@@ -6,7 +6,7 @@ local _, EUI = ...
 -- Non-attackable NPCs out of combat get a separator line instead of the HP bar.
 -- The drawing is not secure, so it may show/hide in combat. Secure buttons on the anchor take
 -- clicks on both bars: left-click targets, right-click opens the unit menu, hover shows the tooltip.
--- Each bar is an instance for one unit ('target', 'focus' or 'boss1'..; the unit's target gets
+-- Each bar is an instance for one unit ('target', 'focus', 'boss1'.. or 'softenemy'; the unit's target gets
 -- the mini bar). Demo bars have no unit and only show SetPreview data.
 
 EUI.TargetBar = {}
@@ -172,7 +172,10 @@ function TargetBar.New(anchor, spec, fonts, unit)
 
     if unit then
         createClickArea(self, unit, spec.click, { 0, 0 })
-        createClickArea(self, self.totUnit, spec.tot.click, spec.tot.pos)
+        -- spec.tot.hidden (settings, read at build) drops the mini bar and its click area.
+        if not spec.tot.hidden then
+            createClickArea(self, self.totUnit, spec.tot.click, spec.tot.pos)
+        end
         bars[unit] = self
         self:Refresh()
     else
@@ -209,10 +212,63 @@ local function createBosses(spec, fonts)
     end
 end
 
+-- The soft enemy takes your harmful spells only while your target cannot be attacked; with no
+-- target, Blizzard makes it your target on the first harmful spell. Macro conditions, so the
+-- secure state driver applies them in combat.
+local function softCondition(spec)
+    if not spec.enabled then
+        return 'hide'
+    end
+    if spec.noTarget then
+        return '[@target,harm,nodead] hide; [@softenemy,exists] show; hide'
+    end
+    return '[@target,noexists] hide; [@target,harm,nodead] hide; [@softenemy,exists] show; hide'
+end
+
+-- The soft enemy bar sits on a gate inside its anchor: the state driver shows and hides the
+-- gate, and the anchor stays shown for its Edit Mode handle.
+local function createSoft(spec, fonts)
+    local anchor = CreateFrame('Frame', 'EorzeaUISoftTargetAnchor', UIParent)
+    anchor:SetSize(spec.width, spec.height)
+    anchor:SetMovable(true)
+    anchor:SetClampedToScreen(true)
+    TargetBar.softAnchor = anchor
+    local gate = CreateFrame('Frame', nil, anchor)
+    gate:SetAllPoints(anchor)
+    local bar = TargetBar.New(gate, spec, fonts, 'softenemy')
+    bar.gate = gate
+    gate:SetScript('OnShow', EUI.Guard('soft target shown', function()
+        bar:Refresh()
+    end))
+    TargetBar.soft = bar
+    TargetBar.UpdateSoftDriver()
+end
+
+-- Re-applies the soft bar's show rule (settings soft.*), out of combat. The demo shows it
+-- whatever the rule.
+function TargetBar.UpdateSoftDriver()
+    local bar = TargetBar.soft
+    EUI.RunOutOfCombat(function()
+        if bar.preview then
+            UnregisterStateDriver(bar.gate, 'visibility')
+            bar.gate:Show()
+        else
+            RegisterStateDriver(bar.gate, 'visibility', softCondition(bar.spec))
+        end
+    end, 'softDriver')
+end
+
+-- Shows data on the soft bar (nil: back to the live unit).
+function TargetBar.SetSoftPreview(data)
+    TargetBar.soft:SetPreview(data)
+    TargetBar.UpdateSoftDriver()
+end
+
 function TargetBar.Create(style, fonts)
     TargetBar.target = createLive('EorzeaUITargetAnchor', style.target, fonts, 'target')
     TargetBar.focus = createLive('EorzeaUIFocusAnchor', style.focus, fonts, 'focus')
     createBosses(style.boss, fonts)
+    createSoft(style.soft, fonts)
 end
 
 function TargetBar.RefreshBosses()
@@ -678,7 +734,7 @@ function TargetBarClass:UpdateTargetOfTarget()
     end
     local totUnit = self.totUnit
     -- A dead unit targets nothing, as Blizzard's target-of-target frame shows it.
-    local exists = UnitExists(self.unit) and UnitExists(totUnit)
+    local exists = not self.spec.tot.hidden and UnitExists(self.unit) and UnitExists(totUnit)
         and EUI.Read('UnitIsDeadOrGhost', UnitIsDeadOrGhost, self.unit) ~= true
     self.tot:SetShown(exists)
     self.attention:SetShown(exists)
@@ -815,7 +871,7 @@ function TargetBarClass:SetPreview(data)
     if self.demoAuras then
         self.demoAuras:Set(demoAuras(spec.auras, data.debuffs, data.buffs))
     end
-    local hasTot = data.totName ~= nil
+    local hasTot = data.totName ~= nil and not spec.tot.hidden
     self.tot:SetShown(hasTot)
     self.attention:SetShown(hasTot)
     if hasTot then
