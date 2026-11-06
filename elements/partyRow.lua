@@ -458,7 +458,7 @@ end
 -- As Blizzard's group frames: no threat colours on members while solo. Your own row shows it, as
 -- the player frame does.
 function Row:UpdateThreat()
-    if not IsInGroup() and not self:IsPlayer() then
+    if not EUI.UnitInfo.ThreatMatters() then
         setThreat(self, nil)
         return
     end

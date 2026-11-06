@@ -130,6 +130,11 @@ UnitInfo.STATE_LABELS = {
     unconscious = UNCONSCIOUS and UNCONSCIOUS:upper() or 'UNCONSCIOUS',
 }
 
+-- Threat shows only with someone to share aggro with: a group, or your pet. Blizzard shows it solo too.
+function UnitInfo.ThreatMatters()
+    return IsInGroup() or UnitExists('pet') == true
+end
+
 -- UnitIsDead also reports a hunter feigning death, who keeps their real health.
 function UnitInfo.IsDead(unit)
     return EUI.Read('UnitIsDead', UnitIsDead, unit) == true

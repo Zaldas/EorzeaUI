@@ -484,10 +484,11 @@ function TargetBarClass:UpdateThreat()
             end
         end
     end
-    if self.spec.threat.hidden then
+    local matters = UnitInfo.ThreatMatters()
+    if self.spec.threat.hidden or not matters then
         status = nil
     end
-    if self.spec.txtThreat.hidden then
+    if self.spec.txtThreat.hidden or not matters then
         display = nil
     end
     if status and status > 0 then
