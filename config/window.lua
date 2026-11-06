@@ -1739,11 +1739,12 @@ local function createLockPrompt()
     return frame
 end
 
--- While frames are unlocked outside Edit Mode, a small panel offers to lock them; locking by any
--- route hides it (EditMode.SetUnlocked).
+-- While frames are unlocked outside Edit Mode, a small panel offers to lock them; unlocking by
+-- any route shows it and locking hides it (EditMode.SetUnlocked). The settings window shows it
+-- when it closes.
 function Config.ShowLockPrompt()
     local editMode = EditModeManagerFrame and EditModeManagerFrame:IsShown()
-    if not EUI.EditMode.unlocked or editMode then
+    if not EUI.EditMode.unlocked or editMode or (window and window:IsShown()) then
         return
     end
     lockPrompt = lockPrompt or createLockPrompt()

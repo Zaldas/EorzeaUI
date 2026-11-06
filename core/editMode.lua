@@ -160,8 +160,12 @@ function EditMode.SetUnlocked(unlocked)
     for _, mover in pairs(movers) do
         mover:SetShown(unlocked)
     end
-    if not unlocked and EUI.Config then
-        EUI.Config.HideLockPrompt()
+    if EUI.Config then
+        if unlocked then
+            EUI.Config.ShowLockPrompt()
+        else
+            EUI.Config.HideLockPrompt()
+        end
     end
     -- The settings window's Move toggle follows Edit Mode, the lock prompt and the minimap.
     if EUI.Config and EUI.Config.Refresh then
