@@ -891,9 +891,8 @@ local target = {
     }, "Follow Blizzard's Show Target Cast Bar setting."), 'The cast bar above the HP bar. The soft target bar has its own.'),
     { kind = 'header', label = 'Soft Target' },
     toggle('soft.enabled', 'Soft Target Bar',
-        "The enemy your attacks hit while a friend is your target. Soft targeting is on with a gamepad, or with Blizzard's Enable Action Targeting."),
-    toggle('soft.noTarget', 'Show With No Target',
-        'Also while you have no target. Your first harmful spell makes it your target.'),
+        "The enemy the game picks in front of you (the soft target), which your attacks hit when your target can't be attacked."),
+    toggle('soft.noTarget', 'Show With No Target', 'Also show the bar when you have no target.'),
     toggle('soft.castBar', 'Cast Bar', 'Replaces the name line while it casts.'),
     { kind = 'toggle', path = 'soft.tot', label = "Soft Target's Target", tip = tip('A mini bar for the unit it targets.', true) },
 }

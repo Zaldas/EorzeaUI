@@ -144,10 +144,13 @@ end
 
 -- The help line shows this while nothing hovered has a tip.
 local IDLE_HELP = "I'm here to help explain!"
+local HELP_SCROLL_SPEED = 40 -- pixels per second
+local HELP_SCROLL_HOLD = 1.5 -- seconds before scrolling and at the end
 
 local function setHelp(text)
     if window then
         window.help:SetText((text and text ~= '') and text or IDLE_HELP)
+        window.RestartHelpScroll()
     end
 end
 
@@ -1520,11 +1523,34 @@ local function createFooter()
     status:SetPoint('RIGHT', reload, 'LEFT', -16, 0)
     status:SetJustifyH('RIGHT')
     window.status = status
-    local help = Widgets.Text(footer, 14, '#A9B6CBFF')
-    help:SetPoint('LEFT', marker, 'RIGHT', 12, 0)
-    help:SetPoint('RIGHT', status, 'LEFT', -24, 0)
+    -- Text wider than the line scrolls left, holds at the end, then starts over.
+    local helpClip = CreateFrame('Frame', nil, footer)
+    helpClip:SetPoint('LEFT', marker, 'RIGHT', 12, 0)
+    helpClip:SetPoint('RIGHT', status, 'LEFT', -24, 0)
+    helpClip:SetHeight(FOOTER - 1)
+    helpClip:SetClipsChildren(true)
+    local help = Widgets.Text(helpClip, 14, '#A9B6CBFF')
+    help:SetPoint('LEFT', helpClip, 'LEFT', 0, 0)
     help:SetText(IDLE_HELP)
     window.help = help
+    local elapsed = 0
+    helpClip:SetScript('OnUpdate', function(self, delta)
+        local overflow = help:GetStringWidth() - self:GetWidth()
+        if overflow <= 0 then
+            return
+        end
+        elapsed = elapsed + delta
+        local travel = overflow / HELP_SCROLL_SPEED
+        local t = elapsed - HELP_SCROLL_HOLD
+        if t > travel + HELP_SCROLL_HOLD then
+            elapsed, t = 0, 0
+        end
+        help:SetPoint('LEFT', self, 'LEFT', -math.min(math.max(t, 0), travel) * HELP_SCROLL_SPEED, 0)
+    end)
+    function window.RestartHelpScroll()
+        elapsed = 0
+        help:SetPoint('LEFT', helpClip, 'LEFT', 0, 0)
+    end
 
     -- The full lists while hovering the status.
     local summary = CreateFrame('Frame', nil, footer)
