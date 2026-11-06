@@ -182,6 +182,17 @@ local function followValue(value)
     return nil
 end
 
+-- Every buff: the row drops ProcessAura, under which an aura it does not classify joins no group,
+-- and classification hides most buffs in combat. RAID on HARMFUL means debuffs you can dispel.
+local function showAllBuffs(auras)
+    local groups = auras.groups
+    auras.processAuras = false
+    groups.dispel.filter, groups.dispel.auraType = 'HARMFUL|RAID', nil
+    groups.debuffs.filter, groups.debuffs.auraType = 'HARMFUL|!RAID', nil
+    groups.debuffs.hideWhenDispellableOnly = true
+    groups.buffs.auraType = nil
+end
+
 -- Party and raid rows share these indicator toggles, keyed as in Kit.partyIndicators.
 local INDICATORS = {
     { 'leader', 'Leader Crown' },
@@ -275,8 +286,9 @@ option({ path = 'party.dispellable', default = 'blizzard', refresh = 'auraPolicy
     style.party.pet.auras.dispellableOnly = followValue(value)
 end })
 option({ path = 'party.buffs', default = 'blizzard', reload = true, label = 'Party Buffs', apply = function(style, value)
-    for _, auras in ipairs({ style.party.auras, style.party.pet.auras }) do
-        auras.groups.buffs.auraType = value ~= 'all' and 'Buff' or nil
+    if value == 'all' then
+        showAllBuffs(style.party.auras)
+        showAllBuffs(style.party.pet.auras)
     end
 end })
 
@@ -359,7 +371,9 @@ option({ path = 'raid.dispellable', default = 'blizzard', refresh = 'auraPolicy'
     style.raid.auras.dispellableOnly = followValue(value)
 end })
 option({ path = 'raid.buffs', default = 'blizzard', reload = true, label = 'Raid Buffs', apply = function(style, value)
-    style.raid.auras.groups.buffs.auraType = value ~= 'all' and 'Buff' or nil
+    if value == 'all' then
+        showAllBuffs(style.raid.auras)
+    end
 end })
 
 option({ path = 'target.hostileFilter', default = true, refresh = 'hostile', apply = function(style, value)

@@ -8,20 +8,24 @@ EUI.AuraRow = {}
 local AuraRow = {}
 AuraRow.__index = AuraRow
 
--- Rows whose ProcessAura policy follows a CVar (spec.dispellableOnlyCVar).
+-- Rows whose dispellable-only rule follows a CVar (spec.dispellableOnlyCVar).
 local cvarRows = {}
 
 -- spec.dispellableOnly (settings), when set, wins over the CVar.
-local function processAuraOptions(spec)
+local function dispellableOnly(spec)
     if spec.dispellableOnly ~= nil then
-        return { displayOnlyDispellableDebuffs = spec.dispellableOnly }
+        return spec.dispellableOnly
     end
     local cvar = spec.dispellableOnlyCVar
     if not cvar then
-        return {}
+        return false
     end
     local getBool = C_CVar and C_CVar.GetCVarBool or GetCVarBool
-    return { displayOnlyDispellableDebuffs = getBool and getBool(cvar) == true or false }
+    return getBool and getBool(cvar) == true or false
+end
+
+local function processAuraOptions(spec)
+    return { displayOnlyDispellableDebuffs = dispellableOnly(spec) }
 end
 
 local loaded = false
@@ -184,8 +188,9 @@ end
 -- dispellableOnlyCVar = with processAuras, the CVar that limits debuffs to ones you can dispel }
 -- A group may also set filter (the aura filter, default its name), auraType ('Debuff', 'Dispel'
 -- or 'Buff': ProcessAura's class, with processAuras), sort (an AuraContainerSortMethod key,
--- default Expiration) and candidates (AuraContainer candidate filters, e.g.
--- { isFromPlayerOrPlayerPet = false }).
+-- default Expiration), candidates (AuraContainer candidate filters, e.g.
+-- { isFromPlayerOrPlayerPet = false }) and hideWhenDispellableOnly (without processAuras: the
+-- group is disabled while the dispellable-only rule is on).
 -- filter: an aura filter or group name, or a list of them laid out one after another in the row,
 -- each showing up to its group's max auras.
 function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
@@ -227,9 +232,9 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
         container:SetUnit(unit)
         if spec.processAuras then
             container:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, processAuraOptions(spec))
-            if spec.dispellableOnlyCVar then
-                cvarRows[#cvarRows + 1] = self
-            end
+        end
+        if spec.dispellableOnlyCVar then
+            cvarRows[#cvarRows + 1] = self
         end
         if container.SetFlowLayoutAxis and AnchorUtil and AnchorUtil.FlowLayoutAxis then
             container:SetFlowLayoutAxis(AnchorUtil.FlowLayoutAxis.Horizontal or 0)
@@ -253,6 +258,10 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
                     candidateFilters.processedAuraType = AuraUtil.AuraUpdateChangedType[groupSpec.auraType]
                 end
             end
+            if groupSpec.hideWhenDispellableOnly and not spec.processAuras then
+                self.dispellableHidden = self.dispellableHidden or {}
+                table.insert(self.dispellableHidden, 'row' .. index)
+            end
             container:AddAuraGroup('row' .. index, groupSpec.filter or groupName, {
                 maxFrameCount = groupSpec.max,
                 sortMethod = groupSpec.sort and AuraContainerSortMethod[groupSpec.sort] or defaultSort,
@@ -266,6 +275,9 @@ function EUI.AuraRow.Create(parent, unit, filter, spec, fonts)
                     lineSpacing = spec.lineSpacing,
                 },
             })
+        end
+        for _, groupKey in ipairs(self.dispellableHidden or {}) do
+            container:SetAuraGroupEnabled(groupKey, not dispellableOnly(spec))
         end
         container:SetEnabled(true)
         container:Show()
@@ -306,16 +318,24 @@ function AuraRow:Refresh()
     end
 end
 
--- Re-applies the ProcessAura policy of the rows following cvar (every such row when cvar is
+-- Re-applies the dispellable-only rule of the rows following cvar (every such row when cvar is
 -- nil), out of combat.
 function EUI.AuraRow.OnCVarChanged(cvar)
     for _, row in ipairs(cvarRows) do
         if cvar == nil or row.spec.dispellableOnlyCVar == cvar then
             EUI.RunOutOfCombat(function()
-                local ok, err = pcall(row.container.SetAuraProcessingPolicy, row.container,
-                    CustomAuraContainerAuraProcessingPolicy.ProcessAura, processAuraOptions(row.spec))
-                if not ok then
-                    EUI.LogOnce('aura:policy', 'SetAuraProcessingPolicy failed: %s', tostring(err))
+                if row.spec.processAuras then
+                    local ok, err = pcall(row.container.SetAuraProcessingPolicy, row.container,
+                        CustomAuraContainerAuraProcessingPolicy.ProcessAura, processAuraOptions(row.spec))
+                    if not ok then
+                        EUI.LogOnce('aura:policy', 'SetAuraProcessingPolicy failed: %s', tostring(err))
+                    end
+                end
+                for _, groupKey in ipairs(row.dispellableHidden or {}) do
+                    local ok, err = pcall(row.container.SetAuraGroupEnabled, row.container, groupKey, not dispellableOnly(row.spec))
+                    if not ok then
+                        EUI.LogOnce('aura:groupEnabled', 'SetAuraGroupEnabled failed: %s', tostring(err))
+                    end
                 end
                 row:Refresh()
             end, 'policy:' .. tostring(row))
